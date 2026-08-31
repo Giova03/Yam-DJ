@@ -12,6 +12,8 @@ export const routes: Routes = [
   { path: 'playlist/:id', canActivate: [authGuard], loadComponent: () => import('./pages/playlist/playlist.component').then(m => m.PlaylistComponent) },
   { path: 'dj-studio', canActivate: [authGuard], loadComponent: () => import('./pages/dj-studio/dj-studio.component').then(m => m.DjStudioComponent) },
   { path: 'dashboard', canActivate: [authGuard], loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+  { path: 'profile', canActivate: [authGuard], loadComponent: () => import('./pages/profile/profile.component').then(m => m.ProfileComponent) },
+  { path: 'track/:id', loadComponent: () => import('./pages/track/track.component').then(m => m.TrackComponent) },
   { path: 'admin', canActivate: [authGuard], loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent) },
   { path: 'tip/success', loadComponent: () => import('./pages/tip-success/tip-success.component').then(m => m.TipSuccessComponent) },
   { path: '**', redirectTo: '' }

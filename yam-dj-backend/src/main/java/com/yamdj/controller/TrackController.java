@@ -115,8 +115,12 @@ public class TrackController {
     }
 
     @PostMapping("/{id}/like")
-    public ResponseEntity<LikeResponse> like(@PathVariable UUID id) {
-        return ResponseEntity.ok(trackService.like(id));
+    public ResponseEntity<LikeResponse> like(@PathVariable UUID id, Authentication auth) {
+        UUID userId = null;
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            userId = trackService.currentUser().getId();
+        }
+        return ResponseEntity.ok(trackService.like(id, userId));
     }
 
     @PostMapping("/{id}/download")

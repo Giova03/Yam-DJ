@@ -40,6 +40,11 @@ export class TrackService {
     return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/history?limit=${limit}`);
   }
 
+  /** Pistes aimees par l'utilisateur connecte. */
+  myLikes(limit = 50): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/me/likes?limit=${limit}`);
+  }
+
   byArtist(artistId: string): Observable<Track[]> {
     return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/artist/${artistId}`);
   }

@@ -2,13 +2,15 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
 import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist.component';
+import { ShareModalComponent } from '../share-modal/share-modal.component';
+import { CommentsComponent } from '../comments/comments.component';
 import { Track } from '../../models/models';
 
-/** Carte d'une piste : lecture, ajout file, playlist, tip. */
+/** Carte d'une piste : lecture, ajout file, playlist, partage, commentaires, tip. */
 @Component({
   selector: 'yam-track-card',
   standalone: true,
-  imports: [AddToPlaylistComponent],
+  imports: [AddToPlaylistComponent, ShareModalComponent, CommentsComponent],
   template: `
     <div class="yam-card p-4 group cursor-pointer" (click)="play.emit(track())" (dblclick)="player.play(track())">
       <div class="relative mb-3 aspect-square rounded-xl bg-gradient-to-br from-yam-card to-yam-surface overflow-hidden flex items-center justify-center">
@@ -37,12 +39,35 @@ import { Track } from '../../models/models';
         <div class="flex items-center gap-2 text-white/40 text-xs">
           <button (click)="player.addToQueue(track()); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a la file">➕</button>
           <button (click)="openPlaylist(); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a une playlist">🗂</button>
+          <button (click)="openShare(); $event.stopPropagation()" class="hover:text-white transition" title="Partager la piste">🔗</button>
+          <button (click)="openComments(); $event.stopPropagation()" class="hover:text-yam-orange transition" title="Commentaires">💬</button>
           <button (click)="tip.emit(track()); $event.stopPropagation()" class="hover:text-yam-gold transition" title="Soutenir l'artiste">💰</button>
           <span class="flex items-center gap-1">▶ {{ formatPlays(track().playCount) }}</span>
         </div>
       </div>
     </div>
     <yam-add-to-playlist [visible]="playlistOpen()" [track]="track()" (close)="playlistOpen.set(false)" />
+    <yam-share-modal [visible]="shareOpen()" [track]="track()" (close)="shareOpen.set(false)" />
+
+    <!-- Modale commentaires (meme pattern que add-to-playlist / share) -->
+    @if (commentsOpen()) {
+      <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+           (click)="commentsOpen.set(false)">
+        <div class="bg-yam-card rounded-3xl p-6 w-full max-w-lg border border-white/10 max-h-[85vh] overflow-y-auto"
+             (click)="$event.stopPropagation()">
+          <div class="flex items-start justify-between mb-4">
+            <div class="min-w-0">
+              <h2 class="yam-title">💬 Commentaires</h2>
+              <p class="text-white/50 text-sm mt-1 truncate">
+                <b class="text-white">{{ track().title }}</b> — {{ track().artistName }}
+              </p>
+            </div>
+            <button (click)="commentsOpen.set(false)" class="text-white/40 hover:text-white text-2xl leading-none">×</button>
+          </div>
+          <yam-comments [trackId]="track().id" />
+        </div>
+      </div>
+    }
   `
 })
 export class TrackCardComponent {
@@ -52,9 +77,19 @@ export class TrackCardComponent {
   play = output<Track>();
   tip = output<Track>();
   playlistOpen = signal<boolean>(false);
+  shareOpen = signal<boolean>(false);
+  commentsOpen = signal<boolean>(false);
 
   openPlaylist(): void {
     this.playlistOpen.set(true);
+  }
+
+  openShare(): void {
+    this.shareOpen.set(true);
+  }
+
+  openComments(): void {
+    this.commentsOpen.set(true);
   }
 
   isPlaying(): boolean {

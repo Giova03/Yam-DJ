@@ -6,6 +6,27 @@
 
 ---
 
+## 0. Bilan de la phase 2 (2026-09-01) — TERMINÉE
+
+Livré et vérifié en production :
+- **Bug code de validation corrigé** : le login `readOnly` empêchait la persistance
+  du code régénéré (email jamais conforme à la DB) ; le login conserve désormais le
+  code existant, la saisie tolère espaces/casse, les inputs filtrent les chiffres
+- **Supabase Storage durable ACTIVÉ** (clé service_role injectée) : HLS, pochettes
+  et mixtapes persistants, plus de re-seed après redéploiement
+- **FedaPay opérationnel de bout en bout** : transaction réelle créée, page de
+  paiement, webhook actif (id 8351) avec double vérification anti-fraude
+- **Gestion du catalogue** : DELETE /api/tracks/{id} (propriétaire ou admin, fichiers
+  supprimés du bucket), GET /api/tracks/mine, DELETE /api/dj/mixtapes/{id},
+  dashboard artiste avec statuts et suppression, Studio DJ avec lecture/suppression
+- **Commentaires** (Phase 2.2) : entité + endpoints + UI (filtre mots, anti-spam 30 s)
+- **Page profil** (Phase 2.5) : /profile avec onglets Aime (likes suivis par
+  utilisateur via table track_like, toggle like), Historique, Playlists
+- **Partage social** (Phase 2.3) : modale WhatsApp/Facebook/X/copy sur toutes les
+  cartes + page publique /track/:id avec meta Open Graph
+- **Routes SPA Vercel corrigées** : rewrite catch-all (l'ancien lookahead path-to-regexp
+  renvoyait 404 sur /login, /register...) ; identifiants démo retirés de la page login
+
 ## 1. Etat des lieux (fin V1, 2026-09)
 
 **Fonctionnel en production :**
@@ -50,31 +71,29 @@ trouve son public et vit de sa musique via mobile money — sans intermédiaire.
 
 ## 3. Phases de développement
 
-### Phase 1 — Fondations solides (2-3 semaines) — PRIORITE HAUTE
+### Phase 1 — Fondations solides — ✅ ACCOMPLIE (sauf items notés)
 
-Objectif : fiabiliser ce qui existe avant d'ajouter.
-
-| # | Sujet | Détail |
+| # | Sujet | Statut |
 |---|-------|--------|
-| 1.1 | Médias durables | Injecter `SUPABASE_SERVICE_KEY` (dashboard Supabase → Settings → API → service_role). Vérifier `MODE SUPABASE` au démarrage. Re-seeder. |
-| 1.2 | Vraie homepage | Remplacer les 6 sons de démo : recruter 5-10 artistes réels (Burkina, Côte d'Ivoire, Sénégal) via réseaux sociaux/WhatsApp |
-| 1.3 | Tests automatisés | Intégrer `verify_yamdj.py` + `test_new_features.py` (45 tests) dans GitHub Actions, exécutés sur push |
-| 1.4 | Observabilité | Health check + alerte uptime (UptimeRobot), logs centralisés, Sentry gratuit pour les erreurs |
-| 1.5 | Limites & quotas | Rate limiting simple (bucket par IP) sur /api/auth/** et /api/tracks/upload ; purge des uploads non modérés > 7 jours |
-| 1.6 | Webhook FedaPay actif | Configurer dans le dashboard FedaPay l'URL `https://yam-dj.onrender.com/api/webhook/fedapay` (evenements transaction.*) |
-| 1.7 | Echelle Render | Passer sur un plan Starter (7 $/mois) : pas de mise en veille, 512 Mo → 1 Go, disque persistant de secours |
+| 1.1 | Médias durables | ✅ FAIT — SUPABASE_SERVICE_KEY injectée, mode Supabase actif, seed durable |
+| 1.2 | Vraie homepage | ⏳ À FAIRE — recruter 5-10 artistes réels |
+| 1.3 | Tests automatisés | ⏳ À FAIRE — 55+ tests scripts prêts à intégrer dans GitHub Actions |
+| 1.4 | Observabilité | ⏳ À FAIRE — UptimeRobot + Sentry |
+| 1.5 | Limites & quotas | ⏳ À FAIRE — rate limiting /api/auth/** |
+| 1.6 | Webhook FedaPay actif | ✅ FAIT — webhook 8351 actif, endpoint vérifié |
+| 1.7 | Échelle Render | ⏳ À FAIRE — plan Starter 7 $/mois recommandé dès le premier vrai traffic |
 
-### Phase 2 — Engagement & croissance (4-6 semaines)
+### Phase 2 — Engagement & croissance — ✅ LIVRÉE (voir bilan §0)
+
+Réalisée : 2.1 Follow (session précédente), 2.2 Commentaires, 2.3 Partage
+social + page publique /track/:id, 2.5 Page profil (likes suivis par
+utilisateur). Restent à livrer :
 
 | # | Fonctionnalité | Détail technique |
 |---|----------------|-------------------|
-| 2.1 | **Follow d'artistes** | Nouvelle entité `follow` (user_id, artist_id), endpoints /api/follow/**, feed "Abonnements", compteur fans, bouton sur la page artiste |
-| 2.2 | **Commentaires** | Entité `comment` sur piste + modération légère (filtre mots), UI fil de discussion sous le lecteur |
-| 2.3 | **Partage social** | Partage WhatsApp/Facebook d'une piste : lien profond /track/:id + page publique avec Open Graph (pochette, titre) |
 | 2.4 | **Notifications push** | PWA + Web Push (VAPID) : nouveau son d'un artiste suivi, tip reçu. Complète le WebSocket existant |
-| 2.5 | **Page profil utilisateur** | Avatar, favoris (likes), playlists publiques, historique — /profile |
 | 2.6 | **Charts hebdomadaires** | Table d'agrégation play_count par semaine (job @Scheduled), badge "Top 10 Burkina" sur les cartes |
-| 2.7 | SEO | Sitemap, SSR partiel (Angular Universal) ou pré-rendu des pages publiques artistes/pistes |
+| 2.7 | **SEO** | Sitemap, SSR partiel (Angular Universal) ou pré-rendu des pages publiques artistes/pistes |
 
 ### Phase 3 — Monétisation complète (6-8 semaines)
 

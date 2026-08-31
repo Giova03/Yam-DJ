@@ -50,6 +50,11 @@ public class SecurityConfig {
                 // motif couvre aussi DELETE /api/tracks/{id} et /api/tracks/mine.
                 .requestMatchers(HttpMethod.DELETE, "/api/tracks/**").authenticated()
                 .requestMatchers("/api/tracks/mine").authenticated()
+                // Commentaires : lecture publique, ecriture/suppression JWT.
+                // Place AVANT le permitAll general : premiere regle gagnante,
+                // GET /api/comments/** doit rester ouvert, POST/DELETE non.
+                .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+                .requestMatchers("/api/comments/**").authenticated()
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/webhook/**",

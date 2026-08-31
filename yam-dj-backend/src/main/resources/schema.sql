@@ -142,6 +142,30 @@ CREATE TABLE IF NOT EXISTS user_follow (
 CREATE INDEX IF NOT EXISTS idx_follow_artist ON user_follow(artist_id);
 CREATE INDEX IF NOT EXISTS idx_follow_follower ON user_follow(follower_id);
 
+-- ======================== COMMENTAIRES ===========================
+-- Phase 2.2 : commentaires des pistes. CASCADE sur track (suppression
+-- automatique des commentaires quand la piste disparait).
+CREATE TABLE IF NOT EXISTS comment (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    track_id    UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES app_user(id),
+    content     VARCHAR(500) NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_comment_track ON comment(track_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comment_user  ON comment(user_id);
+
+-- ====================== LIKES PAR UTILISATEUR ===================
+CREATE TABLE IF NOT EXISTS track_like (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    track_id    UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    created_at  TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT uq_track_like_user_track UNIQUE (user_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS idx_track_like_user ON track_like(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_track_like_track ON track_like(track_id);
+
 -- ====================== DONNEES DE DEMO ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES

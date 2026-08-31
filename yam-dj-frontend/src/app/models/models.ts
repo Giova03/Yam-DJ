@@ -131,3 +131,13 @@ export interface Playlist {
   trackIds: string[];
   createdAt: string;
 }
+
+export interface Comment {
+  id: string;
+  trackId: string;
+  userId: string;
+  pseudo: string;
+  avatarUrl?: string;
+  content: string;
+  createdAt: string;
+}

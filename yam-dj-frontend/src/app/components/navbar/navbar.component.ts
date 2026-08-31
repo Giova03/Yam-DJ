@@ -46,9 +46,9 @@ import { PlayerService } from '../../services/player.service';
               <a routerLink="/admin" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Admin</a>
             }
             <div class="flex items-center gap-2 pl-2 border-l border-white/10">
-              <div class="w-8 h-8 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange font-bold text-sm">
+              <a routerLink="/profile" routerLinkActive="ring-2 ring-yam-orange/60" class="w-8 h-8 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange font-bold text-sm hover:bg-yam-orange/30 transition" title="Mon profil">
                 {{ (auth.currentUser()?.pseudo || 'U').charAt(0).toUpperCase() }}
-              </div>
+              </a>
               <button (click)="logout()" class="text-white/50 hover:text-white text-sm transition">Quitter</button>
             </div>
           } @else {

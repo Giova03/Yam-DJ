@@ -7,6 +7,7 @@ import com.yamdj.entity.PlayHistory;
 import com.yamdj.entity.Playlist;
 import com.yamdj.entity.Mixtape;
 import com.yamdj.entity.Track;
+import com.yamdj.entity.TrackLike;
 import com.yamdj.entity.User;
 import com.yamdj.entity.enums.TrackStatus;
 import com.yamdj.entity.enums.UserRole;
@@ -33,6 +34,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -50,6 +52,7 @@ public class TrackService {
     private final PlayHistoryRepository playHistoryRepository;
     private final PlaylistRepository playlistRepository;
     private final MixtapeRepository mixtapeRepository;
+    private final TrackLikeRepository trackLikeRepository;
     private final SupabaseStorageService storage;
     private final AudioProcessingService audioProcessor;
 
@@ -59,6 +62,7 @@ public class TrackService {
                         PlayHistoryRepository playHistoryRepository,
                         PlaylistRepository playlistRepository,
                         MixtapeRepository mixtapeRepository,
+                        TrackLikeRepository trackLikeRepository,
                         SupabaseStorageService storage,
                         AudioProcessingService audioProcessor) {
         this.trackRepository = trackRepository;
@@ -67,6 +71,7 @@ public class TrackService {
         this.playHistoryRepository = playHistoryRepository;
         this.playlistRepository = playlistRepository;
         this.mixtapeRepository = mixtapeRepository;
+        this.trackLikeRepository = trackLikeRepository;
         this.storage = storage;
         this.audioProcessor = audioProcessor;
     }
@@ -251,8 +256,9 @@ public class TrackService {
                             + "peut supprimer cette piste");
         }
 
-        // 1) References : historique d'ecoutes (JPQL bulk delete)
+        // 1) References : historique d'ecoutes et likes (JPQL bulk delete)
         playHistoryRepository.deleteByTrackId(trackId);
+        trackLikeRepository.deleteByTrackId(trackId);
 
         // 2) References : colonnes CSV track_ids des playlists et mixtapes (id1,id2,...)
         String trackIdStr = trackId.toString();
@@ -321,13 +327,40 @@ public class TrackService {
                 .toList();
     }
 
+    /** Like/unlike (toggle) avec suivi par utilisateur. */
     @Transactional
-    public LikeResponse like(UUID trackId) {
+    public LikeResponse like(UUID trackId, UUID userId) {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable"));
-        track.setLikeCount(track.getLikeCount() + 1);
+        boolean nowLiked;
+        if (userId != null && trackLikeRepository.findByUserIdAndTrackId(userId, trackId).isPresent()) {
+            trackLikeRepository.deleteByUserIdAndTrackId(userId, trackId);
+            track.setLikeCount(Math.max(0, track.getLikeCount() - 1));
+            nowLiked = false;
+        } else {
+            if (userId != null) {
+                trackLikeRepository.save(TrackLike.builder()
+                        .userId(userId).trackId(trackId).build());
+            }
+            track.setLikeCount(track.getLikeCount() + 1);
+            nowLiked = true;
+        }
         trackRepository.save(track);
-        return new LikeResponse(track.getLikeCount(), true);
+        return new LikeResponse(track.getLikeCount(), nowLiked);
+    }
+
+    /** Pistes aimees par l'utilisateur, plus recentes d'abord. */
+    @Transactional(readOnly = true)
+    public List<TrackDtos.TrackResponse> likedTracks(UUID userId, int limit) {
+        return trackLikeRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .limit(limit)
+                .map(TrackLike::getTrackId)
+                .map(trackRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(t -> t.getStatus() == TrackStatus.APPROVED)
+                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
+                .toList();
     }
 
     @Transactional
