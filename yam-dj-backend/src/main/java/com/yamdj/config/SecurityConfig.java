@@ -55,6 +55,8 @@ public class SecurityConfig {
                     "/api/artists/{id}",
                     "/api/mixtapes/public",
                     "/api/playlists/public",
+                    "/api/dj/mixtapes/*/stream",
+                    "/api/dj/mixtapes/*/play",
                     "/media/**",
                     "/ws/**",
                     "/actuator/**",
