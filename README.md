@@ -146,14 +146,31 @@ directement actives — voir colonne `email_verified = TRUE`) :
 
 ### Frontend → Vercel
 
-1. [vercel.com](https://vercel.com) → **Add New → Project** → importer le repo GitHub
-2. Root directory : `yam-dj-frontend`
-3. Avant le build, creer le fichier production :
-   ```bash
-   cp src/environments/environment.development.ts src/environments/environment.ts
-   # → puis adapter apiUrl vers l'URL Render
-   ```
-4. Commande de build auto-detectee : `npm run build`
+> ✅ Le projet est **pret a deployer tel quel** : `vercel.json` configure (SPA rewrites,
+> headers de securite, cache immutable), `fileReplacements` Angular branche
+> (`environment.prod.ts` → `https://yam-dj-backend.onrender.com`). Aucune manipulation
+> de fichiers n'est necessaire avant le build.
+
+1. [vercel.com](https://vercel.com) → **Add New → Project** → **Import** le repo `Giova03/Yam-DJ`
+2. Framework preset : **Angular** (auto-detecte) — verifier :
+   - Root Directory : `yam-dj-frontend`
+   - Build Command : `npm run build`
+   - Output Directory : `dist/yam-dj-frontend/browser`
+   - Install Command : `npm install`
+   (toutes ces valeurs sont aussi lues depuis `vercel.json`, deja present)
+3. Cliquer **Deploy** — build ~1 min 30
+4. URL finale : `https://yam-dj-frontend.vercel.app` (ou `https://yam-dj.vercel.app` selon le nom)
+5. ⚠️ Si l'URL du backend Render differe de `yam-dj-backend.onrender.com` :
+   editer `src/environments/environment.prod.ts`, pousser sur GitHub → Vercel
+   redeploie automatiquement (integration Git)
+
+**CORS** : le backend accepte par defaut `https://yam-dj.vercel.app` et
+`https://yam-dj-frontend.vercel.app`. Pour un domaine personnalise ou une preview,
+ajouter l'origine dans la variable d'environnement `CORS_ORIGINS` du backend (Render),
+sans recompilation.
+
+**Important** : le frontend appele le backend Render — deployer d'abord le backend
+(section ci-dessus), sinon les appels API echoueront (pages visibles mais donnees vides).
 
 ### Configuration Cloudflare R2
 

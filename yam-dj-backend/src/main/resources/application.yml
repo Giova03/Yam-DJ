@@ -56,7 +56,7 @@ yamdj:
     sender-name: ${BREVO_SENDER_NAME:YAM DJ}
     base-url: https://api.brevo.com/v3
   cors:
-    origins: ${CORS_ORIGINS:http://localhost:4200,https://yam-dj.vercel.app}
+    origins: ${CORS_ORIGINS:http://localhost:4200,https://yam-dj.vercel.app,https://yam-dj-frontend.vercel.app}
   app:
     base-url: ${APP_BASE_URL:http://localhost:8080}
   ffmpeg:
