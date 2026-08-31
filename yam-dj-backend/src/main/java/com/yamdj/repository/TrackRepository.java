@@ -19,10 +19,13 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
 
     Page<Track> findByStatus(TrackStatus status, Pageable pageable);
 
+    // CAST explicites : les parametres String nulls lies dans un test "IS NULL"
+    // n'ont aucun contexte de type pour PostgreSQL (bytea ou indeterminable selon
+    // le mode du driver) — le cast force varchar et rend la requete deterministe.
     @Query("SELECT t FROM Track t WHERE t.status = 'APPROVED' " +
-           "AND (:genre IS NULL OR t.genre = :genre) " +
-           "AND (:country IS NULL OR t.country = :country) " +
-           "AND (:q IS NULL OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%')))")
+           "AND (CAST(:genre AS string) IS NULL OR t.genre = :genre) " +
+           "AND (CAST(:country AS string) IS NULL OR t.country = :country) " +
+           "AND (CAST(:q AS string) IS NULL OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Track> searchTracks(@Param("q") String q,
                              @Param("genre") String genre,
                              @Param("country") String country,
