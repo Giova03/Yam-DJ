@@ -130,6 +130,18 @@ CREATE TABLE IF NOT EXISTS play_history (
 );
 CREATE INDEX IF NOT EXISTS idx_history_user ON play_history(user_id, played_at DESC);
 
+
+-- ======================== ABONNEMENTS =============================
+CREATE TABLE IF NOT EXISTS user_follow (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    follower_id     UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    artist_id       UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    created_at      TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT uq_follow_follower_artist UNIQUE (follower_id, artist_id)
+);
+CREATE INDEX IF NOT EXISTS idx_follow_artist ON user_follow(artist_id);
+CREATE INDEX IF NOT EXISTS idx_follow_follower ON user_follow(follower_id);
+
 -- ====================== DONNEES DE DEMO ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES

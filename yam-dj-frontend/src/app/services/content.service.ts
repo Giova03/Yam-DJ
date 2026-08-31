@@ -79,4 +79,25 @@ export class ContentService {
   trackById(id: string): Observable<Track> {
     return this.http.get<Track>(`${this.apiUrl}/api/tracks/${id}`);
   }
+
+  // ============================ ABONNEMENTS ============================
+
+  followStatus(artistId: string): Observable<{ following: boolean; followers: number }> {
+    return this.http.get<{ following: boolean; followers: number }>(
+      `${this.apiUrl}/api/artists/${artistId}/follow-status`);
+  }
+
+  follow(artistId: string): Observable<{ following: boolean; followers: number }> {
+    return this.http.post<{ following: boolean; followers: number }>(
+      `${this.apiUrl}/api/artists/${artistId}/follow`, {});
+  }
+
+  unfollow(artistId: string): Observable<{ following: boolean; followers: number }> {
+    return this.http.delete<{ following: boolean; followers: number }>(
+      `${this.apiUrl}/api/artists/${artistId}/follow`);
+  }
+
+  followFeed(limit = 20): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/follow/feed?limit=${limit}`);
+  }
 }

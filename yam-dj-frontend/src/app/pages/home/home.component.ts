@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
+import { ContentService } from '../../services/content.service';
 import { DjService } from '../../services/dj.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
@@ -54,6 +55,30 @@ import { Track, Mixtape } from '../../models/models';
         </div>
       </section>
 
+      <!-- Abonnements (artistes suivis) -->
+      @if (followFeedTracks().length) {
+        <section class="mb-10">
+          <h2 class="yam-title mb-4">❤️ Abonnements {{ ' ' }}<span class="text-white/40 text-lg">— les nouveautes de tes artistes</span></h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            @for (track of followFeedTracks(); track track) {
+              <yam-track-card [track]="track" (play)="onPlay($event)" (tip)="openTip($event)" />
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Recemment ecoute -->
+      @if (recent().length) {
+        <section class="mb-10">
+          <h2 class="yam-title mb-4">⏮️ Recemment ecoute</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            @for (track of recent(); track track) {
+              <yam-track-card [track]="track" (play)="onPlay($event)" (tip)="openTip($event)" />
+            }
+          </div>
+        </section>
+      }
+
       <!-- Tendances Burkina -->
       <section class="mb-10">
         <h2 class="yam-title mb-4">🔥 Tendances {{ ' ' }}<span class="text-white/40 text-lg">— les plus ecoutees</span></h2>
@@ -93,9 +118,12 @@ export class HomeComponent implements OnInit {
   player = inject(PlayerService);
   private trackService = inject(TrackService);
   private djService = inject(DjService);
+  private content = inject(ContentService);
 
   forYou = signal<Track[]>([]);
   trending = signal<Track[]>([]);
+  recent = signal<Track[]>([]);
+  followFeedTracks = signal<Track[]>([]);
   mixtapes = signal<Mixtape[]>([]);
 
   tipModalVisible = signal(false);
@@ -109,6 +137,16 @@ export class HomeComponent implements OnInit {
     this.trackService.forYou(15).subscribe(t => this.forYou.set(t));
     this.trackService.trending(10).subscribe(t => this.trending.set(t));
     this.djService.publicMixtapes(6).subscribe(m => this.mixtapes.set(m));
+    if (this.auth.isLoggedIn()) {
+      this.trackService.history(10).subscribe({
+        next: list => this.recent.set((list || []).filter(t => t.status === 'APPROVED')),
+        error: () => this.recent.set([])
+      });
+      this.content.followFeed(15).subscribe({
+        next: list => this.followFeedTracks.set(list || []),
+        error: () => this.followFeedTracks.set([])
+      });
+    }
   }
 
   playFeed(): void {

@@ -53,6 +53,7 @@ public class SecurityConfig {
                     "/api/tracks/feed",
                     "/api/search/**",
                     "/api/artists/{id}",
+                    "/api/artists/{id}/follow-status",
                     "/api/mixtapes/public",
                     "/api/playlists/public",
                     "/api/dj/mixtapes/*/stream",

@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ContentService } from '../../services/content.service';
+import { AuthService } from '../../services/auth.service';
 import { PlayerService } from '../../services/player.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
@@ -28,12 +29,20 @@ import { ArtistPublic, Track } from '../../models/models';
               <div class="flex items-center gap-6 mt-4 text-sm text-white/50">
                 <span><b class="text-white text-lg">{{ a.tracksCount }}</b> pistes</span>
                 <span><b class="text-white text-lg">{{ formatNumber(a.totalPlays) }}</b> ecoutes</span>
+                <span><b class="text-white text-lg">{{ followers() }}</b> fans</span>
               </div>
             </div>
-            <button (click)="tipModalVisible.set(true)"
-                    class="yam-btn-primary !px-8 !py-3.5 text-lg shrink-0">
-              💰 Soutenir avec un YAM Tip
-            </button>
+            <div class="flex flex-col gap-3 shrink-0">
+              @if (auth.isLoggedIn()) {
+                <button (click)="toggleFollow()" [class]="following() ? 'yam-btn-secondary !px-8 !py-3.5 text-lg' : 'yam-btn-primary !px-8 !py-3.5 text-lg'">
+                  @if (following()) { ✓ Abonne } @else { ❤️ Suivre }
+                </button>
+              }
+              <button (click)="tipModalVisible.set(true)"
+                      class="yam-btn-primary !px-8 !py-3.5 text-lg shrink-0">
+                💰 Soutenir avec un YAM Tip
+              </button>
+            </div>
           </div>
         </section>
 
@@ -72,10 +81,14 @@ export class ArtistComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private contentService = inject(ContentService);
   private player = inject(PlayerService);
+  auth = inject(AuthService);
 
   artist = signal<ArtistPublic | null>(null);
   tracks = signal<Track[]>([]);
   tipModalVisible = signal(false);
+  following = signal<boolean>(false);
+  followers = signal<number>(0);
+  busy = signal<boolean>(false);
 
   artistId = '';
 
@@ -89,6 +102,26 @@ export class ArtistComponent implements OnInit {
   load(): void {
     this.contentService.artistProfile(this.artistId).subscribe(a => this.artist.set(a));
     this.contentService.artistTracks(this.artistId).subscribe(t => this.tracks.set(t));
+    this.contentService.followStatus(this.artistId).subscribe({
+      next: s => { this.following.set(s.following); this.followers.set(s.followers); },
+      error: () => {}
+    });
+  }
+
+  toggleFollow(): void {
+    if (this.busy()) return;
+    this.busy.set(true);
+    const call = this.following()
+      ? this.contentService.unfollow(this.artistId)
+      : this.contentService.follow(this.artistId);
+    call.subscribe({
+      next: res => {
+        this.busy.set(false);
+        this.following.set(res.following);
+        this.followers.set(res.followers);
+      },
+      error: () => this.busy.set(false)
+    });
   }
 
   onPlay(track: Track): void {

@@ -17,7 +17,8 @@ musicale locale ultra-dynamique.
 | 📱 **Mode Data-Lite** | Streaming 48 kbps mono = **3x moins de data** pour les connexions lentes | FFmpeg + HLS.js + Network API |
 | 🪩 **Mode Nightclub** | Bass boost + reverb club en temps reel pendant l'ecoute | Web Audio API |
 | 🎚️ **Studio DJ Web** | 2 platines : pitch BPM, crossfader, effets (filtre/delay/reverb), sync tempo | Web Audio API |
-| 💰 **YAM Tips** | Soutien aux artistes en 1 clic via **Orange Money / Moov Money** | CinetPay API |
+| 💰 **YAM Tips** | Soutien aux artistes en 1 clic via **Orange Money / Moov / MTN / Wave** | FedaPay API |
+| 🗂 **Playlists** | Playlists personnelles et publiques, ajout en 1 clic depuis les cartes | Angular 17 + API REST |
 | 🎛️ **Mixtapes** | Rendu crossfade reel des mixtapes cote serveur | FFmpeg xfade |
 | 📊 **Dashboard Artiste** | Solde FCFA, stats, historique tips, notifications temps reel | WebSocket STOMP |
 | ✅ **Moderation** | Validation des pistes avant publication (anti-fraude) | Spring Security roles |
@@ -36,10 +37,10 @@ yam-dj-frontend/         → Angular 17 (Standalone Components) + TailwindCSS
 - **Backend** : Spring Boot 3.2.5, Spring Security (JWT), Spring Data JPA, WebSocket STOMP
 - **Frontend** : Angular 17, TailwindCSS 3.4, HLS.js, Web Audio API
 - **Base de donnees** : PostgreSQL (Supabase — gratuit)
-- **Stockage** : Cloudflare R2 (S3-compatible — gratuit jusqu'a 10 Go)
+- **Stockage** : Supabase Storage (bucket `media`, public, 50 Mo/fichier) — mode local de secours si la cle service_role n'est pas configuree
 - **Streaming** : HLS (m3u8) genere par FFmpeg — 2 qualites (128k / 48k)
-- **Paiement** : CinetPay (Orange Money, Moov Money, MTN)
-- **Emails** : Brevo (300/jour gratuits)
+- **Paiement** : FedaPay (Orange Money, Moov Money, MTN, Wave)
+- **Emails** : Brevo (300/jour gratuits — expediteur verifie requis)
 - **Hebergement** : Render.com (backend, gratuit) + Vercel (frontend, gratuit)
 
 ---
@@ -71,7 +72,7 @@ cd yam-dj-backend
 
 # a) Creer le fichier d'environnement puis renseigner vos cles
 cp .env.example .env
-# → Ouvrir .env et remplir : Supabase, JWT, R2, CinetPay (Site ID numerique), Brevo
+# → Ouvrir .env et remplir : Supabase, JWT, FedaPay, Brevo (voir sections configuration)
 # /\ .env est gitignore : les vraies cles ne sont jamais poussees sur GitHub
 
 # b) Builder
@@ -130,7 +131,8 @@ directement actives — voir colonne `email_verified = TRUE`) :
 4. Retour accueil → la piste apparaît dans "Pour Toi" → **▶ Ecouter**
 5. Activer **🪩 Nightclub** et **📱 Data-Lite** dans la barre de lecture
 6. Creer un compte **DJ** → **Studio DJ** → charger 2 pistes → **🤖 Auto-Mix IA**
-7. Sur un profil artiste → bouton **💰 Soutenir** → paiement test CinetPay
+7. Sur un profil artiste → bouton **💰 Soutenir** → paiement FedaPay (100 F minimum)
+8. Connecte → page **🗂 Playlists** → creer une playlist, ajouter des sons depuis les cartes
 
 ---
 
@@ -172,17 +174,29 @@ sans recompilation.
 **Important** : le frontend appele le backend Render — deployer d'abord le backend
 (section ci-dessus), sinon les appels API echoueront (pages visibles mais donnees vides).
 
-### Configuration Cloudflare R2
+### Configuration Supabase Storage (medias durables)
 
-1. Dashboard Cloudflare → **R2** → creer le bucket `yam-dj-media`
-2. **Settings → Public access** → activer le domaine public `pub-xxx.r2.dev`
-   (tant que l'acces public est desactive, l'URL repond 401)
-3. **Manage API Tokens** → creer un token R2 (Object Read & Write) → copier
-   l'**Access Key ID** et le **Secret Access Key** (le token `cfat_...` lui-meme n'est pas utilise par l'API S3)
-4. Renseigner dans `.env` : `R2_ACCOUNT_ID` (visible sur l'accueil du dashboard),
-   `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_PUBLIC_URL`
-5. **CORS du bucket** : ajouter une regle CORS autorisant `http://localhost:4200` et
-   l'URL Vercel (necessaire pour le Studio DJ qui charge les fichiers audio via Web Audio API)
+1. Dashboard Supabase (projet `olzosqslfczqmadlixvr`) → **Settings → API**
+2. Copier la cle **`service_role`** (secret)
+3. Renseigner `SUPABASE_SERVICE_KEY` dans les variables d'environnement du backend (Render)
+4. Le bucket `media` (public, limite 50 Mo/fichier) existe deja — bascule
+   automatique au prochain demarrage : `Stockage medias : MODE SUPABASE`
+
+Sans cette cle, la plateforme reste 100% fonctionnelle en **mode local**
+(uploads servis via `/media/**`), mais les fichiers sont perdus a chaque
+redemarrage Render. Re-seed possible : `python3 scripts/seed_yamdj.py`.
+
+Variables completes : `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+`SUPABASE_STORAGE_BUCKET` (defaut `media`).
+
+### Configuration FedaPay (paiements)
+
+Variables : `FEDAPAY_PUBLIC_KEY`, `FEDAPAY_SECRET_KEY`, `FEDAPAY_BASE_URL`
+(defaut `https://api.fedapay.com`). Webhook a declarer dans le dashboard
+FedaPay : `https://yam-dj.onrender.com/api/webhook/fedapay` avec les
+evenements `transaction.approved`, `transaction.declined`,
+`transaction.canceled`. Chaque confirmation est **double-verifiee** via
+`GET /v1/transactions/{id}` avant creditation (anti-fraude).
 
 ---
 
@@ -203,8 +217,10 @@ sans recompilation.
 | POST | `/api/dj/auto-mix` | DJ | Ordonnancement IA (Camelot+BPM) |
 | POST | `/api/dj/create-mixtape` | DJ | Rendu crossfade FFmpeg |
 | GET | `/api/artists/{id}` | Public | Profil artiste public |
-| POST | `/api/payment/tip` | Public (option) | Initier un tip CinetPay |
-| POST | `/api/webhook/cinetpay` | Public | Notification paiement |
+| POST | `/api/payment/tip` | Public (option) | Initier un tip FedaPay |
+| POST | `/api/payment/tip/verify` | Public (option) | Verifier un paiement |
+| POST | `/api/webhook/fedapay` | Public | Notification paiement (double verif) |
+| GET/POST | `/api/playlists/**` | Auth / public | Playlists (creer, gerer, publiques) |
 | GET | `/api/artist/me/stats` | ARTIST | Dashboard : solde, stats |
 | GET | `/api/admin/validate-tracks` | ADMIN | File de moderation |
 | POST | `/api/admin/validate-tracks/{id}/approve` | ADMIN | Valider une piste |
@@ -235,7 +251,7 @@ Le resultat : un enchainement musical fluide, comme un DJ resident de Ouagadougo
 - **JWT HS256** sans etat (expiration 24 h configurable)
 - Mots de passe **BCrypt** (10 rounds)
 - Roles hierarchiques : `USER < ARTIST / DJ < ADMIN`
-- Webhook CinetPay protege par **double verification** `/payment/check` (anti-fraude)
+- Webhook FedaPay protege par **double verification** `GET /v1/transactions/{id}` (anti-fraude)
 - Uploads limites a 100 Mo, moderation humaine avant publication
 - CORS verrouille sur les domaines declares
 
@@ -243,12 +259,10 @@ Le resultat : un enchainement musical fluide, comme un DJ resident de Ouagadougo
 
 ## 📈 Roadmap V2
 
-- Application mobile React Native (mode hors-ligne)
-- Retraits Orange Money automatiques pour les artistes (seuil 10 000 FCFA)
-- Lyrics synchronises + mode karaoké
-- Classements hebdomadaires par pays
-- Recommandations collaboratives (matrix factorization)
-- Podcasts et radio live
+Le plan complet (phases, architecture cible, KPIs) vit dans **[ROADMAP.md](./ROADMAP.md)** —
+synthese : fondations solides → engagement (follows, commentaires, PWA) →
+monetisation complete (abonnements, retraits, redevances) → studio DJ pro et
+application mobile.
 
 ---
 
