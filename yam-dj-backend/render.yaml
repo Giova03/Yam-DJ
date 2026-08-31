@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     region: frankfurt
+    rootDir: yam-dj-backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
     envVars:

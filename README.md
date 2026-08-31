@@ -142,13 +142,13 @@ directement actives — voir colonne `email_verified = TRUE`) :
 2. Sur [render.com](https://render.com) → **New + → Web Service** → connecter le repo
    (le `render.yaml` est deja pret : runtime Docker avec FFmpeg integre)
 3. Renseigner les variables d'environnement (meme noms que le `.env`)
-4. URL : `https://yam-dj-backend.onrender.com`
+4. URL : `https://yam-dj.onrender.com`
 
 ### Frontend → Vercel
 
 > ✅ Le projet est **pret a deployer tel quel** : `vercel.json` configure (SPA rewrites,
 > headers de securite, cache immutable), `fileReplacements` Angular branche
-> (`environment.prod.ts` → `https://yam-dj-backend.onrender.com`). Aucune manipulation
+> (`environment.prod.ts` → `https://yam-dj.onrender.com`). Aucune manipulation
 > de fichiers n'est necessaire avant le build.
 
 1. [vercel.com](https://vercel.com) → **Add New → Project** → **Import** le repo `Giova03/Yam-DJ`
@@ -160,7 +160,7 @@ directement actives — voir colonne `email_verified = TRUE`) :
    (toutes ces valeurs sont aussi lues depuis `vercel.json`, deja present)
 3. Cliquer **Deploy** — build ~1 min 30
 4. URL finale : `https://yam-dj-frontend.vercel.app` (ou `https://yam-dj.vercel.app` selon le nom)
-5. ⚠️ Si l'URL du backend Render differe de `yam-dj-backend.onrender.com` :
+5. ⚠️ Si l'URL du backend Render differe de `yam-dj.onrender.com` :
    editer `src/environments/environment.prod.ts`, pousser sur GitHub → Vercel
    redeploie automatiquement (integration Git)
 
