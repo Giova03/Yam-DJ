@@ -102,7 +102,7 @@ public class AudioProcessingService {
                     "-af", "loudnorm=I=-14:TP=-1.0:LRA=11",
                     "-b:a", "192k",
                     out.getAbsolutePath());
-            int duration = probeDuration(out);
+            int duration = probeDuration(out.getAbsolutePath());
             String key = r2.uploadFile(out, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
             deleteRecursive(workDir);
             return new MixResult(key, duration);
@@ -154,7 +154,7 @@ public class AudioProcessingService {
         args.add(mixOut.getAbsolutePath());
         runCommand(args.toArray(new String[0]));
 
-        int mixDuration = probeDuration(mixOut);
+        int mixDuration = probeDuration(mixOut.getAbsolutePath());
         String key = r2.uploadFile(mixOut, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
         deleteRecursive(workDir);
         return new MixResult(key, mixDuration);
