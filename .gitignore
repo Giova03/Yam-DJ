@@ -5,10 +5,10 @@
 
 # ===== Fichiers internes multi-agents (hors repo GitHub) =====
 worklog.md
-download/
-scripts/
-upload/
-skills/
+/download/
+/scripts/
+/upload/
+/skills/
 .tools/
 
 # ===== Builds =====
