@@ -34,20 +34,20 @@ public class DjService {
     private final UserRepository userRepository;
     private final DjProfileRepository djProfileRepository;
     private final AudioProcessingService audioProcessor;
-    private final R2StorageService r2;
+    private final SupabaseStorageService storage;
 
     public DjService(MixtapeRepository mixtapeRepository,
                      TrackRepository trackRepository,
                      UserRepository userRepository,
                      DjProfileRepository djProfileRepository,
                      AudioProcessingService audioProcessor,
-                     R2StorageService r2) {
+                     SupabaseStorageService storage) {
         this.mixtapeRepository = mixtapeRepository;
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.djProfileRepository = djProfileRepository;
         this.audioProcessor = audioProcessor;
-        this.r2 = r2;
+        this.storage = storage;
     }
 
     private User currentDj() {
@@ -102,7 +102,7 @@ public class DjService {
 
     /**
      * Cree la mixtape : Auto-Mix IA (optionnel) -> rendu FFmpeg crossfade
-     * -> upload R2 -> sauvegarde.
+     * -> upload stockage -> sauvegarde.
      */
     @Transactional
     public MixtapeResponse createMixtape(CreateMixtapeRequest request) {
@@ -140,7 +140,7 @@ public class DjService {
         // Solution robuste : extraire la version HQ en MP3 temporaire via ffmpeg
         // sur l'URL publique R2 (ffmpeg supporte les URLs HTTP/HLS).
         List<String> audioUrls = orderedTracks.stream()
-                .map(t -> r2.publicUrl(t.getAudioUrlHq()))
+                .map(t -> storage.publicUrl(t.getAudioUrlHq()))
                 .collect(Collectors.toList());
 
         int crossfade = Math.max(2, Math.min(request.crossfadeSec(), 16));
@@ -210,7 +210,7 @@ public class DjService {
         if (m.getAudioUrl() == null) {
             throw new IllegalArgumentException("Mixtape pas encore genere");
         }
-        return r2.publicUrl(m.getAudioUrl());
+        return storage.publicUrl(m.getAudioUrl());
     }
 
     private MixtapeResponse toResponse(Mixtape m) {
@@ -219,7 +219,7 @@ public class DjService {
                         .map(DjProfile::getDjName).orElse(u.getPseudo()))
                 .orElse("DJ inconnu");
         return new MixtapeResponse(m.getId(), m.getDjId(), djName, m.getTitle(), m.getCoverUrl(),
-                r2.publicUrl(m.getAudioUrl()), m.getDurationSec(), m.getTrackIds(),
+                storage.publicUrl(m.getAudioUrl()), m.getDurationSec(), m.getTrackIds(),
                 m.getCrossfadeSec(), m.getPlayCount(), m.getCreatedAt());
     }
 

@@ -33,11 +33,15 @@ public class Tip {
     @Column(length = 300)
     private String message;
 
-    /** Token unique genere par nous pour suivre le paiement CinetPay. */
+    /** Token unique genere par nous pour suivre le paiement FedaPay. */
     @Column(name = "payment_token", unique = true, length = 100)
     private String paymentToken;
 
-    /** Identifiant de transaction CinetPay. */
+    /** Identifiant de transaction FedaPay (verification du statut). */
+    @Column(name = "provider_txn_id", length = 100)
+    private String providerTxnId;
+
+    /** Ancien identifiant CinetPay (conserve pour historique). */
     @Column(name = "cinetpay_id", length = 100)
     private String cinetpayId;
 

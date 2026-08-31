@@ -3,7 +3,7 @@ package com.yamdj.dto;
 import java.util.UUID;
 
 /**
- * DTOs monetaires (Tips / CinetPay / statistiques artiste).
+ * DTOs monetaires (Tips / FedaPay / statistiques artiste).
  */
 public final class PaymentDtos {
 
@@ -23,15 +23,6 @@ public final class PaymentDtos {
             String paymentUrl,
             int amountXof,
             String status
-    ) {}
-
-    public record TipWebhookPayload(
-            String payment_token,
-            String status,
-            String transaction_id,
-            Double amount,
-            String currency,
-            String description
     ) {}
 
     public record ArtistStatsResponse(

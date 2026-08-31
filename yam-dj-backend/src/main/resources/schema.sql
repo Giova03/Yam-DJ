@@ -115,6 +115,9 @@ CREATE TABLE IF NOT EXISTS tip (
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     completed_at    TIMESTAMP
 );
+-- Migration FedaPay : identifiant de transaction du prestataire
+ALTER TABLE tip ADD COLUMN IF NOT EXISTS provider_txn_id VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_tip_provider_txn ON tip(provider_txn_id);
 CREATE INDEX IF NOT EXISTS idx_tip_artist ON tip(to_artist_id);
 CREATE INDEX IF NOT EXISTS idx_tip_status ON tip(status);
 

@@ -44,21 +44,25 @@ yamdj:
   jwt:
     secret: ${JWT_SECRET:YamDjSuperSecretKey2024PourLaSecuriteDesTokensJWT256Bits minimum 32 caracteres!}
     expiration-ms: ${JWT_EXPIRATION:86400000}
-  r2:
-    account-id: ${R2_ACCOUNT_ID:}
-    access-key: ${R2_ACCESS_KEY:}
-    secret-key: ${R2_SECRET_KEY:}
-    bucket: ${R2_BUCKET:yam-dj-media}
-    public-url: ${R2_PUBLIC_URL:}
+  supabase:
+    # Bucket Storage du projet Supabase. Mode durable si SUPABASE_URL +
+    # SUPABASE_SERVICE_KEY renseignes, sinon mode local (dossier de secours).
+    url: ${SUPABASE_URL:}
+    service-key: ${SUPABASE_SERVICE_KEY:}
+    bucket: ${SUPABASE_STORAGE_BUCKET:media}
   storage:
-    # Mode secours : dossier local des medias quand R2 n'est pas configure
+    # Mode secours : dossier local des medias quand Supabase Storage n'est pas configure
     local-dir: ${STORAGE_LOCAL_DIR:./yam-media}
-  cinetpay:
-    api-key: ${CINETPAY_API_KEY:}
-    site-id: ${CINETPAY_SITE_ID:}
-    base-url: ${CINETPAY_BASE_URL:https://api-checkout.cinetpay.com/v2}
+  fedapay:
+    # Paiement mobile money (Orange Money, Moov, MTN, Wave...)
+    api-key: ${FEDAPAY_PUBLIC_KEY:}
+    secret-key: ${FEDAPAY_SECRET_KEY:}
+    base-url: ${FEDAPAY_BASE_URL:https://api.fedapay.com}
   brevo:
     api-key: ${BREVO_API_KEY:}
+    # IMPORTANT : utiliser un expediteur VERIFIE sur le compte Brevo
+    # (dashboard Brevo > Senders). Un domaine non verifie est accepte par
+    # l'API mais rejetee en silence par Gmail/Outlook (SPF/DKIM absents).
     sender: ${BREVO_SENDER:no-reply@yamdj.africa}
     sender-name: ${BREVO_SENDER_NAME:YAM DJ}
     base-url: https://api.brevo.com/v3
@@ -66,6 +70,7 @@ yamdj:
     origins: ${CORS_ORIGINS:http://localhost:4200,https://yam-dj.vercel.app,https://yam-dj-frontend.vercel.app}
   app:
     base-url: ${APP_BASE_URL:http://localhost:8080}
+    frontend-url: ${FRONTEND_URL:http://localhost:4200}
   ffmpeg:
     path: ${FFMPEG_PATH:ffmpeg}
 

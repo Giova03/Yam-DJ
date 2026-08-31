@@ -37,20 +37,20 @@ public class TrackService {
     private final UserRepository userRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final PlayHistoryRepository playHistoryRepository;
-    private final R2StorageService r2;
+    private final SupabaseStorageService storage;
     private final AudioProcessingService audioProcessor;
 
     public TrackService(TrackRepository trackRepository,
                         UserRepository userRepository,
                         ArtistProfileRepository artistProfileRepository,
                         PlayHistoryRepository playHistoryRepository,
-                        R2StorageService r2,
+                        SupabaseStorageService storage,
                         AudioProcessingService audioProcessor) {
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
         this.playHistoryRepository = playHistoryRepository;
-        this.r2 = r2;
+        this.storage = storage;
         this.audioProcessor = audioProcessor;
     }
 
@@ -103,7 +103,7 @@ public class TrackService {
         String coverKey = null;
         if (coverFile != null && !coverFile.isEmpty()) {
             try {
-                coverKey = r2.uploadMultipart(coverFile, "covers");
+                coverKey = storage.uploadMultipart(coverFile, "covers");
             } catch (IOException e) {
                 throw new IllegalStateException("Upload de la pochette echoue : " + e.getMessage());
             }
@@ -112,9 +112,9 @@ public class TrackService {
         Track track = Track.builder()
                 .title(title)
                 .artistId(artist.getId())
-                .audioUrlHq(r2.publicUrl(processed.hlsKey()))
-                .audioUrlLq(r2.publicUrl(processed.liteKey()))
-                .coverUrl(r2.publicUrl(coverKey))
+                .audioUrlHq(storage.publicUrl(processed.hlsKey()))
+                .audioUrlLq(storage.publicUrl(processed.liteKey()))
+                .coverUrl(storage.publicUrl(coverKey))
                 .durationSec(processed.durationSec())
                 .bpm(bpm != null ? bpm : processed.bpm())
                 .musicalKey(musicalKey)
@@ -266,7 +266,7 @@ public class TrackService {
         }
         String key = "lite".equalsIgnoreCase(quality) && t.getAudioUrlLq() != null
                 ? t.getAudioUrlLq() : t.getAudioUrlHq();
-        return r2.publicUrl(key);
+        return storage.publicUrl(key);
     }
 
     private java.util.Optional<User> currentUserOpt() {

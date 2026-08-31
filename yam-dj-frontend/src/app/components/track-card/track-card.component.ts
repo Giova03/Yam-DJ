@@ -1,11 +1,14 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { PlayerService } from '../../services/player.service';
+import { AuthService } from '../../services/auth.service';
+import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist.component';
 import { Track } from '../../models/models';
 
-/** Carte d'une piste : lecture, ajout file, tip. */
+/** Carte d'une piste : lecture, ajout file, playlist, tip. */
 @Component({
   selector: 'yam-track-card',
   standalone: true,
+  imports: [AddToPlaylistComponent],
   template: `
     <div class="yam-card p-4 group cursor-pointer" (click)="play.emit(track())" (dblclick)="player.play(track())">
       <div class="relative mb-3 aspect-square rounded-xl bg-gradient-to-br from-yam-card to-yam-surface overflow-hidden flex items-center justify-center">
@@ -33,18 +36,26 @@ import { Track } from '../../models/models';
         </div>
         <div class="flex items-center gap-2 text-white/40 text-xs">
           <button (click)="player.addToQueue(track()); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a la file">➕</button>
+          <button (click)="openPlaylist(); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a une playlist">🗂</button>
           <button (click)="tip.emit(track()); $event.stopPropagation()" class="hover:text-yam-gold transition" title="Soutenir l'artiste">💰</button>
           <span class="flex items-center gap-1">▶ {{ formatPlays(track().playCount) }}</span>
         </div>
       </div>
     </div>
+    <yam-add-to-playlist [visible]="playlistOpen()" [track]="track()" (close)="playlistOpen.set(false)" />
   `
 })
 export class TrackCardComponent {
   track = input.required<Track>();
   player = inject(PlayerService);
+  auth = inject(AuthService);
   play = output<Track>();
   tip = output<Track>();
+  playlistOpen = signal<boolean>(false);
+
+  openPlaylist(): void {
+    this.playlistOpen.set(true);
+  }
 
   isPlaying(): boolean {
     return this.player.currentTrack()?.id === this.track().id && this.player.isPlaying();

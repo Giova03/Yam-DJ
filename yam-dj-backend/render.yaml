@@ -22,29 +22,29 @@ services:
         generateValue: true
       - key: JWT_EXPIRATION
         value: 86400000
-      - key: R2_ACCOUNT_ID
+      - key: SUPABASE_URL
+        value: https://olzosqslfczqmadlixvr.supabase.co
+      - key: SUPABASE_SERVICE_KEY
         sync: false
-      - key: R2_ACCESS_KEY
+      - key: SUPABASE_STORAGE_BUCKET
+        value: media
+      - key: FEDAPAY_PUBLIC_KEY
         sync: false
-      - key: R2_SECRET_KEY
+      - key: FEDAPAY_SECRET_KEY
         sync: false
-      - key: R2_BUCKET
-        value: yam-dj-media
-      - key: R2_PUBLIC_URL
-        sync: false
-      - key: CINETPAY_API_KEY
-        sync: false
-      - key: CINETPAY_SITE_ID
-        sync: false
-      - key: CINETPAY_BASE_URL
-        value: https://api-checkout.cinetpay.com/v2
+      - key: FEDAPAY_BASE_URL
+        value: https://api.fedapay.com
       - key: BREVO_API_KEY
         sync: false
       - key: BREVO_SENDER
-        value: no-reply@yamdj.africa
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: YAM DJ
       - key: CORS_ORIGINS
         value: https://yam-dj.vercel.app,https://yam-dj-frontend.vercel.app,http://localhost:4200
       - key: APP_BASE_URL
         sync: false
+      - key: FRONTEND_URL
+        value: https://yam-dj-frontend.vercel.app
       - key: FFMPEG_PATH
         value: ffmpeg

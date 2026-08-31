@@ -8,6 +8,8 @@ export const routes: Routes = [
   { path: 'search', loadComponent: () => import('./pages/search/search.component').then(m => m.SearchComponent) },
   { path: 'artist/:id', loadComponent: () => import('./pages/artist/artist.component').then(m => m.ArtistComponent) },
   { path: 'upload', canActivate: [authGuard], loadComponent: () => import('./pages/upload/upload.component').then(m => m.UploadComponent) },
+  { path: 'playlists', canActivate: [authGuard], loadComponent: () => import('./pages/playlists/playlists.component').then(m => m.PlaylistsComponent) },
+  { path: 'playlist/:id', canActivate: [authGuard], loadComponent: () => import('./pages/playlist/playlist.component').then(m => m.PlaylistComponent) },
   { path: 'dj-studio', canActivate: [authGuard], loadComponent: () => import('./pages/dj-studio/dj-studio.component').then(m => m.DjStudioComponent) },
   { path: 'dashboard', canActivate: [authGuard], loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent) },
   { path: 'admin', canActivate: [authGuard], loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent) },

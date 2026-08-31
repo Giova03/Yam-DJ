@@ -35,6 +35,7 @@ import { PlayerService } from '../../services/player.service';
             @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
               <a routerLink="/upload" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Upload</a>
             }
+            <a routerLink="/playlists" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Playlists</a>
             @if (auth.role() === 'DJ' || auth.role() === 'ADMIN') {
               <a routerLink="/dj-studio" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Studio DJ</a>
             }

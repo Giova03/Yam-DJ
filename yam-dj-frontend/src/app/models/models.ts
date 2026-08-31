@@ -121,3 +121,13 @@ export interface AutoMixSuggestion {
   transitionsCount: number;
   analysis: string;
 }
+
+export interface Playlist {
+  id: string;
+  name: string;
+  description?: string;
+  coverUrl?: string;
+  isPublic: boolean;
+  trackIds: string[];
+  createdAt: string;
+}

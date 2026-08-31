@@ -6,7 +6,7 @@ const AMOUNTS = [500, 1000, 2000, 5000];
 
 /**
  * MODALE DE TIP — "Soutenir l'artiste" en 1 clic.
- * Montant -> paiement Orange Money (CinetPay) -> confirmation.
+ * Montant -> paiement mobile money (FedaPay) -> confirmation.
  */
 @Component({
   selector: 'yam-tip-modal',
@@ -20,7 +20,7 @@ const AMOUNTS = [500, 1000, 2000, 5000];
           <div class="flex items-start justify-between mb-4">
             <div>
               <h2 class="yam-title">💰 YAM Tip</h2>
-              <p class="text-white/50 text-sm mt-1">Soutiens <b class="text-white">{{ artistName() }}</b> via Orange Money</p>
+              <p class="text-white/50 text-sm mt-1">Soutiens <b class="text-white">{{ artistName() }}</b> via mobile money</p>
             </div>
             <button (click)="close.emit()" class="text-white/40 hover:text-white text-2xl leading-none">×</button>
           </div>
@@ -64,12 +64,12 @@ const AMOUNTS = [500, 1000, 2000, 5000];
 
               <button (click)="sendTip()" [disabled]="sending() || !validAmount()"
                       class="yam-btn-primary w-full !py-3.5 text-lg">
-                @if (sending()) { <span class="animate-pulse">Connexion a CinetPay...</span> }
+                @if (sending()) { <span class="animate-pulse">Connexion au paiement...</span> }
                 @else { Envoyer {{ selectedAmount() }} FCFA 🎁 }
               </button>
 
               <p class="text-center text-xs text-white/30">
-                Paiement securise par CinetPay — Orange Money, Moov Money, MTN
+                Paiement securise par FedaPay — Orange Money, Moov Money, MTN, Wave
               </p>
             </div>
           }
@@ -79,7 +79,7 @@ const AMOUNTS = [500, 1000, 2000, 5000];
               <div class="text-5xl">📱</div>
               <h3 class="text-xl font-bold">Finalise ton paiement</h3>
               <p class="text-white/60 text-sm">
-                Une page Orange Money s'est ouverte dans un nouvel onglet.<br>
+                La page de paiement s'est ouverte dans un nouvel onglet.<br>
                 Entre ton numero et valide avec ton code secret.
               </p>
               <a [href]="paymentUrl()" target="_blank" rel="noopener"

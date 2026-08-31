@@ -1,6 +1,6 @@
 package com.yamdj.controller;
 
-import com.yamdj.service.R2StorageService;
+import com.yamdj.service.SupabaseStorageService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 /**
- * Diffusion des medias stockes en mode LOCAL (secours sans R2).
+ * Diffusion des medias stockes en mode LOCAL (secours sans Supabase Storage).
  * Sert les playlists HLS (m3u8), segments (.ts), pochettes et mixtapes
  * depuis le dossier yamdj.storage.local-dir. Public : le lecteur hls.js
  * du frontend recupere ces fichiers en cross-origin (CORS global sur /**).
@@ -23,9 +23,9 @@ import java.nio.file.Files;
 @RequestMapping("/media")
 public class MediaController {
 
-    private final R2StorageService storage;
+    private final SupabaseStorageService storage;
 
-    public MediaController(R2StorageService storage) {
+    public MediaController(SupabaseStorageService storage) {
         this.storage = storage;
     }
 

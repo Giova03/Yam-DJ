@@ -2,9 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ArtistStats, ArtistPublic, SearchResults, TipHistory, Track } from '../models/models';
+import { ArtistStats, ArtistPublic, Playlist, SearchResults, TipHistory, Track } from '../models/models';
 
-/** Services annexes : recherche globale, stats artiste, moderation. */
+/** Services annexes : recherche globale, stats artiste, moderation, playlists. */
 @Injectable({ providedIn: 'root' })
 export class ContentService {
   private http = inject(HttpClient);
@@ -44,5 +44,39 @@ export class ContentService {
 
   rejectTrack(id: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/admin/validate-tracks/${id}/reject`, {});
+  }
+
+  // ============================ PLAYLISTS ============================
+
+  myPlaylists(): Observable<Playlist[]> {
+    return this.http.get<Playlist[]>(`${this.apiUrl}/api/playlists/my`);
+  }
+
+  publicPlaylists(limit = 12): Observable<Playlist[]> {
+    return this.http.get<Playlist[]>(`${this.apiUrl}/api/playlists/public?limit=${limit}`);
+  }
+
+  playlist(id: string): Observable<Playlist> {
+    return this.http.get<Playlist>(`${this.apiUrl}/api/playlists/${id}`);
+  }
+
+  createPlaylist(name: string, description: string, isPublic: boolean): Observable<Playlist> {
+    return this.http.post<Playlist>(`${this.apiUrl}/api/playlists`, { name, description, isPublic });
+  }
+
+  addTrack(playlistId: string, trackId: string): Observable<Playlist> {
+    return this.http.post<Playlist>(`${this.apiUrl}/api/playlists/${playlistId}/tracks/${trackId}`, {});
+  }
+
+  removeTrack(playlistId: string, trackId: string): Observable<Playlist> {
+    return this.http.delete<Playlist>(`${this.apiUrl}/api/playlists/${playlistId}/tracks/${trackId}`);
+  }
+
+  deletePlaylist(playlistId: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/api/playlists/${playlistId}`);
+  }
+
+  trackById(id: string): Observable<Track> {
+    return this.http.get<Track>(`${this.apiUrl}/api/tracks/${id}`);
   }
 }

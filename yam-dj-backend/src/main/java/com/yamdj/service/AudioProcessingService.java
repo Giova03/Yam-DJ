@@ -24,13 +24,13 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class AudioProcessingService {
 
-    private final R2StorageService r2;
+    private final SupabaseStorageService storage;
 
     @Value("${yamdj.ffmpeg.path}")
     private String ffmpegPath;
 
-    public AudioProcessingService(R2StorageService r2) {
-        this.r2 = r2;
+    public AudioProcessingService(SupabaseStorageService storage) {
+        this.storage = storage;
     }
 
     public record ProcessedAudio(String hlsKey, String liteKey, int durationSec, Integer bpm, String musicalKey) {}
@@ -38,10 +38,10 @@ public class AudioProcessingService {
 
     /**
      * Traite un fichier audio : mastering + 2 rendus HLS + analyse BPM.
-     * Retourne les cles R2 du m3u8 HQ et LQ.
+     * Retourne les cles du m3u8 HQ et LQ.
      */
     public ProcessedAudio processTrack(File input, String trackId) throws Exception {
-        File workDir = r2.createTempDir("yam-track-" + trackId);
+        File workDir = storage.createTempDir("yam-track-" + trackId);
 
         // Duree
         int duration = probeDuration(input.getAbsolutePath());
@@ -78,7 +78,7 @@ public class AudioProcessingService {
         Integer bpm = detectBpm(mastered);
         String musicalKey = detectKey(input);
 
-        // Uploads vers R2 : dossier tracks/{id}/hq et tracks/{id}/lite
+        // Uploads vers le stockage : dossier tracks/{id}/hq et tracks/{id}/lite
         String hqKey = uploadHlsDirectory(hqDir, "tracks/" + trackId + "/hq");
         String liteKey = uploadHlsDirectory(lqDir, "tracks/" + trackId + "/lite");
 
@@ -91,7 +91,7 @@ public class AudioProcessingService {
      * et synchronisation optionnelle du tempo.
      */
     public MixResult createMix(List<String> audioFiles, int crossfadeSec, File cover) throws Exception {
-        File workDir = r2.createTempDir("yam-mix-" + UUID.randomUUID());
+        File workDir = storage.createTempDir("yam-mix-" + UUID.randomUUID());
         File mixId = new File("mix-" + System.currentTimeMillis());
 
         // Si une seule piste : simple copie normalisee
@@ -103,7 +103,7 @@ public class AudioProcessingService {
                     "-b:a", "192k",
                     out.getAbsolutePath());
             int duration = probeDuration(out.getAbsolutePath());
-            String key = r2.uploadFile(out, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
+            String key = storage.uploadFile(out, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
             deleteRecursive(workDir);
             return new MixResult(key, duration);
         }
@@ -149,7 +149,7 @@ public class AudioProcessingService {
         runCommand(args.toArray(new String[0]));
 
         int mixDuration = probeDuration(mixOut.getAbsolutePath());
-        String key = r2.uploadFile(mixOut, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
+        String key = storage.uploadFile(mixOut, "mixtapes/" + mixId.getName() + ".mp3", "audio/mpeg");
         deleteRecursive(workDir);
         return new MixResult(key, mixDuration);
     }
@@ -269,15 +269,15 @@ public class AudioProcessingService {
         }
     }
 
-    /** Upload un dossier HLS (m3u8 + segments .ts) vers R2. Retourne la cle du m3u8. */
+    /** Upload un dossier HLS (m3u8 + segments .ts) vers le stockage. Retourne la cle du m3u8. */
     private String uploadHlsDirectory(File dir, String baseKey) throws IOException {
         File[] files = dir.listFiles();
         if (files == null) throw new IOException("Dossier HLS vide : " + dir);
         for (File f : files) {
             if (f.getName().endsWith(".m3u8")) {
-                r2.uploadFile(f, baseKey + "/" + f.getName(), "application/vnd.apple.mpegurl");
+                storage.uploadFile(f, baseKey + "/" + f.getName(), "application/vnd.apple.mpegurl");
             } else {
-                r2.uploadFile(f, baseKey + "/" + f.getName(), "video/mp2t");
+                storage.uploadFile(f, baseKey + "/" + f.getName(), "video/mp2t");
             }
         }
         return baseKey + "/index.m3u8";
