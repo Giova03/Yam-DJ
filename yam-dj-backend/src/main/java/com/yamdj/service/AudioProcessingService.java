@@ -108,16 +108,14 @@ public class AudioProcessingService {
             return new MixResult(key, duration);
         }
 
-        // Concatenation avec xfade en chaine : chaque transition recouvre crossfadeSec secondes
-        // Construction du filtre : [0:a][1:a]xfade=fade=8[a01]; [a01][2:a]xfade=fade=8[a02]...
+        // Concatenation avec acrossfade en chaine : chaque transition recouvre
+        // crossfadeSec secondes. ATTENTION : acrossfade est le filtre AUDIO
+        // (xfade ne s'applique qu'aux flux VIDEO — erreur "no such filter for audio" / code 1).
+        // Les pistes HLS HQ sont toutes 44.1 kHz stereo (meme pipeline) : chainage direct possible.
         StringBuilder filter = new StringBuilder();
         int inputs = audioFiles.size();
-        int totalDuration = 0;
-        List<Integer> durations = new ArrayList<>();
         for (String f : audioFiles) {
-            int d = probeDuration(f);
-            durations.add(d);
-            totalDuration += d;
+            probeDuration(f); // valide la lisibilite de chaque source
         }
 
         List<String> args = new ArrayList<>();
@@ -130,17 +128,13 @@ public class AudioProcessingService {
 
         String prevLabel = "0:a";
         int fade = Math.max(1, crossfadeSec);
-        double cumulativeOffset = durations.get(0);
         for (int i = 1; i < inputs; i++) {
             String outLabel = (i == inputs - 1) ? "mixout" : "a" + i;
-            // xfade : offset = duree cumulee precedente - fade
-            double offset = Math.max(0, cumulativeOffset - fade);
             filter.append("[").append(prevLabel).append("][").append(i).append(":a]")
-                  .append("xfade=transition=fade:duration=").append(fade)
-                  .append(":offset=").append(String.format("%.2f", offset))
+                  .append("acrossfade=d=").append(fade)
+                  .append(":c1=tri:c2=tri")
                   .append("[").append(outLabel).append("];");
             prevLabel = outLabel;
-            cumulativeOffset = offset + durations.get(i);
         }
         filter.append("[").append(prevLabel).append("]loudnorm=I=-14:TP=-1.0:LRA=11[out]");
 
@@ -259,14 +253,19 @@ public class AudioProcessingService {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
         Process p = pb.start();
+        StringBuilder tail = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-            while (reader.readLine() != null) {
-                // consommation du flux pour eviter le blocage
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // Conserver les dernieres lignes pour le diagnostic d'erreur
+                if (tail.length() > 3000) tail.setLength(0);
+                tail.append(line).append("\n");
             }
         }
         int exit = p.waitFor();
         if (exit != 0) {
-            throw new IllegalStateException("FFmpeg a echoue (code " + exit + ") : " + String.join(" ", command));
+            throw new IllegalStateException("FFmpeg a echoue (code " + exit + ") : "
+                    + String.join(" ", command) + "\n--- sortie FFmpeg ---\n" + tail);
         }
     }
 
