@@ -116,7 +116,7 @@ public class BrevoEmailService {
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(
-                    baseUrl + "/smtp/send", request, String.class);
+                    baseUrl + "/smtp/email", request, String.class);
 
             System.out.println("[BREVO] Email envoye a " + to + " (status " + response.getStatusCode() + ")");
         } catch (Exception e) {
