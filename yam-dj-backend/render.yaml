@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: yam-dj-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 86400000
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: yam-dj-media
+      - key: R2_PUBLIC_URL
+        sync: false
+      - key: CINETPAY_API_KEY
+        sync: false
+      - key: CINETPAY_SITE_ID
+        sync: false
+      - key: CINETPAY_BASE_URL
+        value: https://api-checkout.cinetpay.com/v2
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER
+        value: no-reply@yamdj.africa
+      - key: CORS_ORIGINS
+        value: https://yam-dj.vercel.app,http://localhost:4200
+      - key: APP_BASE_URL
+        sync: false
+      - key: FFMPEG_PATH
+        value: ffmpeg

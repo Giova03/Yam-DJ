@@ -1,0 +1,30 @@
+# ===== Environnement & secrets =====
+.env
+.env.local
+*.env.local
+
+# ===== Fichiers internes multi-agents (hors repo GitHub) =====
+worklog.md
+download/
+scripts/
+upload/
+skills/
+.tools/
+
+# ===== Builds =====
+node_modules/
+target/
+dist/
+.angular/
+coverage/
+
+# ===== IDE / OS =====
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
+logs/

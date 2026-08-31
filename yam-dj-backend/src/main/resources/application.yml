@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: yam-dj-backend
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 200MB
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+
+yamdj:
+  jwt:
+    secret: ${JWT_SECRET:YamDjSuperSecretKey2024PourLaSecuriteDesTokensJWT256Bits minimum 32 caracteres!}
+    expiration-ms: ${JWT_EXPIRATION:86400000}
+  r2:
+    account-id: ${R2_ACCOUNT_ID:}
+    access-key: ${R2_ACCESS_KEY:}
+    secret-key: ${R2_SECRET_KEY:}
+    bucket: ${R2_BUCKET:yam-dj-media}
+    public-url: ${R2_PUBLIC_URL:}
+  cinetpay:
+    api-key: ${CINETPAY_API_KEY:}
+    site-id: ${CINETPAY_SITE_ID:}
+    base-url: ${CINETPAY_BASE_URL:https://api-checkout.cinetpay.com/v2}
+  brevo:
+    api-key: ${BREVO_API_KEY:}
+    sender: ${BREVO_SENDER:no-reply@yamdj.africa}
+    sender-name: ${BREVO_SENDER_NAME:YAM DJ}
+    base-url: https://api.brevo.com/v3
+  cors:
+    origins: ${CORS_ORIGINS:http://localhost:4200,https://yam-dj.vercel.app}
+  app:
+    base-url: ${APP_BASE_URL:http://localhost:8080}
+  ffmpeg:
+    path: ${FFMPEG_PATH:ffmpeg}
+
+logging:
+  level:
+    com.yamdj: INFO
+    org.hibernate.SQL: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

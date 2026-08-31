@@ -1,0 +1,66 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { Track, TrackPage } from '../models/models';
+
+/** Service des pistes : recherche, feed, plays, uploads. */
+@Injectable({ providedIn: 'root' })
+export class TrackService {
+  private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
+
+  search(params: { q?: string; genre?: string; country?: string; page?: number; size?: number }): Observable<TrackPage> {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.genre && params.genre !== 'all') query.set('genre', params.genre);
+    if (params.country && params.country !== 'all') query.set('country', params.country);
+    query.set('page', String(params.page ?? 0));
+    query.set('size', String(params.size ?? 20));
+    return this.http.get<TrackPage>(`${this.apiUrl}/api/tracks?${query.toString()}`);
+  }
+
+  feed(limit = 20): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/feed?limit=${limit}`);
+  }
+
+  trending(limit = 20): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/trending?limit=${limit}`);
+  }
+
+  latest(limit = 20): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/latest?limit=${limit}`);
+  }
+
+  forYou(limit = 20): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/for-you?limit=${limit}`);
+  }
+
+  history(limit = 50): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/history?limit=${limit}`);
+  }
+
+  byArtist(artistId: string): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/artist/${artistId}`);
+  }
+
+  streamUrl(trackId: string, quality: 'hq' | 'lite'): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(`${this.apiUrl}/api/tracks/${trackId}/stream?quality=${quality}`);
+  }
+
+  registerPlay(trackId: string, quality: 'hq' | 'lite' = 'hq'): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/api/tracks/${trackId}/play`, { quality });
+  }
+
+  like(trackId: string): Observable<{ likeCount: number; liked: boolean }> {
+    return this.http.post<{ likeCount: number; liked: boolean }>(`${this.apiUrl}/api/tracks/${trackId}/like`, {});
+  }
+
+  download(trackId: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/api/tracks/${trackId}/download`, {});
+  }
+
+  upload(formData: FormData): Observable<Track> {
+    return this.http.post<Track>(`${this.apiUrl}/api/tracks/upload`, formData);
+  }
+}

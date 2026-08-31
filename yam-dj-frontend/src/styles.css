@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== YAM DJ Design System (style Spotify-like dark) ===== */
+
+html {
+  scrollbar-color: #333 #0a0a0a;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+@layer components {
+  .yam-card {
+    @apply bg-yam-card rounded-2xl border border-white/5 hover:border-white/20 transition-all duration-300;
+  }
+  .yam-btn-primary {
+    @apply bg-yam-orange text-white font-semibold rounded-full px-6 py-2.5 hover:bg-orange-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .yam-btn-secondary {
+    @apply bg-white/10 text-white font-semibold rounded-full px-6 py-2.5 hover:bg-white/20 active:scale-95 transition-all duration-200;
+  }
+  .yam-input {
+    @apply bg-yam-surface border border-white/10 rounded-xl px-4 py-3 w-full text-white placeholder-white/30 focus:outline-none focus:border-yam-orange focus:ring-1 focus:ring-yam-orange transition;
+  }
+  .yam-title {
+    @apply font-display font-bold text-2xl md:text-3xl tracking-tight;
+  }
+  .yam-badge {
+    @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10;
+  }
+}
+
+/* Gradient anime du logo */
+.yam-gradient-text {
+  background: linear-gradient(90deg, #FF6B35, #FFD166, #FF6B35);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: yam-shine 4s linear infinite;
+}
+
+@keyframes yam-shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Equalizer anime (track en lecture) */
+.eq-bar {
+  width: 3px;
+  background: #FF6B35;
+  animation: eq-bounce 0.9s ease-in-out infinite;
+}
+.eq-bar:nth-child(2) { animation-delay: 0.15s; }
+.eq-bar:nth-child(3) { animation-delay: 0.3s; }
+.eq-bar:nth-child(4) { animation-delay: 0.45s; }
+@keyframes eq-bounce {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}

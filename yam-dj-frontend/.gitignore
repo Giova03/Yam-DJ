@@ -1,0 +1,23 @@
+# Angular
+node_modules/
+dist/
+.angular/
+coverage/
+
+# Environnement (adapter l'API_URL sans toucher le code)
+.env
+*.local
+
+# Editeurs
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
