@@ -47,7 +47,7 @@ public class Tip {
     private TipStatus status = TipStatus.PENDING;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "completed_at")

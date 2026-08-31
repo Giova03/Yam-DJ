@@ -24,6 +24,6 @@ public class PlayHistory {
     private UUID trackId;
 
     @CreationTimestamp
-    @Column(name = "played_at", nullable = false)
+    @Column(name = "played_at", nullable = false, updatable = false)
     private LocalDateTime playedAt;
 }
