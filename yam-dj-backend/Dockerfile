@@ -31,5 +31,12 @@ COPY --from=build /build/target/yam-dj-backend-1.0.0.jar app.jar
 
 EXPOSE 8080
 
+# Optimisation memoire pour plan Render gratuit (512 Mo RAM, 1 CPU) :
+# - SerialGC        : GC le plus leger en mono-CPU (pas de metadonnees de regions G1)
+# - 60% de RAM max  : heap ~307 Mo, laisse la place au metaspace Hibernate (~130 Mo)
+#                     + code cache + piles de threads (l'ancien reglage 75% + G1
+#                     provoquait un OutOfMemoryError -> exit 1 pendant l'init Hibernate)
+# - TieredStopAtLevel=1 : JIT C1 seul -> demarrage plus rapide sur CPU partage
+# - Xss512k         : divise par 2 la pile des ~60 threads (Hikari/Tomcat/WS)
 # PORT est injecte par Render si necessaire ; sinon 8080 par defaut
-ENTRYPOINT ["sh", "-c", "java -XX:MaxRAMPercentage=75.0 -Dserver.port=${PORT:-8080} -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -XX:TieredStopAtLevel=1 -XX:MaxMetaspaceSize=160m -Xss512k -Dserver.port=${PORT:-8080} -jar app.jar"]
