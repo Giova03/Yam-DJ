@@ -35,7 +35,7 @@ public class WebhookController {
 
     @PostMapping("/fedapay")
     public ResponseEntity<Map<String, String>> fedapayWebhook(@RequestBody JsonNode payload) {
-        // Formats acceptes : {"name":"transaction.approved","entity":{...}},
+        // Formats acceptes : {"name":"transaction.approved","entity":{"object":{"id":123}}},
         // {"event":{...,"object":{...}}}, ou {"transaction":{"id":123}}.
         String event = payload.path("name").asText(payload.path("event").asText(""));
         JsonNode source = payload.has("entity") ? payload.get("entity")
@@ -43,7 +43,12 @@ public class WebhookController {
                 : payload.has("transaction") ? payload.get("transaction")
                 : payload.has("data") ? payload.get("data") : payload;
 
+        // L'id peut etre direct (entity.id) ou imbrique (entity.object.id,
+        // format reel des webhooks FedaPay)
         long txnId = source.path("id").asLong(0);
+        if (txnId <= 0 && source.has("object")) {
+            txnId = source.path("object").path("id").asLong(0);
+        }
         if (txnId <= 0) {
             log.warn("Webhook FedaPay sans identifiant de transaction : {}",
                     payload.toString().length() > 400 ? payload.toString().substring(0, 400) : payload);
