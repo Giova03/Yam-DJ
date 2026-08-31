@@ -44,8 +44,9 @@ public class R2StorageConfig {
 
         if (!configured) {
             log.warn("R2 non configure (R2_ACCOUNT_ID / R2_ACCESS_KEY / R2_SECRET_KEY incomplets). "
-                    + "L'application demarre en mode degrades : le stockage audio est desactive "
-                    + "jusqu'a renseignement des variables d'environnement.");
+                    + "Bascule automatique en MODE LOCAL : les medias sont stockes sur le disque du service "
+                    + "et servis via /media/** (voir R2StorageService). Renseigner les 3 variables + R2_PUBLIC_URL "
+                    + "pour repasser en stockage durable R2, sans changement de code.");
         }
 
         String effAccount = configured ? accountId : "000000000000";

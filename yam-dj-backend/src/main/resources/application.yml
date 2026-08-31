@@ -46,6 +46,9 @@ yamdj:
     secret-key: ${R2_SECRET_KEY:}
     bucket: ${R2_BUCKET:yam-dj-media}
     public-url: ${R2_PUBLIC_URL:}
+  storage:
+    # Mode secours : dossier local des medias quand R2 n'est pas configure
+    local-dir: ${STORAGE_LOCAL_DIR:./yam-media}
   cinetpay:
     api-key: ${CINETPAY_API_KEY:}
     site-id: ${CINETPAY_SITE_ID:}

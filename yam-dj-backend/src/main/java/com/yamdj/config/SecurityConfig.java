@@ -54,6 +54,7 @@ public class SecurityConfig {
                     "/api/search/**",
                     "/api/artists/{id}",
                     "/api/mixtapes/public",
+                    "/media/**",
                     "/ws/**",
                     "/actuator/**",
                     "/error"
