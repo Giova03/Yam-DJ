@@ -44,7 +44,7 @@ public class AudioProcessingService {
         File workDir = r2.createTempDir("yam-track-" + trackId);
 
         // Duree
-        int duration = probeDuration(input);
+        int duration = probeDuration(input.getAbsolutePath());
 
         // Mastering : normalisation loudness -14 LUFS (standard Spotify/Deezer) + dither
         File mastered = new File(workDir, "mastered.wav");
@@ -115,12 +115,13 @@ public class AudioProcessingService {
         int totalDuration = 0;
         List<Integer> durations = new ArrayList<>();
         for (String f : audioFiles) {
-            int d = probeDuration(new File(f));
+            int d = probeDuration(f);
             durations.add(d);
             totalDuration += d;
         }
 
         List<String> args = new ArrayList<>();
+        args.add(ffmpegPath);
         args.add("-y");
         for (String f : audioFiles) {
             args.add("-i");
@@ -206,18 +207,19 @@ public class AudioProcessingService {
         }
     }
 
-    /** Duree en secondes via ffprobe. */
-    int probeDuration(File file) throws Exception {
+    /** Duree en secondes via ffprobe. Accepte un chemin local OU une URL http(s)
+     * (les pistes sources sont des playlists HLS publiques). */
+    int probeDuration(String source) throws Exception {
         String ffprobe = ffmpegPath.replace("ffmpeg", "ffprobe");
         Process p;
         try {
             p = Runtime.getRuntime().exec(new String[]{
                     ffprobe, "-v", "quiet", "-show_entries", "format=duration",
-                    "-of", "csv=p=0", file.getAbsolutePath()
+                    "-of", "csv=p=0", source
             });
         } catch (IOException e) {
             // ffprobe absent : fallback via ffmpeg -i
-            return probeDurationFallback(file);
+            return probeDurationFallback(source);
         }
         StringBuilder out = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
@@ -228,13 +230,13 @@ public class AudioProcessingService {
         try {
             return (int) Math.round(Double.parseDouble(out.toString().trim()));
         } catch (NumberFormatException e) {
-            return probeDurationFallback(file);
+            return probeDurationFallback(source);
         }
     }
 
-    private int probeDurationFallback(File file) throws Exception {
+    private int probeDurationFallback(String source) throws Exception {
         Process p = Runtime.getRuntime().exec(new String[]{
-                ffmpegPath, "-i", file.getAbsolutePath(), "-f", "null", "-"
+                ffmpegPath, "-i", source, "-f", "null", "-"
         });
         StringBuilder err = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getErrorStream()))) {

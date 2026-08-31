@@ -6,8 +6,7 @@ import { TrackService } from '../../services/track.service';
 
 const GENRES = ['Afrobeats', 'Coupe-Decale', 'Rap', 'Zouglou', 'Ndombolo', 'Reggae', 'Dancehall', 'Traditionnel', 'Gospel', 'R&B', 'Pop'];
 const COUNTRIES = ['Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'Guinee', 'Benin', 'Togo', 'Niger', 'Cameroun', 'RDC'];
-const KEYS = ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '5A', '5B', '6A', '6B',
-  '7A', '7B', '8A', '8B', '9A', '9B', '10A', '10B', '11A', '11B', '12A', '12B'];
+const KEYS = ['Am', 'Bbm', 'Bm', 'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m'];
 
 const AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mp4', 'audio/aac', 'audio/ogg'];
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -70,7 +69,7 @@ const MAX_COVER_MB = 5;
               </select>
             </div>
             <div>
-              <label class="text-sm text-white/60 mb-1 block">Tonalite (Camelot)</label>
+              <label class="text-sm text-white/60 mb-1 block">Tonalite</label>
               <select [(ngModel)]="musicalKey" class="yam-input">
                 <option value="">-- Inconnue --</option>
                 @for (k of keys; track k) { <option [value]="k">{{ k }}</option> }
