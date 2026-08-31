@@ -14,7 +14,7 @@ services:
       - key: DB_NAME
         value: postgres
       - key: DB_USER
-        value: postgres
+        value: postgres.olzosqslfczqmadlixvr
       - key: DB_PASSWORD
         sync: false
       - key: JWT_SECRET
@@ -42,7 +42,7 @@ services:
       - key: BREVO_SENDER
         value: no-reply@yamdj.africa
       - key: CORS_ORIGINS
-        value: https://yam-dj.vercel.app,http://localhost:4200
+        value: https://yam-dj.vercel.app,https://yam-dj-frontend.vercel.app,http://localhost:4200
       - key: APP_BASE_URL
         sync: false
       - key: FFMPEG_PATH
