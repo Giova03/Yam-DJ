@@ -8,7 +8,7 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/((?!assets/|.*\\.(?:js|css|ico|svg|png|jpg|jpeg|webp|woff2?|ttf|m3u8|ts|mp4|json|txt|map)$).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],

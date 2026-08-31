@@ -88,7 +88,7 @@ const COUNTRIES = [
               </div>
               <input type="text" maxlength="12" inputmode="numeric" autocomplete="one-time-code"
                      placeholder="Code a 6 chiffres" [ngModel]="verificationCode"
-                     (ngModelChange)="onCodeInput($event)" #codeInput
+                     (ngModelChange)="onCodeInput($event)"
                      class="yam-input text-center text-2xl tracking-[0.5em] !py-2.5">
               @if (error()) {
                 <p class="text-red-400 text-sm bg-red-400/10 rounded-xl p-3">{{ error() }}</p>
