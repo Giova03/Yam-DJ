@@ -27,7 +27,8 @@ public final class AuthDtos {
 
     public record VerifyRequest(
             @NotBlank @Email String email,
-            @NotBlank @Size(min = 6, max = 6) String code
+            // Tolere les espaces (copier-coller) : le service nettoie le code
+            @NotBlank @Size(min = 6, max = 12) String code
     ) {}
 
     public record AuthResponse(

@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DjService } from '../../services/dj.service';
-import { Track } from '../../models/models';
+import { Mixtape, Track } from '../../models/models';
 
 /**
  * STUDIO DJ — 2 PLATINES WEB.
@@ -11,6 +11,8 @@ import { Track } from '../../models/models';
  * Effets nightclub : filtre (LPF) + delay + reverb par deck.
  * AUTO-MIX IA : bouton qui ordonne la selection via l'API backend
  * (Camelot + BPM) puis enchainement harmonique automatique.
+ * MES MIXTAPES : lecture, suppression (double confirmation) des mixes
+ * deja generes par le DJ connecte.
  */
 @Component({
   selector: 'yam-dj-studio',
@@ -164,6 +166,61 @@ import { Track } from '../../models/models';
         </div>
       </section>
 
+      <!-- MES MIXTAPES : lecture + suppression -->
+      <section class="mt-10">
+        <h2 class="text-xl font-bold mb-4">🎛️ Mes mixtapes
+          <span class="text-white/40 text-sm">— tes mixes deja generes</span>
+        </h2>
+
+        @if (mixMessage()) {
+          <div class="yam-card p-3 mb-4"
+               [class]="mixMessageOk() ? 'border-yam-green/40 bg-yam-green/10' : 'border-red-400/40 bg-red-400/10'">
+            <p class="text-sm font-medium" [class]="mixMessageOk() ? 'text-yam-green' : 'text-red-400'">
+              {{ mixMessageOk() ? '✔' : '✖' }} {{ mixMessage() }}
+            </p>
+          </div>
+        }
+
+        @if (mixtapes().length) {
+          <div class="space-y-2">
+            @for (mix of mixtapes(); track mix.id) {
+              <div class="yam-card p-4 flex items-center gap-3">
+                <!-- Lecture / pause du mix -->
+                <button (click)="playMixtape(mix)" title="Ecouter le mix"
+                        class="w-10 h-10 rounded-full bg-yam-orange/20 text-yam-orange flex items-center justify-center hover:bg-yam-orange hover:text-white transition shrink-0">
+                  {{ mixPlayingId() === mix.id ? '⏸' : '▶' }}
+                </button>
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium truncate">{{ mix.title }}</p>
+                  <p class="text-white/40 text-xs truncate">
+                    🎧 {{ mix.playCount }} ecoutes · {{ formatDuration(mix.durationSec) }} · {{ formatDate(mix.createdAt) }}
+                  </p>
+                </div>
+                <!-- Suppression : 1er clic = armement, 2e clic = confirmation -->
+                <button (click)="askDeleteMixtape(mix)" [disabled]="deletingMixId() === mix.id" title="Supprimer la mixtape"
+                        class="shrink-0 text-xs font-semibold px-3 py-2 rounded-full transition"
+                        [class]="confirmDeleteMixId() === mix.id
+                          ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                          : 'text-white/40 hover:text-red-400 hover:bg-red-400/10'">
+                  @if (deletingMixId() === mix.id) {
+                    <span class="animate-pulse">⏳</span>
+                  } @else if (confirmDeleteMixId() === mix.id) {
+                    Confirmer ?
+                  } @else {
+                    Supprimer
+                  }
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="yam-card p-8 text-center text-white/40">
+            <div class="text-4xl mb-2">🎛️</div>
+            Aucune mixtape pour l'instant. Selectionne au moins 2 pistes dans la bibliotheque puis clique "Creer une mixtape".
+          </div>
+        }
+      </section>
+
       <!-- Creation mixtape -->
       @if (selected().length >= 2) {
         <div class="fixed bottom-24 right-4 z-40">
@@ -218,6 +275,17 @@ export class DjStudioComponent implements OnInit, OnDestroy {
   creatingMix = signal(false);
   mixUrl = signal<string | null>(null);
 
+  // Mes mixtapes : liste, lecture, suppression (double confirmation)
+  mixtapes = signal<Mixtape[]>([]);
+  mixPlayingId = signal<string | null>(null);
+  confirmDeleteMixId = signal<string | null>(null);
+  deletingMixId = signal<string | null>(null);
+  mixMessage = signal<string | null>(null);
+  mixMessageOk = signal(false);
+  private mixAudio: HTMLAudioElement | null = null;
+  private mixConfirmTimer: any = null;
+  private mixMessageTimer: any = null;
+
   crossfade = signal(0.5);
   masterVolume = signal(0.9);
 
@@ -234,10 +302,12 @@ export class DjStudioComponent implements OnInit, OnDestroy {
     ];
     this.initAudioContext();
     this.loadLibrary();
+    this.loadMyMixtapes();
   }
 
   ngOnDestroy(): void {
     this.decks.forEach(d => d.audio.pause());
+    this.stopMixtape();
     this.ctx?.close();
   }
 
@@ -476,11 +546,106 @@ export class DjStudioComponent implements OnInit, OnDestroy {
           error: () => this.mixUrl.set(null)
         });
         this.analysis.set('Mixtape generee : ' + mix.title + ' (' + mix.durationSec + ' s).');
+        this.loadMyMixtapes();
       },
       error: err => {
         this.creatingMix.set(false);
         this.analysis.set(err?.error?.message || 'Echec de la generation du mix.');
       }
     });
+  }
+
+  // ==================== MES MIXTAPES ====================
+
+  /** Charge les mixtapes du DJ connecte (silencieux si role insuffisant). */
+  loadMyMixtapes(): void {
+    this.djService.myMixtapes().subscribe({
+      next: list => this.mixtapes.set(list || []),
+      error: () => this.mixtapes.set([])
+    });
+  }
+
+  /** Lecture d'une mixtape (toggle si deja en cours), compteur de plays cote backend. */
+  playMixtape(mix: Mixtape): void {
+    if (this.mixPlayingId() === mix.id) {
+      this.stopMixtape();
+      return;
+    }
+    this.stopMixtape();
+    this.djService.mixtapeStreamUrl(mix.id).subscribe({
+      next: res => {
+        this.mixAudio = new Audio(res.url);
+        this.mixPlayingId.set(mix.id);
+        this.mixAudio.addEventListener('ended', () => this.stopMixtape());
+        this.mixAudio.play().catch(() => this.stopMixtape());
+        this.djService.registerMixtapePlay(mix.id).subscribe({
+          next: () => {
+            this.mixtapes.set(this.mixtapes().map(m => m.id === mix.id ? { ...m, playCount: m.playCount + 1 } : m));
+          },
+          error: () => {}
+        });
+      },
+      error: () => this.showMixMessage('Lecture du mix impossible pour le moment.', false)
+    });
+  }
+
+  stopMixtape(): void {
+    if (this.mixAudio) {
+      this.mixAudio.pause();
+      this.mixAudio.src = '';
+      this.mixAudio = null;
+    }
+    this.mixPlayingId.set(null);
+  }
+
+  /**
+   * Suppression d'une mixtape a double confirmation (meme pattern que le dashboard).
+   * TODO(backend) : repose sur DELETE /api/dj/mixtapes/{id} — endpoint DjController pas encore disponible.
+   */
+  askDeleteMixtape(mix: Mixtape): void {
+    if (this.deletingMixId()) return;
+    if (this.confirmDeleteMixId() === mix.id) {
+      this.confirmDeleteMixId.set(null);
+      if (this.mixConfirmTimer) clearTimeout(this.mixConfirmTimer);
+      this.deleteMixtape(mix);
+    } else {
+      this.confirmDeleteMixId.set(mix.id);
+      if (this.mixConfirmTimer) clearTimeout(this.mixConfirmTimer);
+      this.mixConfirmTimer = setTimeout(() => this.confirmDeleteMixId.set(null), 4000);
+    }
+  }
+
+  private deleteMixtape(mix: Mixtape): void {
+    this.deletingMixId.set(mix.id);
+    this.djService.deleteMixtape(mix.id).subscribe({
+      next: () => {
+        this.deletingMixId.set(null);
+        if (this.mixPlayingId() === mix.id) this.stopMixtape();
+        this.mixtapes.set(this.mixtapes().filter(m => m.id !== mix.id));
+        this.showMixMessage('Mixtape supprimee', true);
+      },
+      error: err => {
+        this.deletingMixId.set(null);
+        this.showMixMessage(err?.error?.message || 'Echec de la suppression (endpoint backend manquant ?)', false);
+      }
+    });
+  }
+
+  private showMixMessage(msg: string, ok: boolean): void {
+    this.mixMessage.set(msg);
+    this.mixMessageOk.set(ok);
+    if (this.mixMessageTimer) clearTimeout(this.mixMessageTimer);
+    this.mixMessageTimer = setTimeout(() => this.mixMessage.set(null), 4000);
+  }
+
+  formatDuration(sec: number): string {
+    if (!sec || sec <= 0) return '--:--';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   }
 }

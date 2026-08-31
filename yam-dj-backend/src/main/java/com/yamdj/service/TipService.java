@@ -59,7 +59,7 @@ public class TipService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             return null; // Tip anonyme autorise
         }
-        return userRepository.findByEmail(auth.getName()).orElse(null);
+        return userRepository.findByEmailIgnoreCase(auth.getName()).orElse(null);
     }
 
     /** Etape 1 : creation du tip + initiation du paiement CinetPay. */

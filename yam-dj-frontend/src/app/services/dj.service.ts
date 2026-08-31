@@ -50,6 +50,12 @@ export class DjService {
     return this.http.post<void>(`${this.apiUrl}/api/dj/mixtapes/${mixtapeId}/play`, {});
   }
 
+  /** Supprime une mixtape du DJ connecte. */
+  // TODO(backend) : l'endpoint DELETE /api/dj/mixtapes/{id} n'est pas encore expose par DjController — activer cote backend avant la prod.
+  deleteMixtape(mixtapeId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/api/dj/mixtapes/${mixtapeId}`);
+  }
+
   /**
    * WebSocket STOMP simplifie : ecoute des notifications de tips recus.
    * Le backend diffuse sur /topic/notifications/{userId}.

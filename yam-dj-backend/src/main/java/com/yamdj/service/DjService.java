@@ -56,7 +56,7 @@ public class DjService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             throw new IllegalStateException("Authentification requise");
         }
-        return userRepository.findByEmail(auth.getName())
+        return userRepository.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
     }
 
@@ -156,8 +156,9 @@ public class DjService {
                 .title(title)
                 .audioUrl(result.audioKey())
                 .durationSec(result.durationSec())
-                .trackIds(orderedTracks.stream().map(Track::getId).toString()
-                        .replaceAll("[\\[\\] ]", ""))
+                .trackIds(orderedTracks.stream()
+                        .map(t -> t.getId().toString())
+                        .collect(Collectors.joining(",")))
                 .crossfadeSec(crossfade)
                 .build();
         mixtapeRepository.save(mixtape);
@@ -211,6 +212,41 @@ public class DjService {
             throw new IllegalArgumentException("Mixtape pas encore genere");
         }
         return storage.publicUrl(m.getAudioUrl());
+    }
+
+    /**
+     * Supprime une mixtape : DJ proprietaire ou ADMIN uniquement.
+     * Supprime le fichier audio du stockage puis decremente le compteur du profil.
+     */
+    @Transactional
+    public void deleteMixtape(UUID mixtapeId) {
+        User user = currentDj();
+        Mixtape mixtape = mixtapeRepository.findById(mixtapeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mixtape introuvable"));
+
+        boolean owner = mixtape.getDjId().equals(user.getId());
+        boolean admin = user.getRole() == com.yamdj.entity.enums.UserRole.ADMIN;
+        if (!owner && !admin) {
+            throw new IllegalArgumentException("Tu ne peux supprimer que tes propres mixtapes");
+        }
+
+        // Fichier audio du stockage (cle stockee) - echec non bloquant
+        if (mixtape.getAudioUrl() != null && !mixtape.getAudioUrl().isBlank()) {
+            try {
+                storage.delete(mixtape.getAudioUrl());
+            } catch (Exception e) {
+                // log et continuer : le fichier peut deja avoir disparu
+            }
+        }
+
+        mixtapeRepository.delete(mixtape);
+
+        djProfileRepository.findByUserId(mixtape.getDjId()).ifPresent(profile -> {
+            if (profile.getMixtapeCount() > 0) {
+                profile.setMixtapeCount(profile.getMixtapeCount() - 1);
+                djProfileRepository.save(profile);
+            }
+        });
     }
 
     private MixtapeResponse toResponse(Mixtape m) {

@@ -138,6 +138,28 @@ public class SupabaseStorageService {
         }
     }
 
+    /**
+     * Extrait la cle de stockage d'une URL publique generee par publicUrl().
+     * Mode Supabase : {SUPABASE_URL}/storage/v1/object/public/{bucket}/{cle}
+     * Mode local    : {APP_BASE_URL}/media/{cle}
+     * Retourne null si l'URL ne correspond pas a ce stockage (URL externe, vide...).
+     */
+    public String keyFromUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        String u = url.trim();
+        if (isSet(supabaseUrl)) {
+            String prefix = supabaseUrl + "/storage/v1/object/public/" + bucket + "/";
+            if (u.startsWith(prefix)) {
+                return urlDecode(u.substring(prefix.length()));
+            }
+        }
+        String localPrefix = stripSlash(appBaseUrl) + "/media/";
+        if (u.startsWith(localPrefix)) {
+            return urlDecode(u.substring(localPrefix.length()));
+        }
+        return null;
+    }
+
     /** Telechargement des octets d'un objet. */
     public byte[] download(String key) throws IOException {
         if (key == null || key.isBlank()) throw new IOException("Cle de stockage vide");
@@ -249,5 +271,14 @@ public class SupabaseStorageService {
 
     private static boolean isSet(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /** Decodage permissif : une sequence invalide est rendue telle quelle. */
+    private static String urlDecode(String value) {
+        try {
+            return java.net.URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return value;
+        }
     }
 }

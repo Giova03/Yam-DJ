@@ -44,6 +44,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Pistes : suppression et "mes pistes" exigent un JWT.
+                // Places AVANT le permitAll "/api/tracks/{id}/**" : l'ordre
+                // des regles compte (premiere correspondance gagnante) et ce
+                // motif couvre aussi DELETE /api/tracks/{id} et /api/tracks/mine.
+                .requestMatchers(HttpMethod.DELETE, "/api/tracks/**").authenticated()
+                .requestMatchers("/api/tracks/mine").authenticated()
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/webhook/**",

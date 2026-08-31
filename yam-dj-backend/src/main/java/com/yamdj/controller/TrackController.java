@@ -69,9 +69,22 @@ public class TrackController {
         return ResponseEntity.ok(trackService.history(userId, limit));
     }
 
+    /** Pistes de l'artiste connecte (tous statuts : PENDING / APPROVED / REJECTED). */
+    @GetMapping("/mine")
+    public ResponseEntity<List<TrackResponse>> mine() {
+        return ResponseEntity.ok(trackService.myTracks());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<TrackResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(trackService.getById(id));
+    }
+
+    /** Suppression d'une piste : artiste proprietaire ou administrateur (204). */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        trackService.deleteTrack(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/artist/{artistId}")

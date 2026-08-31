@@ -34,7 +34,7 @@ public class PlaylistService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             throw new IllegalStateException("Authentification requise");
         }
-        return userRepository.findByEmail(auth.getName())
+        return userRepository.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
     }
 

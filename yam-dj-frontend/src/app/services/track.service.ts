@@ -63,4 +63,14 @@ export class TrackService {
   upload(formData: FormData): Observable<Track> {
     return this.http.post<Track>(`${this.apiUrl}/api/tracks/upload`, formData);
   }
+
+  /** Pistes de l'artiste connecte (tous statuts : PENDING / APPROVED / REJECTED). */
+  getMyTracks(): Observable<Track[]> {
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/mine`);
+  }
+
+  /** Supprime une piste (artiste proprietaire ou admin) — 204 No Content. */
+  deleteTrack(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/api/tracks/${id}`);
+  }
 }

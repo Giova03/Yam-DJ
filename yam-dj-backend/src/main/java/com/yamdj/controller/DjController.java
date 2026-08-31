@@ -62,4 +62,11 @@ public class DjController {
         djService.registerMixtapePlay(id);
         return ResponseEntity.ok().build();
     }
+
+    /** Supprime une mixtape (DJ proprietaire ou ADMIN). */
+    @DeleteMapping("/mixtapes/{id}")
+    public ResponseEntity<Void> deleteMixtape(@PathVariable UUID id) {
+        djService.deleteMixtape(id);
+        return ResponseEntity.noContent().build();
+    }
 }

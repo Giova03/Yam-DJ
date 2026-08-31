@@ -86,8 +86,9 @@ const COUNTRIES = [
                 <div class="text-4xl mb-2">📧</div>
                 <p class="text-sm">Un code de verification vient d'etre envoye a<br><b class="text-white">{{ email }}</b></p>
               </div>
-              <input type="text" maxlength="6" placeholder="Code a 6 chiffres"
-                     [(ngModel)]="verificationCode"
+              <input type="text" maxlength="12" inputmode="numeric" autocomplete="one-time-code"
+                     placeholder="Code a 6 chiffres" [ngModel]="verificationCode"
+                     (ngModelChange)="onCodeInput($event)" #codeInput
                      class="yam-input text-center text-2xl tracking-[0.5em] !py-2.5">
               @if (error()) {
                 <p class="text-red-400 text-sm bg-red-400/10 rounded-xl p-3">{{ error() }}</p>
@@ -142,6 +143,8 @@ export class RegisterComponent {
       this.error.set('Le mot de passe doit faire au moins 8 caracteres.');
       return;
     }
+    this.email = this.email.trim();
+    this.pseudo = this.pseudo.trim();
     this.loading.set(true);
     this.auth.register({
       email: this.email,
@@ -163,10 +166,15 @@ export class RegisterComponent {
     });
   }
 
+  /** Ne garde que les chiffres (le copier-coller mail insere des espaces). */
+  onCodeInput(value: string): void {
+    this.verificationCode = (value || '').replace(/\D/g, '').slice(0, 6);
+  }
+
   verify(): void {
     this.verifying.set(true);
     this.error.set(null);
-    this.auth.verifyEmail(this.email, this.verificationCode).subscribe({
+    this.auth.verifyEmail(this.email.trim(), this.verificationCode).subscribe({
       next: res => {
         this.verifying.set(false);
         if (res.token) this.router.navigate(['/']);
@@ -180,7 +188,7 @@ export class RegisterComponent {
   }
 
   resend(): void {
-    this.auth.resendVerification(this.email).subscribe({
+    this.auth.resendVerification(this.email.trim()).subscribe({
       next: () => this.error.set('Nouveau code envoye !'),
       error: err => this.error.set(err?.error?.message || 'Erreur d\'envoi.')
     });

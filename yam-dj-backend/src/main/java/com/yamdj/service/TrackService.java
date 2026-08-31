@@ -4,14 +4,21 @@ import com.yamdj.dto.CommonDtos.*;
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.*;
 import com.yamdj.entity.PlayHistory;
+import com.yamdj.entity.Playlist;
+import com.yamdj.entity.Mixtape;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.User;
 import com.yamdj.entity.enums.TrackStatus;
+import com.yamdj.entity.enums.UserRole;
+import com.yamdj.exception.ApiException;
 import com.yamdj.exception.ResourceNotFoundException;
 import com.yamdj.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +30,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,10 +42,14 @@ import java.util.UUID;
 @Service
 public class TrackService {
 
+    private static final Logger log = LoggerFactory.getLogger(TrackService.class);
+
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final PlayHistoryRepository playHistoryRepository;
+    private final PlaylistRepository playlistRepository;
+    private final MixtapeRepository mixtapeRepository;
     private final SupabaseStorageService storage;
     private final AudioProcessingService audioProcessor;
 
@@ -44,12 +57,16 @@ public class TrackService {
                         UserRepository userRepository,
                         ArtistProfileRepository artistProfileRepository,
                         PlayHistoryRepository playHistoryRepository,
+                        PlaylistRepository playlistRepository,
+                        MixtapeRepository mixtapeRepository,
                         SupabaseStorageService storage,
                         AudioProcessingService audioProcessor) {
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
         this.playHistoryRepository = playHistoryRepository;
+        this.playlistRepository = playlistRepository;
+        this.mixtapeRepository = mixtapeRepository;
         this.storage = storage;
         this.audioProcessor = audioProcessor;
     }
@@ -60,7 +77,7 @@ public class TrackService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             throw new IllegalStateException("Authentification requise");
         }
-        return userRepository.findByEmail(auth.getName())
+        return userRepository.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
     }
 
@@ -198,6 +215,71 @@ public class TrackService {
                 .toList();
     }
 
+    /**
+     * Pistes de l'artiste connecte (tous statuts : PENDING / APPROVED / REJECTED),
+     * plus recentes d'abord — pour le tableau de bord artiste.
+     */
+    @Transactional(readOnly = true)
+    public List<TrackResponse> myTracks() {
+        User artist = currentUser();
+        if (artist.getRole() != UserRole.ARTIST && artist.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Seuls les artistes ont des pistes");
+        }
+        return trackRepository.findByArtistIdOrderByCreatedAtDesc(artist.getId()).stream()
+                .map(t -> TrackDtos.from(t, artistNameOf(artist.getId()), pseudoOf(artist.getId())))
+                .toList();
+    }
+
+    /**
+     * Suppression d'une piste : autorisee uniquement au proprietaire
+     * (track.artistId) ou a un administrateur, sinon acces refuse (403).
+     * Ordre : references (historique d'ecoutes, CSV track_ids des playlists
+     * et mixtapes) puis la piste, puis les fichiers du stockage (echecs
+     * toleres : la suppression en base reste prioritaire).
+     */
+    @Transactional
+    public void deleteTrack(UUID trackId) {
+        User user = currentUser();
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
+
+        boolean owner = track.getArtistId().equals(user.getId());
+        boolean admin = user.getRole() == UserRole.ADMIN;
+        if (!owner && !admin) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "Suppression interdite : seul l'artiste proprietaire ou un administrateur "
+                            + "peut supprimer cette piste");
+        }
+
+        // 1) References : historique d'ecoutes (JPQL bulk delete)
+        playHistoryRepository.deleteByTrackId(trackId);
+
+        // 2) References : colonnes CSV track_ids des playlists et mixtapes (id1,id2,...)
+        String trackIdStr = trackId.toString();
+        for (Playlist p : playlistRepository.findByTrackIdsContaining(trackIdStr)) {
+            List<String> ids = csvOf(p.getTrackIds());
+            if (ids.removeIf(trackIdStr::equals)) {
+                p.setTrackIds(String.join(",", ids));
+                playlistRepository.save(p);
+            }
+        }
+        for (Mixtape m : mixtapeRepository.findByTrackIdsContaining(trackIdStr)) {
+            List<String> ids = csvOf(m.getTrackIds());
+            if (ids.removeIf(trackIdStr::equals)) {
+                m.setTrackIds(String.join(",", ids));
+                mixtapeRepository.save(m);
+            }
+        }
+
+        // 3) La piste elle-meme
+        trackRepository.delete(track);
+
+        // 4) Fichiers du stockage (m3u8 hq, m3u8 lite, pochette) — jamais bloquant
+        deleteStorageFile(track.getAudioUrlHq());
+        deleteStorageFile(track.getAudioUrlLq());
+        deleteStorageFile(track.getCoverUrl());
+    }
+
     /** Enregistre une ecoute : compteur + historique + stats artiste. */
     @Transactional
     public void registerPlay(UUID trackId, UUID userId) {
@@ -274,7 +356,7 @@ public class TrackService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             return java.util.Optional.empty();
         }
-        return userRepository.findByEmail(auth.getName());
+        return userRepository.findByEmailIgnoreCase(auth.getName());
     }
 
     private String artistNameOf(UUID artistId) {
@@ -286,5 +368,57 @@ public class TrackService {
 
     private String pseudoOf(UUID artistId) {
         return userRepository.findById(artistId).map(User::getPseudo).orElse("unknown");
+    }
+
+    /** Decoupe une colonne CSV (track_ids) en jetons, robuste aux valeurs vides. */
+    private List<String> csvOf(String csv) {
+        if (csv == null || csv.isBlank()) return new ArrayList<>();
+        return new ArrayList<>(Arrays.asList(csv.split(",")));
+    }
+
+    /**
+     * Supprime le fichier du stockage correspondant a une URL publique.
+     * Tolere les echecs (fichier absent, URL externe, stockage indisponible) :
+     * journalise en WARN sans faire echouer la suppression de la piste.
+     */
+    private void deleteStorageFile(String url) {
+        if (url == null || url.isBlank()) return; // pochette optionnelle : rien a supprimer
+        try {
+            String key = storage.keyFromUrl(url);
+            if (key == null || key.isBlank()) {
+                log.warn("Fichier non supprime (cle introuvable dans l'URL) : {}", url);
+                return;
+            }
+            storage.delete(key);
+            // Mode local : les segments HLS (.ts) voisins du m3u8 sont supprimes
+            // avec leur dossier (le delete ne vise qu'un seul objet).
+            if (storage.isLocalMode() && key.endsWith("/index.m3u8")) {
+                deleteLocalDirectory(key.substring(0, key.length() - "/index.m3u8".length()));
+            }
+        } catch (Exception e) {
+            log.warn("Suppression du fichier impossible ({}) : {}", url, e.getMessage());
+        }
+    }
+
+    /** Suppression recursive d'un dossier du stockage local (segments HLS). */
+    private void deleteLocalDirectory(String dirKey) {
+        try {
+            File dir = storage.localFile(dirKey);
+            File[] children = dir.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    if (child.isDirectory()) {
+                        deleteLocalDirectory(dirKey + "/" + child.getName());
+                    } else if (!child.delete()) {
+                        log.warn("Fichier local non supprime : {}/{}", dirKey, child.getName());
+                    }
+                }
+            }
+            if (dir.exists() && !dir.delete()) {
+                log.warn("Dossier local non supprime : {}", dirKey);
+            }
+        } catch (Exception e) {
+            log.warn("Suppression du dossier local impossible ({}) : {}", dirKey, e.getMessage());
+        }
     }
 }

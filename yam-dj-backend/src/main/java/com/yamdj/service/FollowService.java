@@ -80,7 +80,7 @@ public class FollowService {
         boolean following = false;
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
-            following = userRepository.findByEmail(auth.getName())
+            following = userRepository.findByEmailIgnoreCase(auth.getName())
                     .map(u -> followRepository.existsByFollowerIdAndArtistId(u.getId(), artistId))
                     .orElse(false);
         }
@@ -123,7 +123,7 @@ public class FollowService {
         if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             throw new IllegalStateException("Authentification requise");
         }
-        return userRepository.findByEmail(auth.getName())
+        return userRepository.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
     }
 

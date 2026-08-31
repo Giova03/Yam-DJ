@@ -22,12 +22,16 @@ import { AuthService } from '../../services/auth.service';
           @if (needsVerification()) {
             <div class="bg-yam-orange/10 border border-yam-orange/30 rounded-xl p-4 mb-4">
               <p class="text-sm text-yam-orange font-medium mb-3">{{ verificationMessage() }}</p>
-              <input type="text" maxlength="6" placeholder="Code a 6 chiffres"
-                     [(ngModel)]="verificationCode"
+              <input type="text" maxlength="12" inputmode="numeric" autocomplete="one-time-code"
+                     placeholder="Code a 6 chiffres" [ngModel]="verificationCode"
+                     (ngModelChange)="onCodeInput($event)"
                      class="yam-input text-center text-2xl tracking-[0.5em] !py-2.5 mb-3">
               <button (click)="verify()" [disabled]="verifying() || verificationCode.length !== 6"
                       class="yam-btn-primary w-full">
                 @if (verifying()) { Verification... } @else { Activer mon compte }
+              </button>
+              <button (click)="resend()" class="w-full text-white/40 hover:text-white text-sm transition mt-2">
+                Renvoyer le code
               </button>
             </div>
           } @else {
@@ -59,10 +63,6 @@ import { AuthService } from '../../services/auth.service';
             <a routerLink="/register" class="text-yam-orange font-semibold hover:underline">Inscris-toi</a>
           </p>
         </div>
-
-        <div class="mt-6 text-center text-xs text-white/30">
-          Comptes demo : admin&#64;yamdj.africa / artist&#64;yamdj.africa / dj&#64;yamdj.africa — mdp : <b>Password123</b>
-        </div>
       </div>
     </div>
   `
@@ -82,6 +82,7 @@ export class LoginComponent {
 
   doLogin(): void {
     this.error.set(null);
+    this.email = this.email.trim();
     this.loading.set(true);
     this.auth.login(this.email, this.password).subscribe({
       next: res => {
@@ -100,10 +101,22 @@ export class LoginComponent {
     });
   }
 
+  /** Ne garde que les chiffres (le copier-coller mail insere des espaces). */
+  onCodeInput(value: string): void {
+    this.verificationCode = (value || '').replace(/\D/g, '').slice(0, 6);
+  }
+
+  resend(): void {
+    this.auth.resendVerification(this.email.trim()).subscribe({
+      next: () => this.error.set('Nouveau code envoye !'),
+      error: err => this.error.set(err?.error?.message || 'Erreur d\'envoi.')
+    });
+  }
+
   verify(): void {
     this.verifying.set(true);
     this.error.set(null);
-    this.auth.verifyEmail(this.email, this.verificationCode).subscribe({
+    this.auth.verifyEmail(this.email.trim(), this.verificationCode).subscribe({
       next: res => {
         this.verifying.set(false);
         if (res.token) {
