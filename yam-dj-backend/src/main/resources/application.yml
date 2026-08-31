@@ -4,7 +4,11 @@ spring:
   config:
     import: optional:file:.env[.properties]
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}
+    # stringtype=unspecified : parametres String nulls envoyes en type inconnu,
+    # PostgreSQL inferera le type selon le contexte — evite l'erreur classique
+    # Hibernate 6 + PG "function lower(bytea) does not exist" sur les filtres
+    # optionnels (q/genre/country) des le premier appel avec valeurs nulles.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}?stringtype=unspecified
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
