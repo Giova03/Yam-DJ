@@ -44,6 +44,11 @@ yamdj:
   jwt:
     secret: ${JWT_SECRET:YamDjSuperSecretKey2024PourLaSecuriteDesTokensJWT256Bits minimum 32 caracteres!}
     expiration-ms: ${JWT_EXPIRATION:86400000}
+  moderation:
+    # Auto-approbation des uploads : true = les pistes publiees sont
+    # IMMEDIATEMENT visibles (recommande en lancement V1). false = file
+    # de moderation stricte (PENDING -> validation admin).
+    auto-approve: ${YAMDJ_MODERATION_AUTO_APPROVE:true}
   supabase:
     # Bucket Storage du projet Supabase. Mode durable si SUPABASE_URL +
     # SUPABASE_SERVICE_KEY renseignes, sinon mode local (dossier de secours).

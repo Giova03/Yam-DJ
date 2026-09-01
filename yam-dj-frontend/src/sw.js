@@ -19,7 +19,7 @@
  * Enregistre depuis app.component (racine) et NotificationsService.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL_CACHE = `yamdj-shell-${VERSION}`;
 const AUDIO_CACHE = 'yamdj-audio';
 const API_CACHE = 'yamdj-api';

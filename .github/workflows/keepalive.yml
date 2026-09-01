@@ -1,0 +1,41 @@
+# Keep-alive du backend Render (plan gratuit).
+#
+# POURQUOI : sur le plan gratuit, Render endort le service apres ~15 min
+# sans trafic. Au reveil, la premiere requete met 50-90 s (cold start) —
+# c'est ce qui faisait echouer connexion, inscription, uploads et mixtapes
+# quand personne n'avait visite le site depuis un moment.
+#
+# CE QUE FAIT CE WORKFLOW : un "ping" HTTP GET toutes les 10 minutes sur
+# un endpoint public ultra-leger (/api/ads/config). Le service ne s'endort
+# donc plus jamais. Cout : ~440 executions/mois de quelques secondes
+# ( tres en dessous des quotas gratuits GitHub Actions et des 750 h/mois
+# d'instance Render offertes par le plan gratuit).
+#
+# Si tu passes un jour sur un plan payant Render (sans mise en veille),
+# tu peux desactiver ce workflow : onglet Actions > Keep-alive backend >
+# "..." > Disable workflow.
+
+name: Keep-alive backend Render
+
+on:
+  schedule:
+    # Toutes les 10 minutes (UTC). */5 = minimum autorise par GitHub.
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}   # bouton "Run workflow" pour tester manuellement
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping endpoint public du backend
+        run: |
+          echo "Ping $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+                 -H 'User-Agent: YamDJ-KeepAlive/1.0 (GitHub Actions)' \
+                 https://yam-dj.onrender.com/api/ads/config)
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Le backend n'a pas repondu 200 (HTTP $code). Si le probleme persiste, verifie les logs Render."
+            exit 0   # non bloquant : le prochain ping reessaiera
+          fi

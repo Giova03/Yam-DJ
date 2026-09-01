@@ -37,16 +37,17 @@ const MAX_COVER_MB = 5;
       } @else if (done()) {
         <div class="yam-card p-10 text-center">
           <div class="text-6xl mb-4">🚀</div>
-          <h2 class="text-2xl font-bold mb-2">Piste envoyee !</h2>
+          <h2 class="text-2xl font-bold mb-2">Piste en ligne !</h2>
           <p class="text-white/50 text-sm mb-1">
-            <b class="text-white">{{ uploadedTitle() }}</b> est en attente de validation.
+            <b class="text-white">{{ uploadedTitle() }}</b> est publiee et visible par toute la communaute.
           </p>
           <p class="text-white/40 text-xs mb-8">
-            Tu peux suivre son statut (en attente / approuvee / rejetee) depuis ton tableau de bord.
+            Elle est enregistree de facon durable (Supabase Storage) : elle restera disponible
+            apres chaque reconnexion et chaque mise a jour de la plateforme.
           </p>
           <div class="flex flex-col sm:flex-row gap-3 justify-center">
             <button (click)="reset()" class="yam-btn-primary">Publier une autre piste</button>
-            <a routerLink="/dashboard" class="yam-btn-secondary">Voir mon tableau de bord</a>
+            <a routerLink="/" class="yam-btn-secondary">Voir ma piste sur l'accueil</a>
           </div>
         </div>
       } @else {

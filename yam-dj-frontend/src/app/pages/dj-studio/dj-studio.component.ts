@@ -259,7 +259,7 @@ import { Mixtape, Track } from '../../models/models';
               <p class="text-center text-yam-orange text-sm mb-4 animate-pulse">FFmpeg genere ton mix... (ca peut prendre 1-2 min)</p>
             }
             @if (mixUrl()) {
-              <a [href]="mixUrl()" target="_blank" class="yam-btn-primary w-full block text-center mb-2">▶ Ecouter le mix</a>
+              <a [href]="mixUrl()" target="_blank" rel="noopener" class="yam-btn-primary w-full block text-center mb-2">▶ Ecouter le mix</a>
             }
             <button (click)="createMixtape()" [disabled]="creatingMix()" class="yam-btn-secondary w-full">
               {{ creatingMix() ? 'Generation en cours...' : 'Generer le mix' }}

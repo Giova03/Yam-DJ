@@ -55,6 +55,13 @@ public class TrackService {
     private final TrackLikeRepository trackLikeRepository;
     private final SupabaseStorageService storage;
     private final AudioProcessingService audioProcessor;
+    private final NotificationService notificationService;
+
+    /** Auto-approbation a l'upload (defaut : true) — les sons sont visibles
+     *  immediatement ; la moderation admin reste possible (reject/suppression).
+     *  Passer a false pour retablir la file de validation stricte. */
+    @org.springframework.beans.factory.annotation.Value("${yamdj.moderation.auto-approve:true}")
+    private boolean autoApprove;
 
     public TrackService(TrackRepository trackRepository,
                         UserRepository userRepository,
@@ -64,7 +71,8 @@ public class TrackService {
                         MixtapeRepository mixtapeRepository,
                         TrackLikeRepository trackLikeRepository,
                         SupabaseStorageService storage,
-                        AudioProcessingService audioProcessor) {
+                        AudioProcessingService audioProcessor,
+                        NotificationService notificationService) {
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
@@ -74,6 +82,7 @@ public class TrackService {
         this.trackLikeRepository = trackLikeRepository;
         this.storage = storage;
         this.audioProcessor = audioProcessor;
+        this.notificationService = notificationService;
     }
 
     /** Utilisateur courant depuis le contexte Spring Security. */
@@ -143,11 +152,21 @@ public class TrackService {
                 .camelot(com.yamdj.service.HarmonicMixService.toCamelot(musicalKey))
                 .genre(genre == null || genre.isBlank() ? "Afrobeats" : genre)
                 .country(country == null || country.isBlank() ? artist.getCountry() : country)
-                .status(TrackStatus.PENDING)
+                .status(autoApprove ? TrackStatus.APPROVED : TrackStatus.PENDING)
                 .dataLiteReady(true)
                 .build();
 
         track = trackRepository.save(track);
+        if (autoApprove) {
+            try {
+                notificationService.notifyUser(artist.getId(), "TRACK_PUBLISHED",
+                        "Ta piste est en ligne",
+                        "\"" + title + "\" est visible par toute la communaute. Bonne diffusion !",
+                        "/track/" + track.getId());
+            } catch (Exception notifEx) {
+                log.warn("Notification de publication non envoyee : {}", notifEx.getMessage());
+            }
+        }
         try {
             Files.deleteIfExists(tempAudio.toPath());
         } catch (IOException e) {
