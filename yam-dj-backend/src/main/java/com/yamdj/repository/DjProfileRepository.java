@@ -15,6 +15,10 @@ public interface DjProfileRepository extends JpaRepository<DjProfile, UUID> {
 
     Optional<DjProfile> findByUserId(UUID userId);
 
+    /** Recherche avec utilisateur pre-charge (JOIN FETCH, anti N+1 lazy). */
+    @Query("SELECT d FROM DjProfile d JOIN FETCH d.user WHERE d.djName ILIKE %:q%")
+    List<DjProfile> searchByDjNameWithUser(@Param("q") String q);
+
     @Query("SELECT d FROM DjProfile d WHERE d.djName ILIKE %:q%")
     List<DjProfile> searchByDjName(@Param("q") String q);
 }

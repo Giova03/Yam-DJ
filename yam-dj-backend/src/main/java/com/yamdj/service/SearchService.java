@@ -49,25 +49,34 @@ public class SearchService {
         }
         String query = q.trim();
 
-        // ANTI N+1 : resolution des noms d'artistes en 2 requetes totales
-        // (au lieu de 3 requetes PAR piste — 90+ requetes pour 30 resultats).
+        // ANTI N+1 : JOIN FETCH charge les utilisateurs avec les profils,
+        // comptages regroupes en 1 requete (au lieu de 2 requetes PAR artiste).
         List<Track> trackEntities = trackRepository
                 .searchTracks(query, null, null,
                         org.springframework.data.domain.PageRequest.of(0, 30))
                 .getContent();
         List<TrackResponse> tracks = batchToResponses(trackEntities);
 
-        List<ArtistPublicResponse> artists = artistProfileRepository
-                .searchByStageName(query).stream()
+        List<ArtistProfile> artistProfiles = artistProfileRepository
+                .searchByStageNameWithUser(query).stream()
                 .limit(15)
+                .collect(Collectors.toList());
+        java.util.List<UUID> artistUserIds = artistProfiles.stream()
+                .map(p -> p.getUser().getId()).collect(Collectors.toList());
+        java.util.Map<UUID, Long> countsByArtist = artistUserIds.isEmpty()
+                ? java.util.Map.of()
+                : trackRepository.countApprovedByArtists(artistUserIds).stream()
+                        .collect(Collectors.toMap(
+                                row -> (UUID) row[0], row -> (Long) row[1]));
+        List<ArtistPublicResponse> artists = artistProfiles.stream()
                 .map(p -> new ArtistPublicResponse(
                         p.getUser().getId(), p.getStageName(), p.getBio(), p.getPhotoUrl(),
                         p.getUser().getCountry(), p.getTotalPlays(),
-                        trackRepository.countApprovedByArtist(p.getUser().getId())))
+                        countsByArtist.getOrDefault(p.getUser().getId(), 0L)))
                 .collect(Collectors.toList());
 
         List<DjPublicResponse> djs = djProfileRepository
-                .searchByDjName(query).stream()
+                .searchByDjNameWithUser(query).stream()
                 .limit(15)
                 .map(p -> new DjPublicResponse(
                         p.getUser().getId(), p.getDjName(), p.getBio(),

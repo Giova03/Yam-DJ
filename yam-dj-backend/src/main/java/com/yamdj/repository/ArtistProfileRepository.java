@@ -18,6 +18,10 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, UU
     /** Resolution en lot des profils (anti N+1 : 1 requete pour N pistes). */
     List<ArtistProfile> findByUserIdIn(java.util.Collection<UUID> userIds);
 
+    /** Recherche avec utilisateur pre-charge (JOIN FETCH, anti N+1 lazy). */
+    @Query("SELECT a FROM ArtistProfile a JOIN FETCH a.user WHERE a.stageName ILIKE %:q%")
+    List<ArtistProfile> searchByStageNameWithUser(@Param("q") String q);
+
     @Query("SELECT a FROM ArtistProfile a WHERE a.stageName ILIKE %:q%")
     List<ArtistProfile> searchByStageName(@Param("q") String q);
 }

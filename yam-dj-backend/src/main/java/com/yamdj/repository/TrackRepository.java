@@ -45,6 +45,11 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
     @Query("SELECT COUNT(t) FROM Track t WHERE t.artistId = :artistId AND t.status = 'APPROVED'")
     long countApprovedByArtist(@Param("artistId") UUID artistId);
 
+    /** Comptage GROUPE anti N+1 : 1 seule requete pour tous les artistes. */
+    @Query("SELECT t.artistId AS artistId, COUNT(t) AS cnt FROM Track t "
+            + "WHERE t.artistId IN :artistIds AND t.status = 'APPROVED' GROUP BY t.artistId")
+    java.util.List<Object[]> countApprovedByArtists(@Param("artistIds") java.util.Collection<UUID> artistIds);
+
     @Query("SELECT COALESCE(SUM(t.playCount), 0) FROM Track t WHERE t.artistId = :artistId")
     long sumPlaysByArtist(@Param("artistId") UUID artistId);
 
