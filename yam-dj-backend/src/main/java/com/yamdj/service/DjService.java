@@ -35,19 +35,22 @@ public class DjService {
     private final DjProfileRepository djProfileRepository;
     private final AudioProcessingService audioProcessor;
     private final SupabaseStorageService storage;
+    private final MixtapeStoreService mixtapeStore;
 
     public DjService(MixtapeRepository mixtapeRepository,
                      TrackRepository trackRepository,
                      UserRepository userRepository,
                      DjProfileRepository djProfileRepository,
                      AudioProcessingService audioProcessor,
-                     SupabaseStorageService storage) {
+                     SupabaseStorageService storage,
+                     MixtapeStoreService mixtapeStore) {
         this.mixtapeRepository = mixtapeRepository;
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.djProfileRepository = djProfileRepository;
         this.audioProcessor = audioProcessor;
         this.storage = storage;
+        this.mixtapeStore = mixtapeStore;
     }
 
     private User currentDj() {
@@ -58,6 +61,15 @@ public class DjService {
         }
         return userRepository.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
+    }
+
+    /** Utilisateur courant facultatif (endpoints mixtes public/connecte). */
+    private UUID optionalCurrentUserId() {
+        try {
+            return currentDj().getId();
+        } catch (Exception anonymous) {
+            return null;
+        }
     }
 
     /**
@@ -160,6 +172,7 @@ public class DjService {
                         .map(t -> t.getId().toString())
                         .collect(Collectors.joining(",")))
                 .crossfadeSec(crossfade)
+                .priceXof(mixtapeStore.sanitizePrice(request.priceXof()))
                 .build();
         mixtapeRepository.save(mixtape);
 
@@ -168,7 +181,7 @@ public class DjService {
             djProfileRepository.save(profile);
         });
 
-        return toResponse(mixtape);
+        return toResponse(mixtape, dj.getId());
     }
 
     /** Bibliotheque du studio : pistes approuvees avec BPM/tonalite pour le DJ. */
@@ -187,13 +200,23 @@ public class DjService {
     public List<MixtapeResponse> myMixtapes() {
         User dj = currentDj();
         return mixtapeRepository.findByDjIdOrderByCreatedAtDesc(dj.getId())
-                .stream().map(this::toResponse).collect(Collectors.toList());
+                .stream().map(m -> toResponse(m, dj.getId())).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MixtapeResponse> publicMixtapes(int limit) {
+        UUID viewer = optionalCurrentUserId();
         return mixtapeRepository.findTop20ByOrderByPlayCountDesc().stream()
-                .limit(limit).map(this::toResponse).collect(Collectors.toList());
+                .limit(limit).map(m -> toResponse(m, viewer)).collect(Collectors.toList());
+    }
+
+    /** Mixtapes achetees par le fan connecte (boutique 3.4). */
+    @Transactional(readOnly = true)
+    public List<MixtapeResponse> myPurchasedMixtapes() {
+        User fan = currentDj();
+        return mixtapeStore.myPurchasedMixtapes(fan.getId()).stream()
+                .map(m -> toResponse(m, fan.getId()))
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -211,6 +234,8 @@ public class DjService {
         if (m.getAudioUrl() == null) {
             throw new IllegalArgumentException("Mixtape pas encore genere");
         }
+        // Boutique (3.4) : mixtape payante = DJ proprietaire, ADMIN ou acheteur
+        mixtapeStore.assertAccess(m, optionalCurrentUserId());
         return storage.publicUrl(m.getAudioUrl());
     }
 
@@ -249,14 +274,19 @@ public class DjService {
         });
     }
 
-    private MixtapeResponse toResponse(Mixtape m) {
+    private MixtapeResponse toResponse(Mixtape m, UUID viewerId) {
         String djName = userRepository.findById(m.getDjId())
                 .map(u -> djProfileRepository.findByUserId(u.getId())
                         .map(DjProfile::getDjName).orElse(u.getPseudo()))
                 .orElse("DJ inconnu");
+        boolean paid = m.getPriceXof() != null && m.getPriceXof() > 0;
+        Boolean purchased = paid ? (viewerId != null &&
+                (viewerId.equals(m.getDjId()) || mixtapeStore.hasPurchased(m.getId(), viewerId)))
+                : null;
         return new MixtapeResponse(m.getId(), m.getDjId(), djName, m.getTitle(), m.getCoverUrl(),
                 storage.publicUrl(m.getAudioUrl()), m.getDurationSec(), m.getTrackIds(),
-                m.getCrossfadeSec(), m.getPlayCount(), m.getCreatedAt());
+                m.getCrossfadeSec(), m.getPlayCount(),
+                m.getPriceXof() == null ? 0 : m.getPriceXof(), purchased, m.getCreatedAt());
     }
 
     private String artistNameOf(UUID artistId) {

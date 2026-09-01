@@ -16,4 +16,9 @@ public interface PremiumOrderRepository extends JpaRepository<PremiumOrder, UUID
     Optional<PremiumOrder> findByProviderTxnId(String providerTxnId);
 
     List<PremiumOrder> findTop50ByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    /** Abonnements confirmes d'une periode (cagnotte redevances 3.3). */
+    List<PremiumOrder> findByStatusAndCompletedAtBetween(com.yamdj.entity.enums.TipStatus status,
+                                                         java.time.LocalDateTime from,
+                                                         java.time.LocalDateTime to);
 }

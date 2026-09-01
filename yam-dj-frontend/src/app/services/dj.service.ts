@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../environments/environment';
-import { AutoMixSuggestion, Mixtape, Track, TrackPage } from '../models/models';
+import { AutoMixSuggestion, Mixtape, MixtapePurchaseResponse, Track, TrackPage } from '../models/models';
 
 /**
  * Service DJ : studio, Auto-Mix IA, mixtapes + notifications temps reel.
@@ -30,7 +30,7 @@ export class DjService {
     return this.http.post<AutoMixSuggestion>(`${this.apiUrl}/api/dj/auto-mix`, { trackIds });
   }
 
-  createMixtape(data: { title: string; trackIds: string[]; crossfadeSec: number; autoOrder: boolean }): Observable<Mixtape> {
+  createMixtape(data: { title: string; trackIds: string[]; crossfadeSec: number; autoOrder: boolean; priceXof?: number }): Observable<Mixtape> {
     return this.http.post<Mixtape>(`${this.apiUrl}/api/dj/create-mixtape`, data);
   }
 
@@ -38,8 +38,25 @@ export class DjService {
     return this.http.get<Mixtape[]>(`${this.apiUrl}/api/dj/my-mixtapes`);
   }
 
+  /** Mixtapes payantes achetees par le fan connecte (boutique 3.4). */
+  purchasedMixtapes(): Observable<Mixtape[]> {
+    return this.http.get<Mixtape[]>(`${this.apiUrl}/api/dj/mixtapes/purchased`);
+  }
+
   publicMixtapes(limit = 20): Observable<Mixtape[]> {
     return this.http.get<Mixtape[]>(`${this.apiUrl}/api/mixtapes/public?limit=${limit}`);
+  }
+
+  // ============ BOUTIQUE DE MIXTAPES (Phase 3.4, 70/30) ============
+
+  /** Initiation de l'achat d'une mixtape payante (FedaPay). */
+  purchaseMixtape(mixtapeId: string): Observable<MixtapePurchaseResponse> {
+    return this.http.post<MixtapePurchaseResponse>(`${this.apiUrl}/api/payment/mixtape/${mixtapeId}`, {});
+  }
+
+  /** Verification post-paiement (apres retour FedaPay). */
+  verifyMixtapePurchase(paymentToken: string): Observable<MixtapePurchaseResponse> {
+    return this.http.post<MixtapePurchaseResponse>(`${this.apiUrl}/api/payment/mixtape/verify`, { paymentToken });
   }
 
   mixtapeStreamUrl(mixtapeId: string): Observable<{ url: string }> {

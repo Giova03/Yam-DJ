@@ -1,12 +1,14 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { ContentService } from '../../services/content.service';
 import { AuthService } from '../../services/auth.service';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
 import { WithdrawalService } from '../../services/withdrawal.service';
-import { ArtistStats, TipHistory, Track, WithdrawalRequest } from '../../models/models';
+import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } from '../../models/models';
 
 /**
  * DASHBOARD ARTISTE : solde Orange Money, stats, historique des tips,
@@ -156,6 +158,47 @@ import { ArtistStats, TipHistory, Track, WithdrawalRequest } from '../../models/
             </div>
           }
         </section>
+
+        <!-- 🎵 Redevances d'ecoute (Phase 3.3) -->
+        <section>
+          <h2 class="text-xl font-bold mb-4">🎵 Redevances d'ecoute
+            <span class="text-white/40 text-sm">— cagnotte repartie au prorata chaque mois</span>
+          </h2>
+          @if (royalties().lines.length) {
+            <div class="yam-card p-4 mb-3 flex items-center gap-3 flex-wrap">
+              <div class="flex-1 min-w-[140px]">
+                <p class="text-xs text-white/40">Total cumule</p>
+                <p class="text-2xl font-extrabold text-yam-gold">{{ formatXof(royalties().totalXof) }} F</p>
+              </div>
+              <div class="flex-1 min-w-[140px]">
+                <p class="text-xs text-white/40">Ecoutes remunerees</p>
+                <p class="text-2xl font-extrabold">{{ formatNumber(royalties().totalPlays) }}</p>
+              </div>
+              <div class="flex-1 min-w-[140px]">
+                <p class="text-xs text-white/40">Mois credites</p>
+                <p class="text-2xl font-extrabold">{{ royalties().monthsCount }}</p>
+              </div>
+            </div>
+            <div class="space-y-2">
+              @for (line of royalties().lines; track line.periodMonth) {
+                <div class="yam-card p-4 flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0">🎵</div>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-medium">{{ line.periodMonth }} — {{ formatXof(line.amountXof) }} F</p>
+                    <p class="text-white/40 text-sm">{{ formatNumber(line.plays) }} ecoutes · solde apres : {{ formatXof(line.balanceAfterXof) }} F</p>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="yam-card p-8 text-center text-white/40">
+              <div class="text-4xl mb-2">🎵</div>
+              <p>Aucune redevance creditee pour l'instant.</p>
+              <p class="text-sm mt-1">La cagnotte (abonnements Premium + part boutique de mixtapes)
+              est repartie chaque mois entre les artistes au prorata de leurs ecoutes.</p>
+            </div>
+          }
+        </section>
       </div>
 
       <!-- 💸 Retraits (artiste / admin) -->
@@ -270,6 +313,10 @@ export class DashboardComponent implements OnInit {
   tips = signal<TipHistory[]>([]);
   tracks = signal<Track[]>([]);
   lastNotification = signal<{ amountXof: number } | null>(null);
+  /** Relevements mensuels des redevances d'ecoute (Phase 3.3). */
+  royalties = signal<ArtistRoyalties>({ totalXof: 0, totalPlays: 0, monthsCount: 0, lines: [] });
+  private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
 
   // Gestion de la suppression des pistes (confirmation double clic)
   confirmDeleteId = signal<string | null>(null);
@@ -300,6 +347,14 @@ export class DashboardComponent implements OnInit {
       next: t => this.tips.set(t),
       error: () => {}
     });
+
+    // Redevances d'ecoute (Phase 3.3) — releve mensuel de l'artiste
+    if (this.isArtistOrAdmin()) {
+      this.http.get<ArtistRoyalties>(`${this.apiUrl}/api/artist/me/royalties`).subscribe({
+        next: r => this.royalties.set(r || { totalXof: 0, totalPlays: 0, monthsCount: 0, lines: [] }),
+        error: () => {}
+      });
+    }
 
     // Mes pistes : tous statuts confondus (PENDING / APPROVED / REJECTED)
     if (this.auth.role() === 'ARTIST' || this.auth.role() === 'ADMIN') {

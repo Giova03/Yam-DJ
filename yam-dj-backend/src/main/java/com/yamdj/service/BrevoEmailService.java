@@ -108,6 +108,60 @@ public class BrevoEmailService {
         sendEmail(to, "Ton Premium YAM DJ est actif !", html);
     }
 
+    /** Email de credit des redevances d'ecoute mensuelles (Phase 3.3). */
+    @Async
+    public void sendRoyaltyCreditedEmail(String to, String pseudo, String period,
+                                         long amountXof, long plays, long balance) {
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#FFD166;font-size:28px;margin:0 0 16px">🎵 Redevances creditees</h1>
+                  <p>Salut <b>%s</b>,</p>
+                  <p>Pour le mois de <b>%s</b>, tes <b>%d ecoutes</b> te rapportent
+                  <b style="color:#FFD166">%d FCFA</b> de redevances.</p>
+                  <p>Ton solde retirable est desormais de <b style="color:#22C55E">%d FCFA</b>.</p>
+                  <p style="color:#bbb">Les redevances repartissent la cagnotte de la plateforme
+                  (abonnements Premium + part boutique de mixtapes) au prorata des ecoutes de
+                  chaque artiste. Retrait possible des 5 000 F depuis ton dashboard.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🎧</p>
+                </div>
+                """.formatted(pseudo, period, plays, amountXof, balance);
+        sendEmail(to, "Redevances YAM DJ de " + period + " creditees", html);
+    }
+
+    /** Email de confirmation d'achat d'une mixtape payante (Phase 3.4). */
+    @Async
+    public void sendMixtapePurchasedEmail(String to, String pseudo, String title, int amountXof) {
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#FFD166;font-size:28px;margin:0 0 16px">🎛️ Mixtape debloquee !</h1>
+                  <p>Merci <b>%s</b> pour ton achat !</p>
+                  <p>La mixtape <b style="color:#FFD166">%s</b> (%d FCFA) est desormais
+                  disponible dans ta bibliotheque, a l'ecoute illimitee.</p>
+                  <p style="color:#bbb">70 %% de ton achat vont directement au DJ createur —
+                  tu soutiens la scene avec chaque mixtape.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🎧</p>
+                </div>
+                """.formatted(pseudo, title, amountXof);
+        sendEmail(to, "Ta mixtape YAM DJ est debloquee", html);
+    }
+
+    /** Email de credit d'une vente de mixtape cote DJ (Phase 3.4). */
+    @Async
+    public void sendMixtapeSaleEmail(String to, String djName, String title, int shareXof,
+                                     long balance) {
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#22C55E;font-size:28px;margin:0 0 16px">💰 Mixtape vendue !</h1>
+                  <p>Bravo <b>%s</b> !</p>
+                  <p>Ta mixtape <b style="color:#FFD166">%s</b> vient de trouver un acheteur.
+                  Ta part (70 %%) : <b style="color:#22C55E">%d FCFA</b>.</p>
+                  <p>Solde retirable : <b style="color:#FFD166">%d FCFA</b>.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🎧</p>
+                </div>
+                """.formatted(djName, title, shareXof, balance);
+        sendEmail(to, "Une de tes mixtapes s'est vendue !", html);
+    }
+
     /** Email de validation d'un retrait vers mobile money. */
     @Async
     public void sendWithdrawalApprovedEmail(String to, String artistName, int amountXof,

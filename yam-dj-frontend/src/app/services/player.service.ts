@@ -1,6 +1,11 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { TrackService } from './track.service';
-import { Track } from '../models/models';
+import { AuthService } from './auth.service';
+import { OfflineService } from './offline.service';
+import { Track, AdConfig } from '../models/models';
+import { environment } from '../../environments/environment';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import Hls from 'hls.js';
 
 /**
@@ -16,9 +21,16 @@ import Hls from 'hls.js';
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
   private trackService = inject(TrackService);
+  private auth = inject(AuthService);
+  private offline = inject(OfflineService);
+  private http = inject(HttpClient);
 
   private audio: HTMLAudioElement;
   private hls: Hls | null = null;
+
+  // Jingle sponsorise (Phase 3.5) : element audio dedie, jamais en
+  // travers du stream principal
+  private adAudio: HTMLAudioElement | null = null;
 
   // Contexte Web Audio (effets nightclub)
   private audioCtx: AudioContext | null = null;
@@ -38,9 +50,20 @@ export class PlayerService {
   nightMode = signal<boolean>(false);
   loading = signal<boolean>(false);
 
+  /** Jingle sponsorise en cours de lecture (UI "Publicite"). */
+  adPlaying = signal<boolean>(false);
+  adText = signal<string>('');
+
   quality = computed<'hq' | 'lite'>(() => (this.dataLite() ? 'lite' : 'hq'));
 
   private playCounted = false;
+
+  // Etat pub (Phase 3.5) : charge paresseusement une seule fois
+  private adConfig: AdConfig | null = null;
+  private adChecked = false;
+  private isPremiumUser = false;
+  private tracksSinceAd = 0;
+  private pendingTrackAfterAd: Track | null = null;
 
   constructor() {
     this.audio = new Audio();
@@ -77,6 +100,13 @@ export class PlayerService {
       this.queue.set([track, ...this.queue()]);
     }
     this.playCounted = false;
+
+    // PUB NON INTRUSIVE (3.5) : 1 jingle toutes les N pistes pour les
+    // non-premium, jamais hors ligne ni au milieu d'un morceau.
+    if (this.shouldPlayAd()) {
+      this.playAdJingle(track);
+      return;
+    }
     this.load(track);
   }
 
@@ -85,11 +115,22 @@ export class PlayerService {
     this.loading.set(true);
     this.duration.set(track.durationSec || 0);
 
+    // MODE HORS LIGNE : piste telechargee → le Service Worker sert le
+    // cache (m3u8 + segments Data-Lite) — zero reseau, zero data mobile.
+    if (!this.offline.online() && this.offline.isDownloaded(track.id) && track.audioUrlLq) {
+      this.offlinePlayCounted(track);
+      this.attachSource(track.audioUrlLq);
+      return;
+    }
+
     this.trackService.streamUrl(track.id, this.quality()).subscribe({
       next: (res: { url: string }) => this.attachSource(res.url),
       error: () => {
-        // Fallback direct R2 si l'API stream indisponible
-        const fallback = this.quality() === 'lite' ? track.audioUrlLq : track.audioUrlHq;
+        // Fallback direct R2 si l'API stream indisponible — marche aussi
+        // hors ligne quand la piste est en cache du Service Worker
+        const fallback = this.quality() === 'lite' || !this.offline.online()
+          ? (track.audioUrlLq || track.audioUrlHq)
+          : (track.audioUrlHq || track.audioUrlLq);
         if (fallback) this.attachSource(fallback);
       }
     });
@@ -273,6 +314,88 @@ export class PlayerService {
       this.hls.destroy();
       this.hls = null;
     }
+  }
+
+  // ================= PUB NON INTRUSIVE (Phase 3.5) =================
+
+  /** Chargement paresseux de la config pub + statut premium. */
+  private async ensureAdState(): Promise<void> {
+    if (this.adChecked) return;
+    this.adChecked = true;
+    try {
+      const cfg = await firstValueFrom(
+        this.http.get<AdConfig>(`${environment.apiUrl}/api/ads/config`));
+      this.adConfig = cfg;
+    } catch {
+      this.adConfig = null; // API injoignable (hors ligne) : pas de pub
+    }
+    if (this.auth.isLoggedIn()) {
+      try {
+        const me = await firstValueFrom(this.auth.me());
+        this.isPremiumUser = !!me?.premium;
+      } catch {
+        this.isPremiumUser = false;
+      }
+    }
+  }
+
+  private shouldPlayAd(): boolean {
+    if (!this.offline.online()) return false;        // jamais hors ligne
+    if (!this.adConfig?.enabled) return false;       // feature flag off
+    if (this.isPremiumUser) return false;             // zero pub premium
+    if (this.adPlaying()) return false;               // deja en pub
+    this.tracksSinceAd++;
+    return this.tracksSinceAd >= Math.max(1, this.adConfig.intervalTracks);
+  }
+
+  /** Jingle sponsorise (15 s max) puis enchaine la vraie piste. */
+  private playAdJingle(nextTrack: Track): void {
+    this.ensureAdState().then(() => {
+      const cfg = this.adConfig;
+      if (!cfg?.enabled || this.isPremiumUser || !this.offline.online()) {
+        // Etat finalement incompatible : lecture directe
+        this.load(nextTrack);
+        return;
+      }
+      this.pendingTrackAfterAd = nextTrack;
+      this.adText.set(cfg.text || 'Publicite — passe Premium pour zero pub');
+      this.adPlaying.set(true);
+      this.tracksSinceAd = 0;
+
+      // Pause du stream principal pendant le jingle
+      this.audio.pause();
+
+      this.adAudio = new Audio(cfg.audioUrl);
+      this.adAudio.volume = this.volume();
+      const hardStop = setTimeout(() => this.finishAd(), (cfg.maxDurationSec || 15) * 1000);
+      this.adAudio.onended = () => { clearTimeout(hardStop); this.finishAd(); };
+      this.adAudio.onerror = () => { clearTimeout(hardStop); this.finishAd(); };
+      this.adAudio.play().catch(() => { clearTimeout(hardStop); this.finishAd(); });
+    });
+  }
+
+  private finishAd(): void {
+    if (this.adAudio) {
+      this.adAudio.pause();
+      this.adAudio.src = '';
+      this.adAudio = null;
+    }
+    this.adPlaying.set(false);
+    const next = this.pendingTrackAfterAd;
+    this.pendingTrackAfterAd = null;
+    if (next) this.load(next);
+  }
+
+  /** Passer la pub (bouton UI, tolerated apres 5 s — UX non intrusive). */
+  skipAd(): void {
+    if (this.adPlaying()) this.finishAd();
+  }
+
+  /** Comptage hors ligne : joue en local, comptabilise au retour reseau
+   *  serait ideal ; V2.0 : simple lecture locale silencieuse. */
+  private offlinePlayCounted(track: Track): void {
+    // Statistique volontairement non envoyee hors ligne (economie data)
+    void track;
   }
 
   formatTime(seconds: number): string {

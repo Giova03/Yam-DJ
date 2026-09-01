@@ -194,6 +194,7 @@ import { Mixtape, Track } from '../../models/models';
                   <p class="font-medium truncate">{{ mix.title }}</p>
                   <p class="text-white/40 text-xs truncate">
                     🎧 {{ mix.playCount }} ecoutes · {{ formatDuration(mix.durationSec) }} · {{ formatDate(mix.createdAt) }}
+                    @if (mix.priceXof && mix.priceXof > 0) { · <span class="text-yam-gold">💰 {{ mix.priceXof }} F</span> }
                   </p>
                 </div>
                 <!-- Suppression : 1er clic = armement, 2e clic = confirmation -->
@@ -243,6 +244,17 @@ import { Mixtape, Track } from '../../models/models';
               <input type="checkbox" [(ngModel)]="autoOrder" class="accent-yam-orange w-4 h-4">
               Ordonner avec l'Auto-Mix IA (Camelot + BPM)
             </label>
+            <!-- Boutique (Phase 3.4) : mixtape payante, 70 % pour toi -->
+            <div class="yam-card !bg-yam-surface p-3 mb-4">
+              <label class="text-sm text-white/60 mb-1 block">
+                Prix (FCFA) — <span class="text-yam-gold">laisse 0 pour une mixtape gratuite</span>
+              </label>
+              <input type="number" min="0" max="50000" step="50" [(ngModel)]="mixPriceXof"
+                     placeholder="0" class="yam-input mb-2" inputmode="numeric">
+              @if (mixPriceXof > 0) {
+                <p class="text-xs text-white/50">Ta part : <b class="text-yam-green">{{ djSharePreview() }} F</b> par vente (70 %) — paie les fans par mobile money.</p>
+              }
+            </div>
             @if (creatingMix()) {
               <p class="text-center text-yam-orange text-sm mb-4 animate-pulse">FFmpeg genere ton mix... (ca peut prendre 1-2 min)</p>
             }
@@ -272,6 +284,13 @@ export class DjStudioComponent implements OnInit, OnDestroy {
   mixTitle = 'Mon mix YAM';
   crossfadeSec = 8;
   autoOrder = true;
+  /** Prix de la mixtape en FCFA — 0 = gratuite (boutique Phase 3.4). */
+  mixPriceXof = 0;
+
+  /** Apercu de la part DJ (70 %) pour le prix saisi. */
+  djSharePreview(): number {
+    return Math.floor((this.mixPriceXof || 0) * 70 / 100);
+  }
   creatingMix = signal(false);
   mixUrl = signal<string | null>(null);
 
@@ -537,7 +556,8 @@ export class DjStudioComponent implements OnInit, OnDestroy {
       title: this.mixTitle,
       trackIds: this.selected().map(t => t.id),
       crossfadeSec: this.crossfadeSec,
-      autoOrder: this.autoOrder
+      autoOrder: this.autoOrder,
+      priceXof: this.mixPriceXof || 0
     }).subscribe({
       next: mix => {
         this.creatingMix.set(false);

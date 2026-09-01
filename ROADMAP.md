@@ -104,15 +104,43 @@ utilisateur). Session 2026-09-01 :
 - **Guide utilisateur** (/features) : toutes les fonctionnalités présentées
   avec liens directs
 
+### Phase 2ter — Solution mobile SANS CONNEXION (session 2026-09-01)
+
+**Objectif : écouter YAM DJ sans réseau** — dans le bus, en zone blanche,
+en voyage. Architecture PWA offline (aucun store requis) :
+
+| Couche | Implémentation |
+|---|---|
+| **App shell** | `sw.js` v2 precache index.html/manifest/icônes a l'installation → l'app s'ouvre hors ligne ; chunks JS/CSS vus en ligne caches a la volée (stale-while-revalidate) → chaque page visitée reste disponible |
+| **Pistes téléchargées** | Bouton 📥 sur les cartes → `OfflineService` parse le playlist HLS **Data-Lite 48 kbps**, demande au SW de mettre m3u8 + segments + pochette en **Cache API** (postMessage `CACHE_TRACK`) ; lecture hors ligne **transparente** : le lecteur retombe sur l'URL directe quand l'API est injoignable, le SW sert le cache (cache-first strict sur `yamdj-audio`, jamais de cache surprise = data mobile respectée) |
+| **API publiques** | network-first + repli dernier cache connu (feed, charts, tendances, pages pistes/artistes) → accueil informatif hors ligne |
+| **UI** | Page `/downloads` (catalogue, lecture hors ligne, quota navigateur, purge, guide d'installation PWA Android/iOS), badge 📴 Hors ligne dans la navbar, badge ✅ Hors ligne sur les cartes |
+| **Gating** | Premium Fan : téléchargements **illimités** ; compte gratuit : 3 (découverte) |
+| **Fallback zéro** | Navigation hors ligne sans cache → page HTML « Tu es hors ligne » générée par le SW |
+
+**Pourquoi cette architecture** (vs app native immédiate) :
+1. **Coût zéro** — pas de store, pas de compte développeur, déploiement Vercel
+2. **Même code** que le web — maintenance unique
+3. **Mobile money intact** — FedaPay fonctionne dans le navigateur
+4. **Upgrade path natif** — Phase 4.3 : le même code Angular est wrappable
+   dans Capacitor (APK direct Android + App Store), le stockage offline
+   migre de Cache API vers le système de fichiers natif sans réécriture
+   (OfflineService isolé derrière une interface unique)
+
+Note ID3/MediaSession : la lecture des fichiers locaux du téléphone
+(/local) et le contrôle écran verrouillé sont déjà en place (session
+précédente). Web Push (VAPID) reste actif — il exige une connexion,
+le centre de notifications in-app prend le relais hors ligne.
+
 ### Phase 3 — Monétisation complète (6-8 semaines)
 
 | # | Fonctionnalité | Statut |
 |---|----------------|--------|
 | 3.1 | **Abonnement Fan Premium** | ✅ FAIT — 500 F/30 jours via FedaPay (ordre premium_order, webhook routé tips/premium, renouvellements cumulés, badge ⭐, page /premium + retour /premium/success, email + notification) |
 | 3.2 | **Retraits artistes** | ✅ FAIT (V2.0 validation manuelle) — demande min 5 000 F (opérateur + numéro), file admin (validation double-clic), débit du solde, emails Brevo + notifications, dashboard artiste + page admin |
-| 3.3 | **Redevances d'écoute** | ⏳ À FAIRE — répartition mensuelle au prorata des écoutes |
-| 3.4 | **Boutique de mixtapes** | ⏳ À FAIRE — mixtape payante, revenus 70/30 |
-| 3.5 | **PUB non intrusive** | ⏳ À FAIRE — audio sponsorisé 15 s pour les non-premium (base Premium déjà en place) |
+| 3.3 | **Redevances d'écoute** | ✅ FAIT — cagnotte mensuelle (Premium 100 % + part 30 % boutique) répartie au prorata des écoutes (job @Scheduled 1er du mois + déclenchement admin), tables royalty_pool/royalty_distribution, crédit du solde artiste + email + notification, relevé GET /api/artist/me/royalties, vue admin + POST /api/admin/royalties/run |
+| 3.4 | **Boutique de mixtapes** | ✅ FAIT — prix fixé par le DJ (100-50 000 F), achat FedaPay (webhook routé tips→premium→mixtape), 70 % crédités au DJ, 30 % cagnotte redevances, verrou 402 sur /stream (propriétaire/acheteur/admin uniquement), page achat + badge prix |
+| 3.5 | **PUB non intrusive** | ✅ FAIT — jingle sponsorisé ≤ 15 s entre pistes (jamais au milieu, jamais hors ligne, jamais Premium), GET /api/ads/config public (feature flag yamdj.ads.*), bannière lecteur avec bouton Passer + CTA Premium, asset jingle remplaçable par un vrai sponsor |
 
 ### Phase 4 — Studio DJ pro & mobile (8-12 semaines)
 

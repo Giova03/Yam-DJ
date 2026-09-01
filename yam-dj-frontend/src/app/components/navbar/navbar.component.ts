@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { PlayerService } from '../../services/player.service';
+import { OfflineService } from '../../services/offline.service';
 import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
 
 @Component({
@@ -23,6 +24,9 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
         </a>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
+          @if (!offline.online()) {
+            <span class="yam-badge text-yam-green border border-yam-green/40" title="Mode hors ligne — tes telechargements fonctionnent">📴 Hors ligne</span>
+          }
           @if (player.dataLite()) {
             <span class="yam-badge text-yam-gold border border-yam-gold/30 hidden sm:inline" title="Mode economie de donnees actif">
               📱 Data-Lite
@@ -40,6 +44,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
             }
 
             <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">📊 Charts</a>
+            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline" title="Mes telechargements hors ligne">📥{{ offline.count() > 0 ? ' ' + offline.count() : '' }}</a>
             <a routerLink="/local" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Ma Musique</a>
             @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
               <a routerLink="/upload" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Upload</a>
@@ -63,6 +68,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
             </div>
           } @else {
             <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">📊 Charts</a>
+            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline" title="Mes telechargements hors ligne">📥{{ offline.count() > 0 ? ' ' + offline.count() : '' }}</a>
             <a routerLink="/local" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Ma Musique</a>
             <a routerLink="/features" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Guide</a>
             <a routerLink="/premium" routerLinkActive="text-yam-orange" class="yam-badge text-yam-gold border border-yam-gold/40 hover:bg-yam-gold/10 transition">⭐ Premium</a>
@@ -74,6 +80,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       <!-- Bandeau secondaire : navigation decouverte (mobile inclus) -->
       <div class="max-w-7xl mx-auto px-4 h-10 flex items-center gap-3 overflow-x-auto scrollbar-hide border-t border-white/5 sm:hidden">
         <a routerLink="/charts" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📊 Charts</a>
+        <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📥 Telechargements</a>
         <a routerLink="/local" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Ma Musique</a>
         <a routerLink="/features" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Guide</a>
       </div>
@@ -84,6 +91,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
 export class NavbarComponent {
   auth = inject(AuthService);
   player = inject(PlayerService);
+  offline = inject(OfflineService);
   private router = inject(Router);
   premium = signal<boolean>(false);
 

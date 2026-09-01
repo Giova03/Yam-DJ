@@ -8,6 +8,9 @@ export interface User {
   country: string;
   avatarUrl?: string;
   emailVerified: boolean;
+  /** Premium Fan actif jusqu'a (ISO) — null/expire = compte standard. */
+  premiumUntil?: string;
+  premium?: boolean;
 }
 
 export interface Track {
@@ -51,6 +54,10 @@ export interface Mixtape {
   trackIds: string;
   crossfadeSec: number;
   playCount: number;
+  /** Prix FCFA (0 = gratuite) — boutique Phase 3.4. */
+  priceXof?: number;
+  /** Deja achetee par l'utilisateur courant (null si gratuite). */
+  purchased?: boolean | null;
   createdAt: string;
 }
 
@@ -183,4 +190,66 @@ export interface WithdrawalRequest {
   pseudo?: string;
   createdAt: string;
   processedAt?: string;
+}
+
+/** Ligne mensuelle de redevances creditee a un artiste (Phase 3.3). */
+export interface RoyaltyLine {
+  periodMonth: string;
+  plays: number;
+  amountXof: number;
+  balanceAfterXof: number;
+}
+
+export interface ArtistRoyalties {
+  totalXof: number;
+  totalPlays: number;
+  monthsCount: number;
+  lines: RoyaltyLine[];
+}
+
+/** Pool mensuel des redevances (vue admin). */
+export interface RoyaltyPool {
+  id: string;
+  periodMonth: string;
+  poolAmountXof: number;
+  premiumShareXof: number;
+  mixtapeShareXof: number;
+  totalPlays: number;
+  artistCount: number;
+  status: string;
+  distributedAt?: string;
+}
+
+/** Reponse d'initiation d'achat de mixtape (boutique 3.4). */
+export interface MixtapePurchaseResponse {
+  purchaseId: string;
+  mixtapeId: string;
+  mixtapeTitle: string;
+  paymentToken: string;
+  paymentUrl?: string;
+  amountXof: number;
+  djShareXof: number;
+  status: string;
+}
+
+/** Configuration de la pub non intrusive (Phase 3.5). */
+export interface AdConfig {
+  enabled: boolean;
+  intervalTracks: number;
+  maxDurationSec: number;
+  text: string;
+  audioUrl: string;
+}
+
+/** Piste telechargee pour l'ecoute hors ligne (cache du navigateur). */
+export interface DownloadedTrack {
+  id: string;
+  title: string;
+  artistName: string;
+  coverUrl?: string;
+  audioUrlLq?: string;
+  audioUrlHq?: string;
+  durationSec: number;
+  downloadedAt: string;
+  sizeBytes?: number;
 }

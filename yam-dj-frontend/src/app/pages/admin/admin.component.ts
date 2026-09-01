@@ -1,8 +1,10 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { ContentService } from '../../services/content.service';
 import { WithdrawalService } from '../../services/withdrawal.service';
-import { Track, WithdrawalRequest } from '../../models/models';
+import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
 
 /** Moderation admin : validation des pistes + demandes de retrait artistes. */
 @Component({
@@ -128,15 +130,61 @@ import { Track, WithdrawalRequest } from '../../models/models';
           </div>
         }
       </section>
+
+      <!-- 🎵 Redevances d'ecoute (Phase 3.3) : cagnottes mensuelles -->
+      <section class="mt-12">
+        <h2 class="text-xl font-bold mb-4">🎵 Redevances d'ecoute
+          <span class="text-white/40 text-sm">— cagnotte repartie au prorata des ecoutes</span>
+        </h2>
+        <div class="yam-card p-4 mb-4 flex items-center gap-3 flex-wrap">
+          <button (click)="runRoyalties()" [disabled]="royaltiesBusy()"
+                  class="yam-btn-primary !py-2 text-sm">
+            {{ royaltiesBusy() ? 'Repartition en cours...' : '▶ Repartir la cagnotte du mois precedent' }}
+          </button>
+          @if (royaltiesMessage(); as msg) {
+            <p class="text-sm" [class]="royaltiesOk() ? 'text-yam-green' : 'text-red-400'">{{ msg }}</p>
+          }
+        </div>
+        @if (royaltyPools().length) {
+          <div class="space-y-2">
+            @for (pool of royaltyPools(); track pool.id) {
+              <div class="yam-card p-4 flex items-center gap-3 flex-wrap">
+                <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0">🎵</div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium">{{ pool.periodMonth }} — {{ formatXof(pool.poolAmountXof) }} F repartis</p>
+                  <p class="text-white/40 text-sm">
+                    {{ pool.artistCount }} artistes · {{ formatNumber(pool.totalPlays) }} ecoutes ·
+                    Premium {{ formatXof(pool.premiumShareXof) }} F + Boutique {{ formatXof(pool.mixtapeShareXof) }} F
+                  </p>
+                </div>
+                <span class="yam-badge text-yam-green border border-yam-green/40">{{ pool.status }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="yam-card p-8 text-center text-white/40">
+            <div class="text-4xl mb-2">🎵</div>
+            Aucune repartition encore effectuee. Lance la premiere pour crediter les artistes.
+          </div>
+        }
+      </section>
     </div>
   `
 })
 export class AdminComponent implements OnInit {
   private contentService = inject(ContentService);
   private withdrawalService = inject(WithdrawalService);
+  private http = inject(HttpClient);
+  private apiUrl = environment.apiUrl;
 
   tracks = signal<Track[]>([]);
   pending = signal<number>(0);
+
+  // ===== Redevances d'ecoute (Phase 3.3) =====
+  royaltyPools = signal<RoyaltyPool[]>([]);
+  royaltiesBusy = signal(false);
+  royaltiesMessage = signal<string | null>(null);
+  royaltiesOk = signal(true);
 
   // ===== Demandes de retrait =====
   withdrawals = signal<WithdrawalRequest[]>([]);
@@ -158,6 +206,39 @@ export class AdminComponent implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadWithdrawals();
+    this.loadRoyaltyPools();
+  }
+
+  // ===== Redevances d'ecoute (Phase 3.3) =====
+
+  loadRoyaltyPools(): void {
+    this.http.get<RoyaltyPool[]>(`${this.apiUrl}/api/admin/royalties`).subscribe({
+      next: pools => this.royaltyPools.set(pools || []),
+      error: () => this.royaltyPools.set([])
+    });
+  }
+
+  runRoyalties(): void {
+    this.royaltiesBusy.set(true);
+    this.royaltiesMessage.set(null);
+    this.http.post<any>(`${this.apiUrl}/api/admin/royalties/run`, {}).subscribe({
+      next: res => {
+        this.royaltiesBusy.set(false);
+        this.royaltiesOk.set(true);
+        this.royaltiesMessage.set(
+          `Cagnotte ${res.period} : ${this.formatXof(res.poolAmountXof)} F repartis entre ${res.artistCount} artistes (${res.totalPlays} ecoutes).`);
+        this.loadRoyaltyPools();
+      },
+      error: err => {
+        this.royaltiesBusy.set(false);
+        this.royaltiesOk.set(false);
+        this.royaltiesMessage.set(err?.error?.message || 'Repartition impossible pour le moment.');
+      }
+    });
+  }
+
+  formatNumber(n: number): string {
+    return (n || 0).toLocaleString('fr-FR');
   }
 
   load(): void {

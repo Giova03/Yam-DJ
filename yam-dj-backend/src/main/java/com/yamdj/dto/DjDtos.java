@@ -13,7 +13,9 @@ public final class DjDtos {
             String title,
             java.util.List<UUID> trackIds,
             int crossfadeSec,
-            boolean autoOrder
+            boolean autoOrder,
+            /** Prix FCFA (0/null = gratuite) — boutique Phase 3.4. */
+            Integer priceXof
     ) {}
 
     public record MixtapeResponse(
@@ -27,6 +29,9 @@ public final class DjDtos {
             String trackIds,
             int crossfadeSec,
             long playCount,
+            Integer priceXof,
+            /** Deja achetee par l'utilisateur courant (true si payante+achetee, gratuite= owners). */
+            Boolean purchased,
             java.time.LocalDateTime createdAt
     ) {}
 

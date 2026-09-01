@@ -48,6 +48,14 @@ public class Mixtape {
     @Builder.Default
     private long playCount = 0;
 
+    /**
+     * Prix en FCFA (Phase 3.4 — boutique de mixtapes). Null/0 = gratuite.
+     * 70 % au DJ, 30 % a la plateforme (cagnotte redevances).
+     */
+    @Column(name = "price_xof")
+    @Builder.Default
+    private Integer priceXof = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

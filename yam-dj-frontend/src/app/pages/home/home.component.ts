@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
@@ -102,8 +102,24 @@ import { Track, Mixtape } from '../../models/models';
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold truncate">{{ mix.title }}</p>
                   <p class="text-white/50 text-sm truncate">par {{ mix.djName }} · {{ mix.playCount }} ecoutes</p>
+                  @if (mix.priceXof && mix.priceXof > 0) {
+                    <p class="text-xs mt-0.5">
+                      @if (mix.purchased) {
+                        <span class="text-yam-green font-semibold">✅ Achetee — tienne a vie</span>
+                      } @else {
+                        <span class="text-yam-gold font-semibold">💰 {{ formatPrice(mix.priceXof) }} — 70 % au DJ</span>
+                      }
+                    </p>
+                  }
                 </div>
-                <button (click)="playMixtape(mix)" class="w-10 h-10 rounded-full bg-yam-orange text-white flex items-center justify-center hover:scale-105 transition shrink-0">▶</button>
+                @if (mix.priceXof && mix.priceXof > 0 && !mix.purchased) {
+                  <button (click)="buyMixtape(mix)" [disabled]="buyingId() === mix.id"
+                          class="yam-btn-primary !px-4 !py-2 text-sm shrink-0" title="Debloquer cette mixtape (paiement mobile money)">
+                    {{ buyingId() === mix.id ? '...' : 'Acheter' }}
+                  </button>
+                } @else {
+                  <button (click)="playMixtape(mix)" class="w-10 h-10 rounded-full bg-yam-orange text-white flex items-center justify-center hover:scale-105 transition shrink-0">▶</button>
+                }
               </div>
             }
           </div>
@@ -132,6 +148,9 @@ export class HomeComponent implements OnInit {
 
   tipModalVisible = signal(false);
   tipArtist = signal<Track | null>(null);
+  /** Mixtape en cours d'achat (boutique 3.4). */
+  buyingId = signal<string | null>(null);
+  private router = inject(Router);
 
   username(): string {
     return this.auth.currentUser()?.pseudo || 'a toi';
@@ -179,7 +198,37 @@ export class HomeComponent implements OnInit {
         const audio = new Audio(res.url);
         audio.play().catch(() => {});
       },
-      error: () => {}
+      error: (err) => {
+        // Mixtape payante non achetee (402) → proposer l'achat
+        if (err?.status === 402) {
+          this.buyMixtape(mix);
+        }
+      }
     });
+  }
+
+  /** Boutique (3.4) : initiation de l'achat → page FedaPay mobile money. */
+  buyMixtape(mix: Mixtape): void {
+    if (!this.auth.isLoggedIn()) {
+      this.router.navigate(['/login']);
+      return;
+    }
+    this.buyingId.set(mix.id);
+    this.djService.purchaseMixtape(mix.id).subscribe({
+      next: res => {
+        this.buyingId.set(null);
+        if (res.paymentUrl) {
+          window.open(res.paymentUrl, '_blank', 'noopener');
+        }
+      },
+      error: err => {
+        this.buyingId.set(null);
+        alert(err?.error?.message || 'Achat impossible pour le moment.');
+      }
+    });
+  }
+
+  formatPrice(xof: number): string {
+    return new Intl.NumberFormat('fr-FR').format(xof) + ' F';
   }
 }

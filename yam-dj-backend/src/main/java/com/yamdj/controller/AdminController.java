@@ -1,5 +1,6 @@
 package com.yamdj.controller;
 
+import com.yamdj.dto.RoyaltyDtos;
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.TrackResponse;
 import com.yamdj.dto.WithdrawalDtos.RejectRequest;
@@ -10,6 +11,7 @@ import com.yamdj.repository.TrackRepository;
 import com.yamdj.repository.UserFollowRepository;
 import com.yamdj.service.BrevoEmailService;
 import com.yamdj.service.NotificationService;
+import com.yamdj.service.RoyaltyService;
 import com.yamdj.service.TrackService;
 import com.yamdj.service.UserRepositoryHolder;
 import com.yamdj.service.WithdrawalService;
@@ -38,6 +40,7 @@ public class AdminController {
     private final WithdrawalService withdrawalService;
     private final NotificationService notificationService;
     private final UserFollowRepository followRepository;
+    private final RoyaltyService royaltyService;
 
     public AdminController(TrackRepository trackRepository,
                            TrackService trackService,
@@ -45,7 +48,8 @@ public class AdminController {
                            UserRepositoryHolder userHolder,
                            WithdrawalService withdrawalService,
                            NotificationService notificationService,
-                           UserFollowRepository followRepository) {
+                           UserFollowRepository followRepository,
+                           RoyaltyService royaltyService) {
         this.trackRepository = trackRepository;
         this.trackService = trackService;
         this.emailService = emailService;
@@ -53,6 +57,7 @@ public class AdminController {
         this.withdrawalService = withdrawalService;
         this.notificationService = notificationService;
         this.followRepository = followRepository;
+        this.royaltyService = royaltyService;
     }
 
     /** File de moderation : pistes en attente. */
@@ -138,5 +143,35 @@ public class AdminController {
             @PathVariable UUID id,
             @RequestBody(required = false) RejectRequest body) {
         return ResponseEntity.ok(withdrawalService.reject(id, body == null ? null : body.note()));
+    }
+
+    // ============ REDEVANCES D'ECOUTE (Phase 3.3) ============
+
+    /** Historique des pools mensuels repartis. */
+    @GetMapping("/royalties")
+    public ResponseEntity<List<RoyaltyDtos.PoolSummary>> royaltyPools() {
+        return ResponseEntity.ok(royaltyService.allPools());
+    }
+
+    /** Declenche manuellement la repartition d'un mois (defaut : mois precedent). */
+    @PostMapping("/royalties/run")
+    public ResponseEntity<Map<String, Object>> runRoyalties(
+            @RequestBody(required = false) Map<String, String> body) {
+        String period = body == null ? null : body.get("period");
+        java.time.YearMonth month;
+        try {
+            month = (period == null || period.isBlank())
+                    ? royaltyService.defaultPeriod()
+                    : java.time.YearMonth.parse(period);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Periode invalide, format attendu : yyyy-MM");
+        }
+        var pool = royaltyService.runDistribution(month);
+        return ResponseEntity.ok(Map.of(
+                "period", pool.getPeriodMonth(),
+                "poolAmountXof", pool.getPoolAmountXof(),
+                "artistCount", pool.getArtistCount(),
+                "totalPlays", pool.getTotalPlays(),
+                "status", pool.getStatus()));
     }
 }

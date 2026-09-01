@@ -1,17 +1,29 @@
 import { Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { PlayerService } from '../../services/player.service';
 
 /**
  * BARRE DE LECTURE GLOBALE (bas d'ecran, style Spotify).
  * Play/Pause/Next/Prev + progression + volume + toggles
- * Data-Lite / Nightclub + download.
+ * Data-Lite / Nightclub + banniere pub non intrusive (Phase 3.5).
  */
 @Component({
   selector: 'yam-audio-player',
   standalone: true,
+  imports: [RouterLink],
   template: `
     @if (player.currentTrack(); as track) {
       <div class="fixed bottom-0 left-0 right-0 z-50 bg-yam-surface/95 backdrop-blur-md border-t border-white/10">
+        <!-- Banniere publicite non intrusive (jamais pour les Premium) -->
+        @if (player.adPlaying()) {
+          <div class="bg-yam-gold/15 border-b border-yam-gold/30 px-4 py-1.5 flex items-center justify-between gap-3 text-xs">
+            <span class="text-yam-gold truncate">📣 {{ player.adText() }}</span>
+            <div class="flex items-center gap-3 shrink-0">
+              <a routerLink="/premium" class="text-yam-gold font-semibold hover:underline">Passe Premium</a>
+              <button (click)="player.skipAd()" class="text-white/60 hover:text-white font-semibold" title="Passer la pub">Passer ⏭</button>
+            </div>
+          </div>
+        }
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
 
           <!-- Infos piste -->

@@ -54,4 +54,16 @@ public final class PaymentDtos {
             int periodDays,
             String status
     ) {}
+
+    /** Achat d'une mixtape payante (boutique 3.4, 70/30). */
+    public record MixtapePurchaseResponse(
+            UUID purchaseId,
+            UUID mixtapeId,
+            String mixtapeTitle,
+            String paymentToken,
+            String paymentUrl,
+            int amountXof,
+            int djShareXof,
+            String status
+    ) {}
 }

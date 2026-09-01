@@ -103,6 +103,13 @@ export class FeaturesComponent {
           linkLabel: 'Ouvrir Ma Musique'
         },
         {
+          emoji: '📥',
+          title: 'Ecoute hors ligne (sans connexion)',
+          desc: 'Telecharge tes pistes preferees en Data-Lite : elles restent jouables sans reseau, dans le bus ou en zone blanche. Installe l\'app sur ton ecran d\'accueil (PWA) — Premium : telechargements illimites.',
+          link: '/downloads',
+          linkLabel: 'Mes telechargements'
+        },
+        {
           emoji: '📊',
           title: 'Charts hebdomadaires',
           desc: 'Le top des pistes les plus ecoutees de la semaine, tous pays d\'Afrique de l\'Ouest confondus ou pays par pays.',
@@ -192,6 +199,22 @@ export class FeaturesComponent {
           link: '/dashboard',
           linkLabel: 'Voir mon solde',
           note: 'Roles ARTIST / ADMIN'
+        },
+        {
+          emoji: '🎵',
+          title: 'Redevances d\'ecoute',
+          desc: 'Chaque mois, la cagnotte de la plateforme (abonnements Premium + part boutique de mixtapes) est repartie entre les artistes au prorata de leurs ecoutes. Transparence totale dans ton dashboard.',
+          link: '/dashboard',
+          linkLabel: 'Mes redevances',
+          note: 'Roles ARTIST / ADMIN'
+        },
+        {
+          emoji: '🎛️',
+          title: 'Boutique de mixtapes',
+          desc: 'Les DJs fixent le prix de leurs mixtapes : les fans debloquent a vie par mobile money et 70 % de chaque vente va direct au createur.',
+          link: '/dj-studio',
+          linkLabel: 'Creer une mixtape payante',
+          note: 'Role DJ'
         },
         {
           emoji: '❤️',

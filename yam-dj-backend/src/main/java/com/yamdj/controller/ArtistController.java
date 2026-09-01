@@ -2,8 +2,10 @@ package com.yamdj.controller;
 
 import com.yamdj.dto.PaymentDtos.ArtistStatsResponse;
 import com.yamdj.dto.PaymentDtos.TipHistoryResponse;
+import com.yamdj.dto.RoyaltyDtos;
 import com.yamdj.dto.WithdrawalDtos.WithdrawalCreateRequest;
 import com.yamdj.dto.WithdrawalDtos.WithdrawalResponse;
+import com.yamdj.service.RoyaltyService;
 import com.yamdj.service.TipService;
 import com.yamdj.service.TrackService;
 import com.yamdj.service.WithdrawalService;
@@ -16,7 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Espace artiste : statistiques, historique des tips, retraits mobile money.
+ * Espace artiste : statistiques, historique des tips, retraits mobile money,
+ * releve des redevances d'ecoute.
  */
 @RestController
 @RequestMapping("/api/artist")
@@ -25,13 +28,16 @@ public class ArtistController {
     private final TipService tipService;
     private final TrackService trackService;
     private final WithdrawalService withdrawalService;
+    private final RoyaltyService royaltyService;
 
     public ArtistController(TipService tipService,
                             TrackService trackService,
-                            WithdrawalService withdrawalService) {
+                            WithdrawalService withdrawalService,
+                            RoyaltyService royaltyService) {
         this.tipService = tipService;
         this.trackService = trackService;
         this.withdrawalService = withdrawalService;
+        this.royaltyService = royaltyService;
     }
 
     @GetMapping("/me/stats")
@@ -50,6 +56,15 @@ public class ArtistController {
     public ResponseEntity<?> myTracks() {
         UUID artistId = trackService.currentUser().getId();
         return ResponseEntity.ok(Map.of("tracks", trackService.byArtist(artistId)));
+    }
+
+    // ============ REDEVANCES D'ECOUTE (Phase 3.3) ============
+
+    /** Releve mensuel des redevances creditees a l'artiste connecte. */
+    @GetMapping("/me/royalties")
+    public ResponseEntity<RoyaltyDtos.ArtistRoyalties> myRoyalties() {
+        UUID artistId = trackService.currentUser().getId();
+        return ResponseEntity.ok(royaltyService.artistStatement(artistId));
     }
 
     // ==================== RETRAITS (Phase 3.2) ====================

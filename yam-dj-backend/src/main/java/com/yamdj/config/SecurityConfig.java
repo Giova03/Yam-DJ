@@ -77,6 +77,8 @@ public class SecurityConfig {
                 // Charts hebdo + sitemap : publics (SEO, partage)
                 .requestMatchers(HttpMethod.GET, "/api/charts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/seo/**").permitAll()
+                // Config pub (Phase 3.5) : publique, le lecteur l'applique
+                .requestMatchers(HttpMethod.GET, "/api/ads/config").permitAll()
                 // Cle publique VAPID seule : le reste de /api/notifications
                 // exige un JWT (anyRequest authenticated)
                 .requestMatchers(HttpMethod.GET, "/api/notifications/vapid-key").permitAll()

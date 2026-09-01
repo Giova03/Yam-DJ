@@ -17,6 +17,7 @@ export const routes: Routes = [
   { path: 'admin', canActivate: [authGuard], loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent) },
   { path: 'tip/success', loadComponent: () => import('./pages/tip-success/tip-success.component').then(m => m.TipSuccessComponent) },
   { path: 'local', loadComponent: () => import('./pages/local/local.component').then(m => m.LocalComponent) },
+  { path: 'downloads', loadComponent: () => import('./pages/downloads/downloads.component').then(m => m.DownloadsComponent) },
   { path: 'charts', loadComponent: () => import('./pages/charts/charts.component').then(m => m.ChartsComponent) },
   { path: 'features', loadComponent: () => import('./pages/features/features.component').then(m => m.FeaturesComponent) },
   { path: 'premium', loadComponent: () => import('./pages/premium/premium.component').then(m => m.PremiumComponent) },

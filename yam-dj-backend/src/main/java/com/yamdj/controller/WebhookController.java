@@ -33,10 +33,14 @@ public class WebhookController {
 
     private final TipService tipService;
     private final PremiumService premiumService;
+    private final com.yamdj.service.MixtapeStoreService mixtapeStoreService;
 
-    public WebhookController(TipService tipService, PremiumService premiumService) {
+    public WebhookController(TipService tipService,
+                             PremiumService premiumService,
+                             com.yamdj.service.MixtapeStoreService mixtapeStoreService) {
         this.tipService = tipService;
         this.premiumService = premiumService;
+        this.mixtapeStoreService = mixtapeStoreService;
     }
 
     @PostMapping("/fedapay")
@@ -76,13 +80,21 @@ public class WebhookController {
                         "transaction", String.valueOf(txnId),
                         "status", premium.status()));
             } catch (Exception premiumNotFound) {
-                // Paiement inconnu chez nous : 200 quand meme pour eviter
-                // les retries infinis de FedaPay
-                log.warn("Webhook FedaPay : paiement introuvable pour la transaction {} : {}",
-                        txnId, premiumNotFound.getMessage());
-                return ResponseEntity.ok(Map.of(
-                        "transaction", String.valueOf(txnId),
-                        "status", "UNKNOWN"));
+                // 3. Achat de mixtape payante (boutique 3.4, 70/30)
+                try {
+                    var purchase = mixtapeStoreService.confirmByTransaction(txnId);
+                    return ResponseEntity.ok(Map.of(
+                            "transaction", String.valueOf(txnId),
+                            "status", purchase.status()));
+                } catch (Exception purchaseNotFound) {
+                    // Paiement inconnu chez nous : 200 quand meme pour eviter
+                    // les retries infinis de FedaPay
+                    log.warn("Webhook FedaPay : paiement introuvable pour la transaction {} : {}",
+                            txnId, purchaseNotFound.getMessage());
+                    return ResponseEntity.ok(Map.of(
+                            "transaction", String.valueOf(txnId),
+                            "status", "UNKNOWN"));
+                }
             }
         }
     }

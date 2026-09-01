@@ -52,6 +52,12 @@ public class DjController {
         return ResponseEntity.ok(djService.myMixtapes());
     }
 
+    /** Bibliotheque du fan : mixtapes payantes achetees (boutique 3.4). */
+    @GetMapping("/mixtapes/purchased")
+    public ResponseEntity<List<MixtapeResponse>> myPurchasedMixtapes() {
+        return ResponseEntity.ok(djService.myPurchasedMixtapes());
+    }
+
     @GetMapping("/mixtapes/{id}/stream")
     public ResponseEntity<Map<String, String>> streamMixtape(@PathVariable UUID id) {
         return ResponseEntity.ok(Map.of("url", djService.mixtapeStreamUrl(id)));

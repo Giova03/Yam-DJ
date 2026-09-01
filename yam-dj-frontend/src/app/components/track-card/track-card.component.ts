@@ -2,6 +2,7 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
 import { ChartsService } from '../../services/charts.service';
+import { OfflineService } from '../../services/offline.service';
 import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist.component';
 import { ShareModalComponent } from '../share-modal/share-modal.component';
 import { CommentsComponent } from '../comments/comments.component';
@@ -49,10 +50,17 @@ import { Track } from '../../models/models';
           <button (click)="openShare(); $event.stopPropagation()" class="hover:text-white transition" title="Partager la piste">🔗</button>
           <button (click)="openComments(); $event.stopPropagation()" class="hover:text-yam-orange transition" title="Commentaires">💬</button>
           <button (click)="tip.emit(track()); $event.stopPropagation()" class="hover:text-yam-gold transition" title="Soutenir l'artiste">💰</button>
+          <button (click)="toggleDownload(); $event.stopPropagation()"
+                  class="transition"
+                  [class]="downloadState() === 'done' ? 'text-yam-green' : (downloadState() === 'loading' ? 'text-yam-gold animate-pulse' : 'hover:text-white')"
+                  [title]="downloadTitle()">{{ downloadIcon() }}</button>
           <span class="flex items-center gap-1">▶ {{ formatPlays(track().playCount) }}</span>
         </div>
       </div>
     </div>
+    @if (downloadError(); as err) {
+      <p class="text-yam-gold text-xs mt-1">{{ err }}</p>
+    }
     <yam-add-to-playlist [visible]="playlistOpen()" [track]="track()" (close)="playlistOpen.set(false)" />
     <yam-share-modal [visible]="shareOpen()" [track]="track()" (close)="shareOpen.set(false)" />
 
@@ -82,15 +90,57 @@ export class TrackCardComponent {
   player = inject(PlayerService);
   auth = inject(AuthService);
   charts = inject(ChartsService);
+  offline = inject(OfflineService);
   play = output<Track>();
   tip = output<Track>();
   playlistOpen = signal<boolean>(false);
   shareOpen = signal<boolean>(false);
   commentsOpen = signal<boolean>(false);
+  downloadError = signal<string | null>(null);
 
   constructor() {
     // Charge le top 10 hebdo une seule fois (badge des cartes, partage entre instances)
     this.charts.ensureTop10Loaded();
+  }
+
+  // ============ TELECHARGEMENT HORS LIGNE ============
+
+  downloadState(): 'none' | 'loading' | 'done' {
+    if (this.offline.isDownloaded(this.track().id)) return 'done';
+    if (this.offline.isDownloading(this.track().id)) return 'loading';
+    return 'none';
+  }
+
+  downloadIcon(): string {
+    const s = this.downloadState();
+    return s === 'done' ? '✅' : s === 'loading' ? '⬇' : '📥';
+  }
+
+  downloadTitle(): string {
+    const s = this.downloadState();
+    if (s === 'done') return 'Telechargee hors ligne — clic pour supprimer';
+    if (s === 'loading') return 'Telechargement Data-Lite en cours...';
+    return 'Telecharger pour ecoute hors ligne (Data-Lite)';
+  }
+
+  async toggleDownload(): Promise<void> {
+    const t = this.track();
+    if (this.downloadState() === 'done') {
+      await this.offline.removeDownload(t.id);
+      return;
+    }
+    if (this.downloadState() === 'loading') return;
+    if (!navigator.onLine) {
+      this.downloadError.set('Connecte-toi a Internet pour telecharger — ensuite la piste restera disponible hors ligne.');
+      setTimeout(() => this.downloadError.set(null), 4000);
+      return;
+    }
+    const premium = !!this.auth.currentUser()?.premium;
+    const res = await this.offline.downloadTrack(t, premium);
+    if (!res.ok && res.error && res.error !== 'deja telecharge') {
+      this.downloadError.set(res.error);
+      setTimeout(() => this.downloadError.set(null), 4000);
+    }
   }
 
   /** Rang Top 10 de la semaine (null si hors chart). */

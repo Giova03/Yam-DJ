@@ -241,6 +241,54 @@ CREATE TABLE IF NOT EXISTS withdrawal_request (
 CREATE INDEX IF NOT EXISTS idx_withdrawal_user ON withdrawal_request(user_id);
 CREATE INDEX IF NOT EXISTS idx_withdrawal_status ON withdrawal_request(status);
 
+-- ================ REDEVANCES D'ECOUTE (Phase 3.3) ==================
+CREATE TABLE IF NOT EXISTS royalty_pool (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    period_month     VARCHAR(7) NOT NULL UNIQUE,
+    pool_amount_xof  BIGINT NOT NULL DEFAULT 0,
+    premium_share_xof BIGINT NOT NULL DEFAULT 0,
+    mixtape_share_xof BIGINT NOT NULL DEFAULT 0,
+    total_plays      BIGINT NOT NULL DEFAULT 0,
+    artist_count     INTEGER NOT NULL DEFAULT 0,
+    status           VARCHAR(20) NOT NULL DEFAULT 'DISTRIBUTED',
+    distributed_at   TIMESTAMP,
+    created_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS royalty_distribution (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pool_id           UUID NOT NULL REFERENCES royalty_pool(id) ON DELETE CASCADE,
+    period_month      VARCHAR(7) NOT NULL,
+    artist_id         UUID NOT NULL REFERENCES app_user(id),
+    plays             BIGINT NOT NULL DEFAULT 0,
+    amount_xof        BIGINT NOT NULL DEFAULT 0,
+    balance_after_xof BIGINT NOT NULL DEFAULT 0,
+    created_at        TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_royalty_dist_artist ON royalty_distribution(artist_id, period_month DESC);
+
+-- ================ BOUTIQUE DE MIXTAPES (Phase 3.4) =================
+-- Prix des mixtapes (0/null = gratuite) + achats 70/30
+ALTER TABLE mixtape ADD COLUMN IF NOT EXISTS price_xof INTEGER DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS mixtape_purchase (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mixtape_id        UUID NOT NULL REFERENCES mixtape(id) ON DELETE CASCADE,
+    buyer_id          UUID NOT NULL REFERENCES app_user(id),
+    dj_id             UUID NOT NULL REFERENCES app_user(id),
+    amount_xof        INTEGER NOT NULL,
+    dj_share_xof      INTEGER NOT NULL DEFAULT 0,
+    platform_share_xof INTEGER NOT NULL DEFAULT 0,
+    payment_token     VARCHAR(30) NOT NULL UNIQUE,
+    provider_txn_id   VARCHAR(40),
+    status            VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at        TIMESTAMP NOT NULL DEFAULT now(),
+    completed_at      TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mixtape_purchase_buyer ON mixtape_purchase(buyer_id, status);
+CREATE INDEX IF NOT EXISTS idx_mixtape_purchase_mixtape ON mixtape_purchase(mixtape_id, buyer_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mixtape_purchase_token ON mixtape_purchase(payment_token);
+
 -- ====================== DONNEES DE DEMO ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES

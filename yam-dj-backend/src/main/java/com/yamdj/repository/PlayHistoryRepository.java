@@ -44,4 +44,19 @@ public interface PlayHistoryRepository extends JpaRepository<PlayHistory, UUID> 
             LIMIT 500
             """, nativeQuery = true)
     List<Object[]> aggregatePlaysSince(@Param("since") java.time.LocalDateTime since);
+
+    /**
+     * Ecoutes comptees par ARTISTE sur une periode (redevances mensuelles
+     * Phase 3.3 — repartition au prorata). Uniquement les pistes approuvees.
+     */
+    @Query(value = """
+            SELECT t.artist_id AS artistId, COUNT(*) AS plays
+            FROM play_history ph
+            JOIN track t ON t.id = ph.track_id
+            WHERE ph.played_at >= :from AND ph.played_at < :to AND t.status = 'APPROVED'
+            GROUP BY t.artist_id
+            ORDER BY plays DESC
+            """, nativeQuery = true)
+    List<Object[]> countPlaysByArtistBetween(@Param("from") java.time.LocalDateTime from,
+                                             @Param("to") java.time.LocalDateTime to);
 }
