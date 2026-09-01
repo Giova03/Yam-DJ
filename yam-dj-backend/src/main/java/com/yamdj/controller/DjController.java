@@ -34,8 +34,8 @@ public class DjController {
 
     /** Suggestion Auto-Mix IA : ordonnancement Camelot + BPM. */
     @PostMapping("/auto-mix")
-    public ResponseEntity<AutoMixSuggestion> autoMix(@RequestBody Map<String, List<UUID>> body) {
-        List<UUID> trackIds = body.get("trackIds");
+    public ResponseEntity<AutoMixSuggestion> autoMix(@RequestBody AutoMixRequest request) {
+        List<UUID> trackIds = request.trackIds();
         if (trackIds == null || trackIds.isEmpty()) {
             throw new IllegalArgumentException("Liste trackIds requise");
         }

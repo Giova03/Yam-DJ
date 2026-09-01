@@ -1,42 +1,59 @@
-# Keep-alive du backend Render (plan gratuit).
+# Keep-alive du backend Render (plan gratuit) — VERSION DURCIE.
 #
 # POURQUOI : sur le plan gratuit, Render endort le service apres ~15 min
 # sans trafic. Au reveil, la premiere requete met 50-90 s (cold start) —
 # c'est ce qui faisait echouer connexion, inscription, uploads et mixtapes
 # quand personne n'avait visite le site depuis un moment.
 #
-# CE QUE FAIT CE WORKFLOW : un "ping" HTTP GET toutes les 10 minutes sur
-# un endpoint public ultra-leger (/api/ads/config). Le service ne s'endort
-# donc plus jamais. Cout : ~440 executions/mois de quelques secondes
-# ( tres en dessous des quotas gratuits GitHub Actions et des 750 h/mois
-# d'instance Render offertes par le plan gratuit).
-#
-# Si tu passes un jour sur un plan payant Render (sans mise en veille),
-# tu peux desactiver ce workflow : onglet Actions > Keep-alive backend >
-# "..." > Disable workflow.
+# VERSION 2 (durcie) : la V1 (1 seul ping par execution, toutes les 10 min)
+# montrait des TROUS DE 2 h — GitHub retardait/decalait les executions
+# en periode de charge, le serveur s'endormait malgre le workflow.
+# Cette version cumule trois protections :
+#   1. declencheur toutes les 5 min (12 opportunites/heure au lieu de 6) ;
+#   2. chaque execution RE-PEIGNE en boucle pendant ~8 min (ping toutes
+#      les 2 min) : une seule execution couvre donc 8 min de veille ;
+#   3. groupe de concurrency avec cancel-in-progress : les declenchements
+#      en retard s'annulent entre eux au lieu de s'empiler — le pinger
+#      est quasi continu.
+# Un frontend "heartbeat" (app.component) renforce le dispositif pendant
+# qu'un visiteur reels est connecte.
+# Cout : quelques heures de runner/mois — GRATUIT sur depot public.
+# Si tu passes sur un plan payant Render (sans mise en veille), desactive
+# ce workflow : onglet Actions > Keep-alive backend > "..." > Disable.
 
 name: Keep-alive backend Render
 
 on:
   schedule:
-    # Toutes les 10 minutes, decale de 7 min (7,17,27,37,47,57) :
-    # eviter les debuts d'heure (pics de charge GitHub, source de retards).
-    - cron: '7-57/10 * * * *'
+    # Deux crons decales (minutes impaires et paires+3) : 24 declenchements
+    # possibles par heure, redondance maximale contre les retards GitHub.
+    - cron: '1-59/6 * * * *'     # 1,7,13,19,25,31,37,43,49,55
+    - cron: '3-59/6 * * * *'     # 3,9,15,21,27,33,39,45,51,57
   workflow_dispatch: {}   # bouton "Run workflow" pour tester manuellement
+
+# Un seul pinger a la fois : le nouveau declenchement remplace l'ancien
+# (coverage continue), pas de pile de jobs en retard.
+concurrency:
+  group: keepalive-pinger
+  cancel-in-progress: true
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
-      - name: Ping endpoint public du backend
+      - name: Ping continu du backend (8 minutes)
         run: |
-          echo "Ping $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
-                 -H 'User-Agent: YamDJ-KeepAlive/1.0 (GitHub Actions)' \
-                 https://yam-dj.onrender.com/api/ads/config)
-          echo "HTTP $code"
-          if [ "$code" != "200" ]; then
-            echo "::warning::Le backend n'a pas repondu 200 (HTTP $code). Si le probleme persiste, verifie les logs Render."
-            exit 0   # non bloquant : le prochain ping reessaiera
-          fi
+          ping() {
+            local t0=$(date +%s)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+                   -H 'User-Agent: YamDJ-KeepAlive/2.0 (GitHub Actions)' \
+                   "https://yam-dj.onrender.com/api/ads/config?_=$t0")
+            echo "  $(date -u '+%H:%M:%S') -> HTTP $code"
+          }
+          echo "Keep-alive demarre $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          for i in 1 2 3 4 5; do
+            ping || true
+            if [ "$i" -lt 5 ]; then sleep 115; fi   # ~9,5 min de coverage
+          done
+          echo "Keep-alive termine $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

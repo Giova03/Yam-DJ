@@ -62,6 +62,7 @@ public class ChartService {
      */
     @Scheduled(fixedDelay = 3600_000, initialDelay = 300_000)
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "chartsCache", allEntries = true)
     public void refreshWeeklyChart() {
         LocalDate weekStart = currentWeekStart();
         LocalDateTime since = weekStart.atStartOfDay();
@@ -95,6 +96,10 @@ public class ChartService {
 
     /** Chart courant (optionnellement filtre par pays). */
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(
+            value = "chartsCache",
+            key = "T(java.util.Objects).hashCode(#country) + ':' + #limit",
+            condition = "#limit <= 100")
     public List<ChartEntryResponse> currentChart(String country, int limit) {
         LocalDate latest = chartRepository.findLatestWeek();
         if (latest == null) return List.of();

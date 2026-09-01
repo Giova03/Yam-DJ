@@ -16,13 +16,19 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 1
       connection-timeout: 30000
+      # Garde les connexions vivantes : evite la latence de re-ouverture
+      # TCP+TLS vers Supabase (pooler eu-central-1) apres une periode d'inactivite.
+      keepalive-time: 120000
+      # Rejet d'une connexion mangee par un timeout cote pooler Supabase.
+      max-lifetime: 1500000
   jpa:
     hibernate:
       ddl-auto: none
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # NB : pas de dialecte explicite — Hibernate 6 le deduit de la
+        # datasource (evite le warning HHH90000025 au demarrage).
         format_sql: false
   sql:
     init:
@@ -39,6 +45,23 @@ server:
   port: ${SERVER_PORT:8080}
   error:
     include-message: always
+  # Compression HTTP (gzip) : reduit ~70 % du volume JSON — crucial pour
+  # les connexions mobiles limitees d'Afrique de l'Ouest (2G/3G intermitente).
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/xml,text/plain,application/javascript,text/css,application/xml+rss
+    min-response-size: 1024
+  tomcat:
+    # Threads limites (plan Render 0.1 CPU / 512 Mo) : moins de memoire,
+    # file d'attente absorbee par la latence reseau plutot que par le CPU.
+    threads:
+      max: 50
+      min-spare: 4
+    accept-count: 100
+    # Keep-alive des connexions HTTP : evite le handshake TCP/TLS complet
+    # sur chaque appel API depuis le navigateur.
+    keep-alive-timeout: 30000
+  shutdown: graceful
 
 yamdj:
   jwt:

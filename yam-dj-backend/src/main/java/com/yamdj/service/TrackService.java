@@ -5,6 +5,7 @@ import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.*;
 import com.yamdj.entity.PlayHistory;
 import com.yamdj.entity.Playlist;
+import com.yamdj.entity.ArtistProfile;
 import com.yamdj.entity.Mixtape;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.TrackLike;
@@ -33,9 +34,14 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Gestion des pistes : upload + traitement FFmpeg (HLS HQ/Lite, BPM),
@@ -96,6 +102,7 @@ public class TrackService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public TrackResponse uploadTrack(String title, String genre, String country, String musicalKey,
                                      MultipartFile audioFile, MultipartFile coverFile,
                                      Integer bpm) {
@@ -203,24 +210,24 @@ public class TrackService {
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "tracksFeed", key = "'feed-' + #limit")
     public List<TrackResponse> feed(int limit) {
-        return trackRepository.findTrending(PageRequest.of(0, Math.min(limit, 50))).stream()
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
-                .toList();
+        return toResponses(trackRepository
+                .findTrending(PageRequest.of(0, Math.min(limit, 50))));
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "tracksFeed", key = "'trending-' + #limit")
     public List<TrackResponse> trending(int limit) {
-        return trackRepository.findTrending(PageRequest.of(0, Math.min(limit, 50))).stream()
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
-                .toList();
+        return toResponses(trackRepository
+                .findTrending(PageRequest.of(0, Math.min(limit, 50))));
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "tracksFeed", key = "'latest-' + #limit")
     public List<TrackResponse> latest(int limit) {
-        return trackRepository.findLatest(PageRequest.of(0, Math.min(limit, 50))).stream()
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
-                .toList();
+        return toResponses(trackRepository
+                .findLatest(PageRequest.of(0, Math.min(limit, 50))));
     }
 
     @Transactional(readOnly = true)
@@ -262,6 +269,7 @@ public class TrackService {
      * toleres : la suppression en base reste prioritaire).
      */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public void deleteTrack(UUID trackId) {
         User user = currentUser();
         Track track = trackRepository.findById(trackId)
@@ -307,6 +315,7 @@ public class TrackService {
 
     /** Enregistre une ecoute : compteur + historique + stats artiste. */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public void registerPlay(UUID trackId, UUID userId) {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
@@ -326,28 +335,31 @@ public class TrackService {
 
     @Transactional(readOnly = true)
     public List<TrackResponse> history(UUID userId, int limit) {
-        return playHistoryRepository
+        List<UUID> trackIds = playHistoryRepository
                 .findByUserIdOrderByPlayedAtDesc(userId, PageRequest.of(0, Math.min(limit, 100)))
-                .stream()
-                .map(h -> trackRepository.findById(h.getTrackId()).orElse(null))
-                .filter(t -> t != null && t.getStatus() == TrackStatus.APPROVED)
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
+                .stream().map(PlayHistory::getTrackId).distinct().toList();
+        if (trackIds.isEmpty()) return List.of();
+        // 1 seule requete (findAllById) au lieu d'un findById PAR ligne d'historique
+        List<Track> tracks = trackRepository.findAllById(trackIds).stream()
+                .filter(t -> t.getStatus() == TrackStatus.APPROVED)
                 .toList();
+        return toResponses(tracks);
     }
 
     @Transactional(readOnly = true)
     public List<TrackResponse> recommendedForYou(UUID userId, int limit) {
         // Recommandation simple : pistes approvees non deja ecoutees, trieees par popularite
         List<UUID> listened = playHistoryRepository.findDistinctTrackIds(userId);
-        return trackRepository.findTrending(PageRequest.of(0, Math.min(limit * 2, 100))).stream()
+        List<Track> tracks = trackRepository.findTrending(PageRequest.of(0, Math.min(limit * 2, 100))).stream()
                 .filter(t -> !listened.contains(t.getId()))
                 .limit(limit)
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
                 .toList();
+        return toResponses(tracks);
     }
 
     /** Like/unlike (toggle) avec suivi par utilisateur. */
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public LikeResponse like(UUID trackId, UUID userId) {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable"));
@@ -371,15 +383,16 @@ public class TrackService {
     /** Pistes aimees par l'utilisateur, plus recentes d'abord. */
     @Transactional(readOnly = true)
     public List<TrackDtos.TrackResponse> likedTracks(UUID userId, int limit) {
-        return trackLikeRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+        List<UUID> trackIds = trackLikeRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .limit(limit)
                 .map(TrackLike::getTrackId)
-                .map(trackRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(t -> t.getStatus() == TrackStatus.APPROVED)
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
                 .toList();
+        if (trackIds.isEmpty()) return List.of();
+        // 1 seule requete pour toutes les pistes aimees (anti N+1)
+        List<Track> tracks = trackRepository.findAllById(trackIds).stream()
+                .filter(t -> t.getStatus() == TrackStatus.APPROVED)
+                .toList();
+        return toResponses(tracks);
     }
 
     @Transactional
@@ -420,6 +433,37 @@ public class TrackService {
 
     private String pseudoOf(UUID artistId) {
         return userRepository.findById(artistId).map(User::getPseudo).orElse("unknown");
+    }
+
+    /**
+     * Conversion en masse Track -> TrackResponse SANS requete N+1 :
+     * 1 requete pour tous les utilisateurs des artistes + 1 requete pour
+     * tous les profils, puis composition en memoire. Avant : 3 requetes SQL
+     * PAR piste (60+ requetes pour un feed de 20 sons sur le CPU partage
+     * de Render — cause principale de la lenteur ressentie).
+     */
+    private List<TrackResponse> toResponses(List<Track> tracks) {
+        if (tracks == null || tracks.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> artistIds = tracks.stream()
+                .map(Track::getArtistId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, User> users = artistIds.isEmpty() ? Map.of()
+                : userRepository.findAllById(artistIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<UUID, String> stageNames = artistIds.isEmpty() ? Map.of()
+                : artistProfileRepository.findByUserIdIn(artistIds).stream()
+                        .filter(p -> p.getStageName() != null)
+                        .collect(Collectors.toMap(ArtistProfile::getUserId,
+                                ArtistProfile::getStageName, (a, b) -> a));
+        return tracks.stream().map(t -> {
+            UUID aid = t.getArtistId();
+            User u = users.get(aid);
+            String name = stageNames.getOrDefault(aid,
+                    u != null ? u.getPseudo() : "Artiste inconnu");
+            String pseudo = u != null ? u.getPseudo() : "unknown";
+            return TrackDtos.from(t, name, pseudo);
+        }).toList();
     }
 
     /** Decoupe une colonne CSV (track_ids) en jetons, robuste aux valeurs vides. */

@@ -41,4 +41,15 @@ public final class DjDtos {
             int transitionsCount,
             String analysis
     ) {}
+
+    /**
+     * Requete Auto-Mix IA. DTO type (remplace Map<String, List<UUID>>) :
+     * la deserialisation tolerante ignore les champs supplementaires
+     * (crossfadeSec envoye par erreur, etc.) au lieu de lever un 500
+     * "Cannot deserialize ArrayList<UUID> from Integer".
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    public record AutoMixRequest(
+            java.util.List<UUID> trackIds
+    ) {}
 }
