@@ -19,8 +19,9 @@ name: Keep-alive backend Render
 
 on:
   schedule:
-    # Toutes les 10 minutes (UTC). */5 = minimum autorise par GitHub.
-    - cron: '*/10 * * * *'
+    # Toutes les 10 minutes, decale de 7 min (7,17,27,37,47,57) :
+    # eviter les debuts d'heure (pics de charge GitHub, source de retards).
+    - cron: '7-57/10 * * * *'
   workflow_dispatch: {}   # bouton "Run workflow" pour tester manuellement
 
 jobs:
