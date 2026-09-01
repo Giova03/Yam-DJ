@@ -453,8 +453,8 @@ public class TrackService {
                         .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, String> stageNames = artistIds.isEmpty() ? Map.of()
                 : artistProfileRepository.findByUserIdIn(artistIds).stream()
-                        .filter(p -> p.getStageName() != null)
-                        .collect(Collectors.toMap(ArtistProfile::getUserId,
+                        .filter(p -> p.getStageName() != null && p.getUser() != null)
+                        .collect(Collectors.toMap(p -> p.getUser().getId(),
                                 ArtistProfile::getStageName, (a, b) -> a));
         return tracks.stream().map(t -> {
             UUID aid = t.getArtistId();
