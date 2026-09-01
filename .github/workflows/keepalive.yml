@@ -1,25 +1,24 @@
-# Keep-alive du backend Render (plan gratuit) — VERSION DURCIE.
+# Keep-alive du backend Render (plan gratuit) — COUCHE SECOURS.
+#
+# ARCHITECTURE ANTI-VEILLE (3 couches redondantes) :
+#   1. PRINCIPALE — cron Supabase pg_cron (job 'yamdj-keepalive', */5 min,
+#      ponctuel et independant de GitHub : SELECT cron.schedule(...) — voir
+#      scripts/supabase_keepalive_cron.py). Supabase est deja paye pour la
+#      DB, le ping est gratuit et fiable.
+#   2. SECOURS (ce workflow) — GitHub Actions : les crons programmes peuvent
+#      etre retardes de ~2 h en periode de charge GitHub, mais chaque
+#      execution re-pingue en boucle pendant ~9,5 min (couverture partielle).
+#   3. RENFORCEMENT — heartbeat frontend (app.component) : ping 4 min quand
+#      un visiteur a l'onglet ouvert.
+# Plus l'interceptor HTTP frontend (retry 5 s + message 'serveur en reveil')
+# pour absorber un eventuel cold start residuel.
 #
 # POURQUOI : sur le plan gratuit, Render endort le service apres ~15 min
 # sans trafic. Au reveil, la premiere requete met 50-90 s (cold start) —
-# c'est ce qui faisait echouer connexion, inscription, uploads et mixtapes
-# quand personne n'avait visite le site depuis un moment.
+# c'est ce qui faisait echouer connexion, inscription, uploads et mixtapes.
 #
-# VERSION 2 (durcie) : la V1 (1 seul ping par execution, toutes les 10 min)
-# montrait des TROUS DE 2 h — GitHub retardait/decalait les executions
-# en periode de charge, le serveur s'endormait malgre le workflow.
-# Cette version cumule trois protections :
-#   1. declencheur toutes les 5 min (12 opportunites/heure au lieu de 6) ;
-#   2. chaque execution RE-PEIGNE en boucle pendant ~8 min (ping toutes
-#      les 2 min) : une seule execution couvre donc 8 min de veille ;
-#   3. groupe de concurrency avec cancel-in-progress : les declenchements
-#      en retard s'annulent entre eux au lieu de s'empiler — le pinger
-#      est quasi continu.
-# Un frontend "heartbeat" (app.component) renforce le dispositif pendant
-# qu'un visiteur reels est connecte.
-# Cout : quelques heures de runner/mois — GRATUIT sur depot public.
 # Si tu passes sur un plan payant Render (sans mise en veille), desactive
-# ce workflow : onglet Actions > Keep-alive backend > "..." > Disable.
+# ce workflow ET le cron Supabase (SELECT cron.unschedule('yamdj-keepalive');).
 
 name: Keep-alive backend Render
 
