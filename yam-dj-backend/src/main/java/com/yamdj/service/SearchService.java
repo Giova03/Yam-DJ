@@ -49,12 +49,13 @@ public class SearchService {
         }
         String query = q.trim();
 
-        List<TrackResponse> tracks = trackRepository
+        // ANTI N+1 : resolution des noms d'artistes en 2 requetes totales
+        // (au lieu de 3 requetes PAR piste — 90+ requetes pour 30 resultats).
+        List<Track> trackEntities = trackRepository
                 .searchTracks(query, null, null,
                         org.springframework.data.domain.PageRequest.of(0, 30))
-                .getContent().stream()
-                .map(t -> TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId())))
-                .collect(Collectors.toList());
+                .getContent();
+        List<TrackResponse> tracks = batchToResponses(trackEntities);
 
         List<ArtistPublicResponse> artists = artistProfileRepository
                 .searchByStageName(query).stream()
@@ -92,10 +93,36 @@ public class SearchService {
 
     @Transactional(readOnly = true)
     public List<TrackResponse> artistTracks(UUID artistId) {
-        return trackRepository.findByArtistIdOrderByCreatedAtDesc(artistId).stream()
+        List<Track> tracks = trackRepository.findByArtistIdOrderByCreatedAtDesc(artistId).stream()
                 .filter(t -> t.getStatus() == TrackStatus.APPROVED)
-                .map(t -> TrackDtos.from(t, artistNameOf(artistId), pseudoOf(artistId)))
                 .collect(Collectors.toList());
+        return batchToResponses(tracks);
+    }
+
+    /**
+     * Conversion en masse anti-N+1 : 1 requete utilisateurs + 1 requete
+     * profils pour TOUTE la liste (cf. toResponses dans TrackService).
+     */
+    private List<TrackResponse> batchToResponses(List<Track> tracks) {
+        if (tracks.isEmpty()) return List.of();
+        List<UUID> artistIds = tracks.stream()
+                .map(Track::getArtistId).filter(java.util.Objects::nonNull).distinct()
+                .collect(Collectors.toList());
+        java.util.Map<UUID, User> users = artistIds.isEmpty() ? java.util.Map.of()
+                : userRepository.findAllById(artistIds).stream()
+                        .collect(Collectors.toMap(User::getId, u -> u));
+        java.util.Map<UUID, String> stageNames = artistIds.isEmpty() ? java.util.Map.of()
+                : artistProfileRepository.findByUserIdIn(artistIds).stream()
+                        .filter(p -> p.getStageName() != null && p.getUser() != null)
+                        .collect(Collectors.toMap(p -> p.getUser().getId(),
+                                ArtistProfile::getStageName, (a, b) -> a));
+        return tracks.stream().map(t -> {
+            UUID aid = t.getArtistId();
+            User u = users.get(aid);
+            String name = stageNames.getOrDefault(aid, u != null ? u.getPseudo() : "Artiste inconnu");
+            String pseudo = u != null ? u.getPseudo() : "unknown";
+            return TrackDtos.from(t, name, pseudo);
+        }).collect(Collectors.toList());
     }
 
     private String artistNameOf(UUID artistId) {
