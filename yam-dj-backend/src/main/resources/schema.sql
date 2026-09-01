@@ -124,11 +124,15 @@ CREATE INDEX IF NOT EXISTS idx_tip_status ON tip(status);
 -- ======================= HISTORIQUE ECOUTES ======================
 CREATE TABLE IF NOT EXISTS play_history (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    user_id         UUID REFERENCES app_user(id) ON DELETE CASCADE,
     track_id        UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
     played_at       TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_history_user ON play_history(user_id, played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_history_track_time ON play_history(track_id, played_at DESC);
+-- Bases existantes : user_id devient nullable (ecoutes anonymes comptees
+-- dans les charts hebdomadaires)
+ALTER TABLE play_history ALTER COLUMN user_id DROP NOT NULL;
 
 
 -- ======================== ABONNEMENTS =============================

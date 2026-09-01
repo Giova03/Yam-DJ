@@ -17,7 +17,8 @@ public class PlayHistory {
     @Builder.Default
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "user_id", nullable = false)
+    /** Utilisateur connecte (null = ecoute anonyme, comptee dans les charts). */
+    @Column(name = "user_id")
     private UUID userId;
 
     @Column(name = "track_id", nullable = false)

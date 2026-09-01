@@ -299,10 +299,10 @@ public class TrackService {
             artistProfileRepository.save(profile);
         });
 
-        if (userId != null) {
-            playHistoryRepository.save(PlayHistory.builder()
-                    .userId(userId).trackId(trackId).build());
-        }
+        // Toute ecoute alimente l'historique (userId null = anonyme) :
+        // les charts hebdomadaires comptent aussi les auditeurs non connectes.
+        playHistoryRepository.save(PlayHistory.builder()
+                .userId(userId).trackId(trackId).build());
     }
 
     @Transactional(readOnly = true)
