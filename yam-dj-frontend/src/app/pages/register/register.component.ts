@@ -79,6 +79,11 @@ const COUNTRIES = [
                       class="yam-btn-primary w-full !py-3.5 text-lg">
                 @if (loading()) { <span class="animate-pulse">Creation...</span> } @else { Creer mon compte }
               </button>
+              @if (loading() && slowServer()) {
+                <p class="text-center text-white/40 text-xs mt-3 animate-pulse">
+                  Le serveur se reveille (offre gratuite) : patiente encore un peu, ca arrive...
+                </p>
+              }
             </div>
           } @else {
             <div class="space-y-4">
@@ -136,6 +141,20 @@ export class RegisterComponent {
   verifying = signal(false);
   codeSent = signal(false);
   error = signal<string | null>(null);
+  /** Devient vrai apres ~10 s : le serveur (offre gratuite) se reveille. */
+  slowServer = signal(false);
+  private slowTimer: any = null;
+
+  private startSlowHint(): void {
+    this.stopSlowHint();
+    this.slowServer.set(false);
+    this.slowTimer = setTimeout(() => this.slowServer.set(true), 10000);
+  }
+
+  private stopSlowHint(): void {
+    if (this.slowTimer) { clearTimeout(this.slowTimer); this.slowTimer = null; }
+    this.slowServer.set(false);
+  }
 
   doRegister(): void {
     this.error.set(null);
@@ -146,6 +165,7 @@ export class RegisterComponent {
     this.email = this.email.trim();
     this.pseudo = this.pseudo.trim();
     this.loading.set(true);
+    this.startSlowHint();
     this.auth.register({
       email: this.email,
       password: this.password,
@@ -157,10 +177,12 @@ export class RegisterComponent {
     }).subscribe({
       next: res => {
         this.loading.set(false);
+        this.stopSlowHint();
         this.codeSent.set(true);
       },
       error: err => {
         this.loading.set(false);
+        this.stopSlowHint();
         this.error.set(err?.error?.message || 'Erreur lors de l\'inscription.');
       }
     });

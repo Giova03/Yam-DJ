@@ -56,6 +56,11 @@ import { AuthService } from '../../services/auth.service';
                     class="yam-btn-primary w-full mt-6 !py-3.5 text-lg">
               @if (loading()) { <span class="animate-pulse">Connexion...</span> } @else { Se connecter }
             </button>
+            @if (loading() && slowServer()) {
+              <p class="text-center text-white/40 text-xs mt-3 animate-pulse">
+                Le serveur se reveille (offre gratuite) : patiente encore un peu, ca arrive...
+              </p>
+            }
           }
 
           <p class="text-center text-white/40 text-sm mt-6">
@@ -79,14 +84,31 @@ export class LoginComponent {
   error = signal<string | null>(null);
   needsVerification = signal(false);
   verificationMessage = signal('');
+  /** Devient vrai apres ~10 s de chargement : le serveur (heberge
+   *  gratuitement) se reveille, la requete finit par aboutir. */
+  slowServer = signal(false);
+  private slowTimer: any = null;
+
+  private startSlowHint(): void {
+    this.stopSlowHint();
+    this.slowServer.set(false);
+    this.slowTimer = setTimeout(() => this.slowServer.set(true), 10000);
+  }
+
+  private stopSlowHint(): void {
+    if (this.slowTimer) { clearTimeout(this.slowTimer); this.slowTimer = null; }
+    this.slowServer.set(false);
+  }
 
   doLogin(): void {
     this.error.set(null);
     this.email = this.email.trim();
     this.loading.set(true);
+    this.startSlowHint();
     this.auth.login(this.email, this.password).subscribe({
       next: res => {
         this.loading.set(false);
+        this.stopSlowHint();
         if (res.token) {
           this.router.navigate(['/']);
         } else {
@@ -96,6 +118,7 @@ export class LoginComponent {
       },
       error: err => {
         this.loading.set(false);
+        this.stopSlowHint();
         this.error.set(err?.error?.message || 'Erreur de connexion. Verifie tes identifiants.');
       }
     });
