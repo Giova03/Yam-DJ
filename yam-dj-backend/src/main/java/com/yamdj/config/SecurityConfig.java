@@ -74,6 +74,12 @@ public class SecurityConfig {
                     "/actuator/**",
                     "/error"
                 ).permitAll()
+                // Charts hebdo + sitemap : publics (SEO, partage)
+                .requestMatchers(HttpMethod.GET, "/api/charts/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/seo/**").permitAll()
+                // Cle publique VAPID seule : le reste de /api/notifications
+                // exige un JWT (anyRequest authenticated)
+                .requestMatchers(HttpMethod.GET, "/api/notifications/vapid-key").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/artist/**").hasAnyRole("ARTIST", "ADMIN")
                 .requestMatchers("/api/dj/**").hasAnyRole("DJ", "ADMIN")

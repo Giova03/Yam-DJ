@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Title, Meta } from '@angular/platform-browser';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
@@ -28,6 +29,7 @@ import { Track, Mixtape } from '../../models/models';
           </p>
           <div class="flex flex-wrap gap-3">
             <button (click)="playFeed()" class="yam-btn-primary !px-8 !py-3 text-lg">▶ Ecouter Pour Toi</button>
+            <a routerLink="/charts" class="yam-btn-secondary !px-8 !py-3 text-lg">📊 Charts de la semaine</a>
             @if (auth.role() === 'DJ' || auth.role() === 'ADMIN') {
               <a routerLink="/dj-studio" class="yam-btn-secondary !px-8 !py-3 text-lg">🎚️ Ouvrir le Studio DJ</a>
             }
@@ -119,6 +121,8 @@ export class HomeComponent implements OnInit {
   private trackService = inject(TrackService);
   private djService = inject(DjService);
   private content = inject(ContentService);
+  private title = inject(Title);
+  private meta = inject(Meta);
 
   forYou = signal<Track[]>([]);
   trending = signal<Track[]>([]);
@@ -134,6 +138,11 @@ export class HomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // SEO : title + description (les meta OG statiques sont dans index.html)
+    this.title.setTitle('YAM DJ — La musique africaine qui vibre | Streaming, charts et studio DJ');
+    this.meta.updateTag({ name: 'description',
+      content: 'Ecoute les sons d\'Afrique de l\'Ouest, suis les charts hebdomadaires, mixe dans le studio DJ et soutiens les artistes via mobile money.' });
+
     this.trackService.forYou(15).subscribe(t => this.forYou.set(t));
     this.trackService.trending(10).subscribe(t => this.trending.set(t));
     this.djService.publicMixtapes(6).subscribe(m => this.mixtapes.set(m));

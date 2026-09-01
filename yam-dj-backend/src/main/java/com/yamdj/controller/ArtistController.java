@@ -2,8 +2,12 @@ package com.yamdj.controller;
 
 import com.yamdj.dto.PaymentDtos.ArtistStatsResponse;
 import com.yamdj.dto.PaymentDtos.TipHistoryResponse;
+import com.yamdj.dto.WithdrawalDtos.WithdrawalCreateRequest;
+import com.yamdj.dto.WithdrawalDtos.WithdrawalResponse;
 import com.yamdj.service.TipService;
 import com.yamdj.service.TrackService;
+import com.yamdj.service.WithdrawalService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Espace artiste : statistiques, historique des tips.
+ * Espace artiste : statistiques, historique des tips, retraits mobile money.
  */
 @RestController
 @RequestMapping("/api/artist")
@@ -20,10 +24,14 @@ public class ArtistController {
 
     private final TipService tipService;
     private final TrackService trackService;
+    private final WithdrawalService withdrawalService;
 
-    public ArtistController(TipService tipService, TrackService trackService) {
+    public ArtistController(TipService tipService,
+                            TrackService trackService,
+                            WithdrawalService withdrawalService) {
         this.tipService = tipService;
         this.trackService = trackService;
+        this.withdrawalService = withdrawalService;
     }
 
     @GetMapping("/me/stats")
@@ -42,5 +50,24 @@ public class ArtistController {
     public ResponseEntity<?> myTracks() {
         UUID artistId = trackService.currentUser().getId();
         return ResponseEntity.ok(Map.of("tracks", trackService.byArtist(artistId)));
+    }
+
+    // ==================== RETRAITS (Phase 3.2) ====================
+
+    /** Demande de retrait du solde vers mobile money (min 5 000 F). */
+    @PostMapping("/withdrawals")
+    public ResponseEntity<WithdrawalResponse> createWithdrawal(
+            @Valid @RequestBody WithdrawalCreateRequest request) {
+        return ResponseEntity.ok(withdrawalService.create(
+                trackService.currentUser(),
+                request.amountXof() == null ? 0 : request.amountXof(),
+                request.operator(),
+                request.phone()));
+    }
+
+    /** Historique des demandes de retrait de l'artiste connecte. */
+    @GetMapping("/withdrawals/mine")
+    public ResponseEntity<List<WithdrawalResponse>> myWithdrawals() {
+        return ResponseEntity.ok(withdrawalService.mine(trackService.currentUser().getId()));
     }
 }

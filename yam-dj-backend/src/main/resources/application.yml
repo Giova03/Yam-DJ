@@ -58,6 +58,17 @@ yamdj:
     api-key: ${FEDAPAY_PUBLIC_KEY:}
     secret-key: ${FEDAPAY_SECRET_KEY:}
     base-url: ${FEDAPAY_BASE_URL:https://api.fedapay.com}
+  premium:
+    # Abonnement Fan Premium (Phase 3.1)
+    price-xof: ${PREMIUM_PRICE_XOF:500}
+    period-days: ${PREMIUM_PERIOD_DAYS:30}
+  push:
+    # Web Push (Phase 2.4). Cles VAPID P-256 en base64url : publique = 65
+    # octets non compresses (0x04||x||y), privee = scalaire 32 octets.
+    # Generer une seule fois puis renseigner sur Render (env vars).
+    vapid-public-key: ${VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${VAPID_PRIVATE_KEY:}
+    vapid-subject: ${VAPID_SUBJECT:mailto:contact@yamdj.africa}
   brevo:
     api-key: ${BREVO_API_KEY:}
     # IMPORTANT : utiliser un expediteur VERIFIE sur le compte Brevo

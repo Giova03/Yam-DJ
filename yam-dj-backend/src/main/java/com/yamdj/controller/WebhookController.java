@@ -2,6 +2,7 @@ package com.yamdj.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yamdj.dto.PaymentDtos.TipResponse;
+import com.yamdj.service.PremiumService;
 import com.yamdj.service.TipService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,9 @@ import java.util.Map;
  * serveur, sans authentification). Securise par double-verification via
  * l'API FedaPay (GET /v1/transactions/{id}) avant toute creditation.
  *
+ * Routage : transaction d'un YAM Tip -> tipService ; transaction d'un
+ * ordre Premium Fan -> premiumService.
+ *
  * Configuration : dashboard FedaPay > Parametres > Webhooks > URL
  * https://yam-dj.onrender.com/api/webhook/fedapay
  * Evenements recommandes : transaction.approved, transaction.declined,
@@ -28,9 +32,11 @@ public class WebhookController {
     private static final Logger log = LoggerFactory.getLogger(WebhookController.class);
 
     private final TipService tipService;
+    private final PremiumService premiumService;
 
-    public WebhookController(TipService tipService) {
+    public WebhookController(TipService tipService, PremiumService premiumService) {
         this.tipService = tipService;
+        this.premiumService = premiumService;
     }
 
     @PostMapping("/fedapay")
@@ -57,16 +63,27 @@ public class WebhookController {
 
         log.info("Webhook FedaPay recu : evenement={}, transaction={}", event, txnId);
         try {
+            // 1. Tip classique (YAM Tips artistes)
             TipResponse result = tipService.confirmTipByTransaction(txnId);
             return ResponseEntity.ok(Map.of(
                     "transaction", String.valueOf(txnId),
                     "status", result.status()));
-        } catch (Exception e) {
-            // Tip inconnu chez nous : 200 quand meme pour eviter les retries infinis
-            log.warn("Webhook FedaPay : tip introuvable pour la transaction {} : {}", txnId, e.getMessage());
-            return ResponseEntity.ok(Map.of(
-                    "transaction", String.valueOf(txnId),
-                    "status", "UNKNOWN"));
+        } catch (Exception tipNotFound) {
+            // 2. Ordre Premium Fan (abonnement 500 F / 30 jours)
+            try {
+                var premium = premiumService.confirmByTransaction(txnId);
+                return ResponseEntity.ok(Map.of(
+                        "transaction", String.valueOf(txnId),
+                        "status", premium.status()));
+            } catch (Exception premiumNotFound) {
+                // Paiement inconnu chez nous : 200 quand meme pour eviter
+                // les retries infinis de FedaPay
+                log.warn("Webhook FedaPay : paiement introuvable pour la transaction {} : {}",
+                        txnId, premiumNotFound.getMessage());
+                return ResponseEntity.ok(Map.of(
+                        "transaction", String.valueOf(txnId),
+                        "status", "UNKNOWN"));
+            }
         }
     }
 }

@@ -6,6 +6,10 @@
   "outputDirectory": "dist/yam-dj-frontend/browser",
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "https://yam-dj.onrender.com/api/seo/sitemap"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -92,6 +92,54 @@ public class BrevoEmailService {
         sendEmail(to, "Ta track est en ligne sur YAM DJ", html);
     }
 
+    /** Email d'activation de l'abonnement Premium Fan. */
+    @Async
+    public void sendPremiumActivatedEmail(String to, String pseudo, int days, java.time.LocalDateTime until) {
+        String untilFr = until.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#FFD166;font-size:28px;margin:0 0 16px">⭐ Premium active !</h1>
+                  <p>Merci <b>%s</b> pour ton soutien a la musique africaine !</p>
+                  <p>Ton abonnement <b style="color:#FFD166">Premium Fan</b> est actif pendant <b>%d jours</b>, jusqu'au <b>%s</b>.</p>
+                  <p style="color:#bbb">Badge supporteur, zero publicite et avant-premieres : tout est debloque sur ton compte.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🎧</p>
+                </div>
+                """.formatted(pseudo, days, untilFr);
+        sendEmail(to, "Ton Premium YAM DJ est actif !", html);
+    }
+
+    /** Email de validation d'un retrait vers mobile money. */
+    @Async
+    public void sendWithdrawalApprovedEmail(String to, String artistName, int amountXof,
+                                            String operator, String phone) {
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#22C55E;font-size:28px;margin:0 0 16px">💸 Retrait valide</h1>
+                  <p>Salut <b>%s</b>,</p>
+                  <p>Ton retrait de <b style="color:#FFD166">%d FCFA</b> a ete valide et est en cours de versement vers <b>%s</b> (numero %s).</p>
+                  <p style="color:#bbb">Le transfert mobile money peut prendre de quelques minutes a 24 h selon l'operateur.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🎧</p>
+                </div>
+                """.formatted(artistName, amountXof, operator, phone);
+        sendEmail(to, "Ton retrait YAM DJ est valide", html);
+    }
+
+    /** Email de refus d'une demande de retrait. */
+    @Async
+    public void sendWithdrawalRejectedEmail(String to, int amountXof, String note) {
+        String noteHtml = (note == null || note.isBlank()) ? ""
+                : "<p style=\"color:#f87171\">Motif : " + note + "</p>";
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#f87171;font-size:28px;margin:0 0 16px">❌ Retrait refuse</h1>
+                  <p>Ta demande de retrait de <b>%d FCFA</b> n'a pas pu etre validee.</p>
+                  %s
+                  <p style="color:#bbb">Le montant reste disponible sur ton solde YAM DJ. Tu peux corriger et renouveler ta demande depuis ton dashboard.</p>
+                </div>
+                """.formatted(amountXof, noteHtml);
+        sendEmail(to, "Demande de retrait YAM DJ refusee", html);
+    }
+
     /** Envoi via l'API REST Brevo /v3/smtp/send. */
     void sendEmail(String to, String subject, String htmlContent) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("xkeysib-votre")) {

@@ -2,12 +2,17 @@ package com.yamdj.controller;
 
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.TrackResponse;
+import com.yamdj.dto.WithdrawalDtos.RejectRequest;
+import com.yamdj.dto.WithdrawalDtos.WithdrawalResponse;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.enums.TrackStatus;
 import com.yamdj.repository.TrackRepository;
+import com.yamdj.repository.UserFollowRepository;
 import com.yamdj.service.BrevoEmailService;
+import com.yamdj.service.NotificationService;
 import com.yamdj.service.TrackService;
 import com.yamdj.service.UserRepositoryHolder;
+import com.yamdj.service.WithdrawalService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +24,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Moderation : validation des pistes avant publication.
+ * Moderation : validation des pistes avant publication, gestion des
+ * demandes de retrait artistes (Phase 3.2).
  */
 @RestController
 @RequestMapping("/api/admin")
@@ -29,15 +35,24 @@ public class AdminController {
     private final TrackService trackService;
     private final BrevoEmailService emailService;
     private final UserRepositoryHolder userHolder;
+    private final WithdrawalService withdrawalService;
+    private final NotificationService notificationService;
+    private final UserFollowRepository followRepository;
 
     public AdminController(TrackRepository trackRepository,
                            TrackService trackService,
                            BrevoEmailService emailService,
-                           UserRepositoryHolder userHolder) {
+                           UserRepositoryHolder userHolder,
+                           WithdrawalService withdrawalService,
+                           NotificationService notificationService,
+                           UserFollowRepository followRepository) {
         this.trackRepository = trackRepository;
         this.trackService = trackService;
         this.emailService = emailService;
         this.userHolder = userHolder;
+        this.withdrawalService = withdrawalService;
+        this.notificationService = notificationService;
+        this.followRepository = followRepository;
     }
 
     /** File de moderation : pistes en attente. */
@@ -63,6 +78,19 @@ public class AdminController {
         trackRepository.save(track);
         userHolder.emailOf(track.getArtistId())
                 .ifPresent(email -> emailService.sendTrackApprovedEmail(email, track.getTitle()));
+
+        // Notifications (Phase 2.4) : l'artiste + tous ses abonnes
+        notificationService.notifyUser(track.getArtistId(), "TRACK_APPROVED",
+                "Piste approuvee",
+                "\"" + track.getTitle() + "\" est desormais en ligne sur YAM DJ !",
+                "/track/" + track.getId());
+        String artistName = userHolder.pseudoOf(track.getArtistId());
+        for (var follow : followRepository.findTop500ByArtistIdOrderByCreatedAtDesc(track.getArtistId())) {
+            notificationService.notifyUser(follow.getFollowerId(), "NEW_TRACK",
+                    "Nouveau son de " + artistName,
+                    "\"" + track.getTitle() + "\" vient de sortir sur YAM DJ. Viens l'ecouter !",
+                    "/track/" + track.getId());
+        }
         return ResponseEntity.ok(Map.of("status", "APPROVED"));
     }
 
@@ -72,6 +100,10 @@ public class AdminController {
                 .orElseThrow(() -> new IllegalArgumentException("Piste introuvable"));
         track.setStatus(TrackStatus.REJECTED);
         trackRepository.save(track);
+        notificationService.notifyUser(track.getArtistId(), "TRACK_REJECTED",
+                "Piste refusee",
+                "\"" + track.getTitle() + "\" n'a pas passe la moderation. Verifie la qualite audio.",
+                "/dashboard");
         return ResponseEntity.ok(Map.of("status", "REJECTED"));
     }
 
@@ -83,5 +115,28 @@ public class AdminController {
         return ResponseEntity.ok(Map.of(
                 "totalTracks", total,
                 "pendingTracks", pending));
+    }
+
+    // ==================== RETRAITS ARTISTES (Phase 3.2) ====================
+
+    /** File des demandes de retrait (statut optionnel). */
+    @GetMapping("/withdrawals")
+    public ResponseEntity<List<WithdrawalResponse>> withdrawals(
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(withdrawalService.all(status));
+    }
+
+    /** Valide une demande : debit du solde + email + notification. */
+    @PostMapping("/withdrawals/{id}/approve")
+    public ResponseEntity<WithdrawalResponse> approveWithdrawal(@PathVariable UUID id) {
+        return ResponseEntity.ok(withdrawalService.approve(id));
+    }
+
+    /** Rejette une demande avec note admin. */
+    @PostMapping("/withdrawals/{id}/reject")
+    public ResponseEntity<WithdrawalResponse> rejectWithdrawal(
+            @PathVariable UUID id,
+            @RequestBody(required = false) RejectRequest body) {
+        return ResponseEntity.ok(withdrawalService.reject(id, body == null ? null : body.note()));
     }
 }

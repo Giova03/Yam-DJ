@@ -25,6 +25,9 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, UUID> {
 
     List<UserFollow> findTop100ByFollowerIdOrderByCreatedAtDesc(UUID followerId);
 
+    /** Fans abonnes a un artiste (notifications nouveau son). */
+    List<UserFollow> findTop500ByArtistIdOrderByCreatedAtDesc(UUID artistId);
+
     /** Pistes approuvees des artistes suivis, plus recentes d'abord. */
     @Query("""
             SELECT t FROM Track t

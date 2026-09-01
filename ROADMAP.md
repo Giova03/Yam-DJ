@@ -87,23 +87,32 @@ trouve son public et vit de sa musique via mobile money — sans intermédiaire.
 
 Réalisée : 2.1 Follow (session précédente), 2.2 Commentaires, 2.3 Partage
 social + page publique /track/:id, 2.5 Page profil (likes suivis par
-utilisateur). Restent à livrer :
+utilisateur). Session 2026-09-01 :
 
-| # | Fonctionnalité | Détail technique |
-|---|----------------|-------------------|
-| 2.4 | **Notifications push** | PWA + Web Push (VAPID) : nouveau son d'un artiste suivi, tip reçu. Complète le WebSocket existant |
-| 2.6 | **Charts hebdomadaires** | Table d'agrégation play_count par semaine (job @Scheduled), badge "Top 10 Burkina" sur les cartes |
-| 2.7 | **SEO** | Sitemap, SSR partiel (Angular Universal) ou pré-rendu des pages publiques artistes/pistes |
+| # | Fonctionnalité | Statut |
+|---|----------------|--------|
+| 2.4 | **Notifications push** | ✅ FAIT — PWA (manifest + sw.js racine) + centre in-app (cloche navbar, non-lus, marquage lu) + Web Push VAPID signé ES256 raw (RFC 8292), envoi sans payload (fiabilité maximale), déclencheurs : tip reçu, piste approuvée, nouveau son des artistes suivis, commentaire, retrait, premium |
+| 2.6 | **Charts hebdomadaires** | ✅ FAIT — agrégation SQL play_history depuis lundi, job @Scheduled horaire + au démarrage, table weekly_chart (rang global, filtre pays), page /charts (podium + onglets pays), badge 🏆 Top 10 sur les cartes |
+| 2.7 | **SEO** | ✅ FAIT — sitemap XML dynamique (backend, rewrite Vercel /sitemap.xml), robots.txt, Open Graph/Twitter cards, title/description par page, PWA installable (manifest + icônes 192/512 maskable) |
+
+### Phase 2bis — Nouvelles fonctionnalités (session 2026-09-01)
+
+- **Ma Musique locale** (/local) : lecture des fichiers audio du téléphone
+  (sélecteur multi-fichiers + drag & drop), parseur ID3v2 (titre/artiste/
+  album/pochette), lecteur dédié (shuffle, repeat, seek), MediaSession
+  (écran verrouillé), 100% hors ligne
+- **Guide utilisateur** (/features) : toutes les fonctionnalités présentées
+  avec liens directs
 
 ### Phase 3 — Monétisation complète (6-8 semaines)
 
-| # | Fonctionnalité | Détail technique |
-|---|----------------|-------------------|
-| 3.1 | **Abonnement Fan Premium** | 500 F/mois via FedaPay récurrent : pas de pub, Data-Lite illimité, badge supporteur, contenu exclusif |
-| 3.2 | **Retraits artistes** | Solde → retrait vers Orange Money via API FedaPay Payouts ; seuil 5 000 F, validation manuelle en V2.0 puis automatique |
-| 3.3 | **Redevances d'écoute** | Répartition mensuelle d'une cagnotte au prorata des écoutes (pourboires + abonnements), rapport transparent |
-| 3.4 | **Boutique de mixtapes** | Mixtape payante (prix fixé par le DJ), paiement unitaire FedaPay, revenus partagés 70/30 |
-| 3.5 | **PUB non intrusive** | Audio sponsorisé 15 s max entre pistes pour les non-abonnés (auto-pause Data-Lite) |
+| # | Fonctionnalité | Statut |
+|---|----------------|--------|
+| 3.1 | **Abonnement Fan Premium** | ✅ FAIT — 500 F/30 jours via FedaPay (ordre premium_order, webhook routé tips/premium, renouvellements cumulés, badge ⭐, page /premium + retour /premium/success, email + notification) |
+| 3.2 | **Retraits artistes** | ✅ FAIT (V2.0 validation manuelle) — demande min 5 000 F (opérateur + numéro), file admin (validation double-clic), débit du solde, emails Brevo + notifications, dashboard artiste + page admin |
+| 3.3 | **Redevances d'écoute** | ⏳ À FAIRE — répartition mensuelle au prorata des écoutes |
+| 3.4 | **Boutique de mixtapes** | ⏳ À FAIRE — mixtape payante, revenus 70/30 |
+| 3.5 | **PUB non intrusive** | ⏳ À FAIRE — audio sponsorisé 15 s pour les non-premium (base Premium déjà en place) |
 
 ### Phase 4 — Studio DJ pro & mobile (8-12 semaines)
 

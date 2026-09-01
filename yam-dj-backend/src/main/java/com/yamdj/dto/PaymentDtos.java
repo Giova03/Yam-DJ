@@ -44,4 +44,14 @@ public final class PaymentDtos {
             String fanPseudo,
             java.time.LocalDateTime createdAt
     ) {}
+
+    /** Abonnement Premium Fan (500 F / 30 jours). */
+    public record PremiumResponse(
+            UUID orderId,
+            String paymentToken,
+            String paymentUrl,
+            int amountXof,
+            int periodDays,
+            String status
+    ) {}
 }

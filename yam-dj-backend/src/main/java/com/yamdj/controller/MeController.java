@@ -35,7 +35,9 @@ public class MeController {
                 "role", user.getRole().name(),
                 "country", user.getCountry(),
                 "avatarUrl", user.getAvatarUrl() == null ? "" : user.getAvatarUrl(),
-                "emailVerified", user.isEmailVerified()));
+                "emailVerified", user.isEmailVerified(),
+                "premium", com.yamdj.service.PremiumService.isPremium(user),
+                "premiumUntil", user.getPremiumUntil() == null ? "" : user.getPremiumUntil().toString()));
     }
 
     /** Pistes aimees par l'utilisateur connecte (plus recentes d'abord). */

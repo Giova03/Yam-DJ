@@ -166,6 +166,77 @@ CREATE TABLE IF NOT EXISTS track_like (
 CREATE INDEX IF NOT EXISTS idx_track_like_user ON track_like(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_track_like_track ON track_like(track_id);
 
+-- ============== NOUVELLES COLONNES (Phases 2.4/2.6/3.1/3.2) ============
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP;
+
+-- ====================== CHARTS HEBDOMADAIRES (2.6) ==================
+CREATE TABLE IF NOT EXISTS weekly_chart (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    week_start  DATE NOT NULL,
+    track_id    UUID NOT NULL,
+    country     VARCHAR(100),
+    rank        INTEGER NOT NULL,
+    plays       BIGINT NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT uq_weekly_chart_week_track UNIQUE (week_start, track_id)
+);
+CREATE INDEX IF NOT EXISTS idx_weekly_chart_week ON weekly_chart(week_start, rank);
+CREATE INDEX IF NOT EXISTS idx_weekly_chart_country ON weekly_chart(country);
+
+-- =================== NOTIFICATIONS IN-APP (2.4) ====================
+CREATE TABLE IF NOT EXISTS notification (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    type        VARCHAR(40) NOT NULL,
+    title       VARCHAR(150) NOT NULL,
+    body        VARCHAR(500) NOT NULL,
+    link_url    VARCHAR(300),
+    is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notification_user ON notification(user_id, created_at DESC);
+
+-- ==================== ABONNEMENTS WEB PUSH (2.4) ===================
+CREATE TABLE IF NOT EXISTS push_subscription (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    endpoint    VARCHAR(600) NOT NULL UNIQUE,
+    p256dh      VARCHAR(200),
+    auth        VARCHAR(150),
+    user_agent  VARCHAR(300),
+    created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscription_user ON push_subscription(user_id);
+
+-- ==================== ORDRES PREMIUM FAN (3.1) =====================
+CREATE TABLE IF NOT EXISTS premium_order (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES app_user(id),
+    amount_xof      INTEGER NOT NULL,
+    period_days     INTEGER NOT NULL DEFAULT 30,
+    payment_token   VARCHAR(30) NOT NULL UNIQUE,
+    provider_txn_id VARCHAR(40),
+    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at      TIMESTAMP NOT NULL DEFAULT now(),
+    completed_at    TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_premium_order_user ON premium_order(user_id);
+
+-- ================== DEMANDES DE RETRAIT ARTISTES (3.2) ==============
+CREATE TABLE IF NOT EXISTS withdrawal_request (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES app_user(id),
+    amount_xof  INTEGER NOT NULL,
+    operator    VARCHAR(20) NOT NULL,
+    phone       VARCHAR(30) NOT NULL,
+    status      VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    admin_note  VARCHAR(500),
+    created_at  TIMESTAMP NOT NULL DEFAULT now(),
+    processed_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_user ON withdrawal_request(user_id);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_status ON withdrawal_request(status);
+
 -- ====================== DONNEES DE DEMO ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES

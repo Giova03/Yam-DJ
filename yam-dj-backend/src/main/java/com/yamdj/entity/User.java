@@ -48,6 +48,10 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    /** Premium Fan actif jusqu'a cette date (null = compte standard). */
+    @Column(name = "premium_until")
+    private LocalDateTime premiumUntil;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;

@@ -10,6 +10,7 @@ import com.yamdj.exception.ResourceNotFoundException;
 import com.yamdj.repository.CommentRepository;
 import com.yamdj.repository.TrackRepository;
 import com.yamdj.repository.UserRepository;
+import com.yamdj.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -43,13 +44,16 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public CommentService(CommentRepository commentRepository,
                           TrackRepository trackRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     /** Utilisateur courant depuis le contexte Spring Security (pattern TrackService). */
@@ -94,7 +98,7 @@ public class CommentService {
         }
 
         // La piste doit exister (sinon 404 plutot qu'un rejet silencieux de la FK)
-        trackRepository.findById(trackId)
+        var track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
 
         // Anti-spam : 1 commentaire max toutes les 30 s par utilisateur
@@ -115,6 +119,14 @@ public class CommentService {
                 .userId(user.getId())
                 .content(filtered)
                 .build());
+
+        // Notification a l'artiste (Phase 2.4) si ce n'est pas lui qui commente
+        if (!track.getArtistId().equals(user.getId())) {
+            notificationService.notifyUser(track.getArtistId(), "COMMENT_NEW",
+                    "Nouveau commentaire",
+                    user.getPseudo() + " a commente \"" + track.getTitle() + "\"",
+                    "/track/" + trackId);
+        }
         return toResponse(saved);
     }
 

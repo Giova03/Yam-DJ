@@ -1,0 +1,57 @@
+{
+  "name": "YAM DJ — La musique africaine qui vibre",
+  "short_name": "YAM DJ",
+  "description": "Streaming musical africain, studio DJ en ligne, charts hebdomadaires et soutien aux artistes via mobile money.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Charts de la semaine",
+      "url": "/charts",
+      "description": "Les pistes les plus ecoutees de la semaine"
+    },
+    {
+      "name": "Ma Musique locale",
+      "url": "/local",
+      "description": "Ecoute les musiques de ton telephone"
+    },
+    {
+      "name": "Studio DJ",
+      "url": "/dj-studio",
+      "description": "Mixe comme un pro"
+    }
+  ]
+}

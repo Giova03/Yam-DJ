@@ -141,3 +141,46 @@ export interface Comment {
   content: string;
   createdAt: string;
 }
+
+/** Entree du chart hebdomadaire (agregation des ecoutes de la semaine). */
+export interface ChartEntry {
+  rank: number;
+  trackId: string;
+  plays: number;
+  weekStart: string;
+  country?: string;
+  track?: Track;
+}
+
+/** Notification in-app (centre de notifications + push Web). */
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  linkUrl?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+/** Reponse d'initiation d'abonnement Premium (paiement FedaPay). */
+export interface PremiumResponse {
+  orderId: string;
+  paymentToken: string;
+  paymentUrl?: string;
+  amountXof: number;
+  status: string;
+}
+
+/** Demande de retrait artiste (mobile money, validation admin). */
+export interface WithdrawalRequest {
+  id: string;
+  amountXof: number;
+  operator: string;
+  phone: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminNote?: string;
+  pseudo?: string;
+  createdAt: string;
+  processedAt?: string;
+}

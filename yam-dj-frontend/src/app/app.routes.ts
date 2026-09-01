@@ -16,5 +16,10 @@ export const routes: Routes = [
   { path: 'track/:id', loadComponent: () => import('./pages/track/track.component').then(m => m.TrackComponent) },
   { path: 'admin', canActivate: [authGuard], loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent) },
   { path: 'tip/success', loadComponent: () => import('./pages/tip-success/tip-success.component').then(m => m.TipSuccessComponent) },
+  { path: 'local', loadComponent: () => import('./pages/local/local.component').then(m => m.LocalComponent) },
+  { path: 'charts', loadComponent: () => import('./pages/charts/charts.component').then(m => m.ChartsComponent) },
+  { path: 'features', loadComponent: () => import('./pages/features/features.component').then(m => m.FeaturesComponent) },
+  { path: 'premium', loadComponent: () => import('./pages/premium/premium.component').then(m => m.PremiumComponent) },
+  { path: 'premium/success', loadComponent: () => import('./pages/premium-success/premium-success.component').then(m => m.PremiumSuccessComponent) },
   { path: '**', redirectTo: '' }
 ];

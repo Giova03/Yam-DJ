@@ -18,7 +18,7 @@
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
-            "assets": ["src/favicon.ico", "src/assets"],
+            "assets": ["src/favicon.ico", "src/assets", "src/sw.js", "src/manifest.webmanifest", "src/robots.txt"],
             "styles": ["src/styles.css"],
             "scripts": []
           },

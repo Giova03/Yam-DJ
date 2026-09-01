@@ -22,6 +22,12 @@ musicale locale ultra-dynamique.
 | 🎛️ **Mixtapes** | Rendu crossfade reel des mixtapes cote serveur | FFmpeg xfade |
 | 📊 **Dashboard Artiste** | Solde FCFA, stats, historique tips, notifications temps reel | WebSocket STOMP |
 | ✅ **Moderation** | Validation des pistes avant publication (anti-fraude) | Spring Security roles |
+| 📂 **Ma Musique locale** | Lecture des musiques du telephone/ordinateur (tags ID3, pochette, ecran verrouille) — 100% hors ligne | File API + MediaSession |
+| 📈 **Charts hebdomadaires** | Top des ecoutes de la semaine, global et par pays, rafraichi toutes les heures | Job @Scheduled + PostgreSQL |
+| 🔔 **Notifications push** | Centre in-app + Web Push VAPID (nouveaux sons des artistes suivis, tips recus, retraits) | PWA + RFC 8030/8292 |
+| ⭐ **Premium Fan** | Abonnement 500 F / 30 jours via mobile money, badge supporteur | FedaPay + webhook |
+| 💸 **Retraits artistes** | Solde -> mobile money, validation admin, min 5 000 F | FedaPay + Brevo |
+| 🔍 **SEO** | Sitemap dynamique, robots.txt, Open Graph, JSON-LD, PWA installable | Render + Vercel rewrites |
 
 ---
 
@@ -110,17 +116,17 @@ npm start
 
 ### 3️⃣ Comptes de demonstration
 
-Le `schema.sql` cree automatiquement 3 comptes (a activer via le code email, ou
-directement actives — voir colonne `email_verified = TRUE`) :
+Le `schema.sql` + `scripts/seed_yamdj.py` creent les comptes de demo
+(mots de passe ADMIN reinitialises par le seed) :
 
 | Compte | Email | Mot de passe | Role |
 |---|---|---|---|
-| Admin | `admin@yamdj.africa` | `Password123` | ADMIN (moderation) |
+| Admin | `admin@yamdj.africa` | `AdminYamDj2024!` | ADMIN (moderation, retraits) |
 | Artiste | `artist@yamdj.africa` | `Password123` | ARTIST (upload + tips) |
-| DJ | `dj@yamdj.africa` | `Password123` | DJ (studio + mixtapes) |
+| DJ | `dj@yamdj.africa` | `DjDemo1234!` | DJ (studio + mixtapes) |
+| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | `Demo1234!` | ARTIST |
 
-> Ces comptes ont un hash BCrypt de demonstration. En production, changer
-> immediatement ces mots de passe en base.
+> ⚠️ En production, changer immediatement ces mots de passe en base.
 
 ### 4️⃣ Test rapide du flux complet
 
@@ -198,6 +204,21 @@ evenements `transaction.approved`, `transaction.declined`,
 `transaction.canceled`. Chaque confirmation est **double-verifiee** via
 `GET /v1/transactions/{id}` avant creditation (anti-fraude).
 
+### Configuration Notifications Push (Web Push)
+
+Variables : `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (P-256, base64url,
+generees par `python3 scripts/generate_vapid_keys.py`), `VAPID_SUBJECT`
+(defaut `mailto:contact@yamdj.africa`). Sans ces cles le centre de
+notifications in-app reste actif, seul le push navigateur est ignore.
+Le service worker `sw.js` est servi a la racine (portee `/`), la cle
+publique via `GET /api/notifications/vapid-key`.
+
+### Configuration Premium Fan
+
+Variables : `PREMIUM_PRICE_XOF` (defaut 500), `PREMIUM_PERIOD_DAYS`
+(defaut 30). Le webhook FedaPay route automatiquement tips et ordres
+Premium selon la transaction.
+
 ---
 
 ## 🔌 API REST — endpoints principaux
@@ -216,6 +237,16 @@ evenements `transaction.approved`, `transaction.declined`,
 | GET | `/api/dj/studio-library` | DJ | Bibliotheque du studio |
 | POST | `/api/dj/auto-mix` | DJ | Ordonnancement IA (Camelot+BPM) |
 | POST | `/api/dj/create-mixtape` | DJ | Rendu crossfade FFmpeg |
+| GET | `/api/charts?country=&limit=` | Public | Chart hebdomadaire des ecoutes |
+| GET | `/api/charts/countries` | Public | Pays du chart courant |
+| GET | `/api/seo/sitemap` | Public | Sitemap XML (via /sitemap.xml) |
+| GET | `/api/notifications/vapid-key` | Public | Cle publique Web Push |
+| GET/POST | `/api/notifications/**` | Auth | Centre de notifications + push |
+| POST | `/api/payment/premium` | Auth | Abonnement Premium Fan (500 F) |
+| POST | `/api/payment/premium/verify` | Auth | Verification post-paiement |
+| POST | `/api/artist/withdrawals` | ARTIST | Demande de retrait (min 5 000 F) |
+| GET | `/api/artist/withdrawals/mine` | ARTIST | Historique des retraits |
+| GET/POST | `/api/admin/withdrawals/**` | ADMIN | Validation des retraits |
 | GET | `/api/artists/{id}` | Public | Profil artiste public |
 | POST | `/api/payment/tip` | Public (option) | Initier un tip FedaPay |
 | POST | `/api/payment/tip/verify` | Public (option) | Verifier un paiement |

@@ -21,4 +21,9 @@ public class UserRepositoryHolder {
     public Optional<String> emailOf(UUID userId) {
         return userRepository.findById(userId).map(u -> u.getEmail());
     }
+
+    /** Pseudo d'un utilisateur (notifications moderation). */
+    public String pseudoOf(UUID userId) {
+        return userRepository.findById(userId).map(u -> u.getPseudo()).orElse("Artiste");
+    }
 }

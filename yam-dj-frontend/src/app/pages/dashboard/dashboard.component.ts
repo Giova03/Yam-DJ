@@ -1,20 +1,23 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { ContentService } from '../../services/content.service';
 import { AuthService } from '../../services/auth.service';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
-import { ArtistStats, TipHistory, Track } from '../../models/models';
+import { WithdrawalService } from '../../services/withdrawal.service';
+import { ArtistStats, TipHistory, Track, WithdrawalRequest } from '../../models/models';
 
 /**
  * DASHBOARD ARTISTE : solde Orange Money, stats, historique des tips,
- * gestion de ses pistes (statut de moderation, lecture, suppression)
- * et notifications temps reel (WebSocket) quand un fan soutien l'artiste.
+ * gestion de ses pistes (statut de moderation, lecture, suppression),
+ * notifications temps reel (WebSocket) quand un fan soutien l'artiste
+ * et demandes de retrait des gains vers mobile money.
  */
 @Component({
   selector: 'yam-dashboard',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, FormsModule],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
       <h1 class="yam-title mb-2">📊 Dashboard Artiste</h1>
@@ -154,14 +157,114 @@ import { ArtistStats, TipHistory, Track } from '../../models/models';
           }
         </section>
       </div>
+
+      <!-- 💸 Retraits (artiste / admin) -->
+      @if (isArtistOrAdmin()) {
+        <section class="mt-10">
+          <h2 class="text-xl font-bold mb-4">💸 Retraits</h2>
+
+          <!-- Ligne solde -->
+          <div class="yam-card p-5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p class="text-white/50 text-sm">
+                Solde disponible : <b class="text-yam-gold text-lg">{{ formatXof(balance()) }} F</b>
+              </p>
+              @if (balance() < minWithdrawXof) {
+                <p class="text-xs text-white/30 mt-1">Minimum 5 000 F pour retirer tes gains.</p>
+              }
+            </div>
+            <button (click)="openWithdrawModal()" [disabled]="balance() < minWithdrawXof"
+                    [title]="balance() < minWithdrawXof ? 'Minimum 5 000 F' : 'Retirer mes gains'"
+                    class="yam-btn-primary shrink-0">
+              💸 Retirer mes gains
+            </button>
+          </div>
+
+          <!-- Historique des demandes -->
+          <h3 class="font-semibold mb-3 text-white/70">Mes demandes</h3>
+          @if (withdrawals().length) {
+            <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
+              @for (w of withdrawals(); track w.id) {
+                <div class="yam-card p-4">
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p class="font-medium">{{ formatXof(w.amountXof) }} F</p>
+                    <p class="text-white/40 text-sm">{{ w.operator }} · {{ w.phone }}</p>
+                    <span class="yam-badge" [class]="withdrawBadgeClass(w.status)">{{ withdrawLabel(w.status) }}</span>
+                    <span class="text-xs text-white/30 ml-auto">{{ formatDateFull(w.createdAt) }}</span>
+                  </div>
+                  @if (w.status === 'REJECTED' && w.adminNote) {
+                    <p class="text-red-400/80 text-sm mt-2">Motif du refus : {{ w.adminNote }}</p>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="yam-card p-6 text-center text-white/40 text-sm">
+              Aucune demande de retrait pour l'instant.
+            </div>
+          }
+        </section>
+      }
+
+      <!-- Modale : demande de retrait -->
+      @if (showWithdrawModal()) {
+        <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" (click)="closeWithdrawModal()">
+          <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <h2 class="yam-title">💸 Retirer mes gains</h2>
+                <p class="text-white/50 text-sm mt-1">Solde disponible : <b class="text-yam-gold">{{ formatXof(balance()) }} F</b></p>
+              </div>
+              <button (click)="closeWithdrawModal()" class="text-white/40 hover:text-white text-2xl leading-none">×</button>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label for="w-amount" class="text-sm text-white/60 mb-1 block">Montant (F)</label>
+                <input id="w-amount" type="number" class="yam-input" [(ngModel)]="wAmount"
+                       [min]="minWithdrawXof" [max]="balance()" placeholder="Ex : 10000">
+                <p class="text-xs text-white/30 mt-1">Entre {{ formatXof(minWithdrawXof) }} F et {{ formatXof(balance()) }} F.</p>
+              </div>
+
+              <div>
+                <label for="w-operator" class="text-sm text-white/60 mb-1 block">Operateur mobile money</label>
+                <select id="w-operator" class="yam-input" [(ngModel)]="wOperator">
+                  <option class="bg-yam-surface" value="Orange Money">Orange Money</option>
+                  <option class="bg-yam-surface" value="Moov Money">Moov Money</option>
+                  <option class="bg-yam-surface" value="MTN MoMo">MTN MoMo</option>
+                  <option class="bg-yam-surface" value="Wave">Wave</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="w-phone" class="text-sm text-white/60 mb-1 block">Telephone du compte</label>
+                <input id="w-phone" type="tel" class="yam-input" [(ngModel)]="wPhone" placeholder="70 00 00 00" maxlength="20">
+              </div>
+
+              @if (withdrawError()) {
+                <p class="text-red-400 text-sm bg-red-400/10 rounded-xl p-3">{{ withdrawError() }}</p>
+              }
+
+              <div class="flex gap-2">
+                <button (click)="submitWithdrawal()" [disabled]="withdrawBusy() || !canSubmitWithdrawal()"
+                        class="yam-btn-primary flex-1 !py-2.5 text-sm">
+                  @if (withdrawBusy()) { <span class="animate-pulse">Envoi...</span> } @else { Envoyer la demande }
+                </button>
+                <button (click)="closeWithdrawModal()" class="yam-btn-secondary !py-2.5 text-sm">Annuler</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `
 })
 export class DashboardComponent implements OnInit {
   private contentService = inject(ContentService);
-  private auth = inject(AuthService);
+  auth = inject(AuthService);
   private trackService = inject(TrackService);
   private player = inject(PlayerService);
+  private withdrawalService = inject(WithdrawalService);
 
   stats = signal<ArtistStats | null>(null);
   tips = signal<TipHistory[]>([]);
@@ -172,6 +275,17 @@ export class DashboardComponent implements OnInit {
   confirmDeleteId = signal<string | null>(null);
   deletingId = signal<string | null>(null);
   loadError = signal(false);
+
+  // ===== Section Retraits (mobile money) =====
+  readonly minWithdrawXof = 5000;
+  readonly balance = computed(() => this.stats()?.balanceXof || 0);
+  withdrawals = signal<WithdrawalRequest[]>([]);
+  showWithdrawModal = signal(false);
+  withdrawBusy = signal(false);
+  withdrawError = signal<string | null>(null);
+  wAmount: number | null = null;
+  wOperator = 'Orange Money';
+  wPhone = '';
 
   toast = signal<{ msg: string; kind: 'ok' | 'err' } | null>(null);
   private toastTimer: any = null;
@@ -190,6 +304,11 @@ export class DashboardComponent implements OnInit {
     // Mes pistes : tous statuts confondus (PENDING / APPROVED / REJECTED)
     if (this.auth.role() === 'ARTIST' || this.auth.role() === 'ADMIN') {
       this.loadMyTracks();
+    }
+
+    // Historique des demandes de retrait (silencieux si erreur 403 / pas artiste)
+    if (this.isArtistOrAdmin()) {
+      this.loadWithdrawals();
     }
 
     // Polling des notifications (complement WebSocket)
@@ -264,6 +383,78 @@ export class DashboardComponent implements OnInit {
     this.toast.set({ msg, kind });
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toast.set(null), 3500);
+  }
+
+  /** L'utilisateur connecte peut-il gerer des pistes / retraits ? */
+  isArtistOrAdmin(): boolean {
+    const role = this.auth.role();
+    return role === 'ARTIST' || role === 'ADMIN';
+  }
+
+  /** Charge l'historique des demandes de retrait (silencieux en cas d'erreur). */
+  loadWithdrawals(): void {
+    this.withdrawalService.mine().subscribe({
+      next: list => this.withdrawals.set(list || []),
+      error: () => this.withdrawals.set([])
+    });
+  }
+
+  /** Ouvre la modale de demande de retrait (montant pre-rempli au solde). */
+  openWithdrawModal(): void {
+    if (this.balance() < this.minWithdrawXof) return;
+    this.wAmount = this.balance();
+    this.wOperator = 'Orange Money';
+    this.wPhone = '';
+    this.withdrawError.set(null);
+    this.showWithdrawModal.set(true);
+  }
+
+  closeWithdrawModal(): void {
+    if (this.withdrawBusy()) return;
+    this.showWithdrawModal.set(false);
+    this.withdrawError.set(null);
+  }
+
+  /** Montant valide (min 5 000 F, max solde) + telephone renseigne. */
+  canSubmitWithdrawal(): boolean {
+    const amount = Number(this.wAmount);
+    return !!this.wPhone.trim() && !!amount
+      && amount >= this.minWithdrawXof && amount <= this.balance();
+  }
+
+  /** Envoie la demande de retrait puis recharge l'historique. */
+  submitWithdrawal(): void {
+    if (this.withdrawBusy() || !this.canSubmitWithdrawal()) return;
+    this.withdrawBusy.set(true);
+    this.withdrawError.set(null);
+    this.withdrawalService.create(Number(this.wAmount), this.wOperator, this.wPhone.trim()).subscribe({
+      next: () => {
+        this.withdrawBusy.set(false);
+        this.showWithdrawModal.set(false);
+        this.showToast('Demande envoyee ! Validation sous 48 h.', 'ok');
+        this.loadWithdrawals();
+      },
+      error: err => {
+        this.withdrawBusy.set(false);
+        this.withdrawError.set(err?.error?.message || 'Demande impossible. Verifie le montant et le numero.');
+      }
+    });
+  }
+
+  withdrawLabel(status: string): string {
+    if (status === 'PENDING') return '⏳ En attente';
+    if (status === 'APPROVED') return '✔ Paye';
+    return '✖ Refuse';
+  }
+
+  withdrawBadgeClass(status: string): string {
+    if (status === 'PENDING') return '!bg-yam-orange/20 !text-yam-orange';
+    if (status === 'APPROVED') return '!bg-yam-green/20 !text-yam-green';
+    return '!bg-red-400/20 !text-red-400';
+  }
+
+  formatDateFull(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   statusLabel(status: string): string {

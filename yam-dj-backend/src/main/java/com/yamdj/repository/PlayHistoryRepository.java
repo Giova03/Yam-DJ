@@ -28,4 +28,20 @@ public interface PlayHistoryRepository extends JpaRepository<PlayHistory, UUID> 
     @Modifying
     @Query("DELETE FROM PlayHistory ph WHERE ph.trackId = :trackId")
     int deleteByTrackId(@Param("trackId") UUID trackId);
+
+    /**
+     * Agregation des ecoutes par piste depuis une date (charts hebdo).
+     * Requete native : le JOIN avec track + le COUNT en SQL pur evitent
+     * de charger l'historique complet en memoire.
+     */
+    @Query(value = """
+            SELECT ph.track_id AS trackId, t.country AS country, COUNT(*) AS plays
+            FROM play_history ph
+            JOIN track t ON t.id = ph.track_id
+            WHERE ph.played_at >= :since AND t.status = 'APPROVED'
+            GROUP BY ph.track_id, t.country
+            ORDER BY plays DESC
+            LIMIT 500
+            """, nativeQuery = true)
+    List<Object[]> aggregatePlaysSince(@Param("since") java.time.LocalDateTime since);
 }

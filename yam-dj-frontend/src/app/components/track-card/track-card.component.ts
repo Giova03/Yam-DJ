@@ -1,6 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
+import { ChartsService } from '../../services/charts.service';
 import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist.component';
 import { ShareModalComponent } from '../share-modal/share-modal.component';
 import { CommentsComponent } from '../comments/comments.component';
@@ -19,15 +20,21 @@ import { Track } from '../../models/models';
         } @else {
           <span class="text-4xl opacity-40">🎵</span>
         }
+        @if (chartRank(); as rank) {
+          <span class="absolute top-3 left-3 yam-badge bg-yam-gold/90 text-yam-dark border-none font-bold" title="Top 10 chart hebdo">
+            🏆 #{{ rank }}
+          </span>
+        } @else {
+          @if (isPlaying()) {
+            <div class="absolute top-3 left-3 flex items-end gap-0.5 h-4">
+              <span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span>
+            </div>
+          }
+        }
         <button (click)="player.play(track()); $event.stopPropagation()"
                 class="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-yam-orange text-white flex items-center justify-center text-lg shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
           ▶
         </button>
-        @if (isPlaying()) {
-          <div class="absolute top-3 left-3 flex items-end gap-0.5 h-4">
-            <span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span>
-          </div>
-        }
       </div>
       <p class="font-semibold truncate group-hover:text-yam-orange transition">{{ track().title }}</p>
       <p class="text-white/50 text-sm truncate">{{ track().artistName }}</p>
@@ -74,11 +81,22 @@ export class TrackCardComponent {
   track = input.required<Track>();
   player = inject(PlayerService);
   auth = inject(AuthService);
+  charts = inject(ChartsService);
   play = output<Track>();
   tip = output<Track>();
   playlistOpen = signal<boolean>(false);
   shareOpen = signal<boolean>(false);
   commentsOpen = signal<boolean>(false);
+
+  constructor() {
+    // Charge le top 10 hebdo une seule fois (badge des cartes, partage entre instances)
+    this.charts.ensureTop10Loaded();
+  }
+
+  /** Rang Top 10 de la semaine (null si hors chart). */
+  chartRank(): number | null {
+    return this.charts.rankOf(this.track());
+  }
 
   openPlaylist(): void {
     this.playlistOpen.set(true);

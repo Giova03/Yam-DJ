@@ -10,6 +10,7 @@ import com.yamdj.repository.ArtistProfileRepository;
 import com.yamdj.repository.TipRepository;
 import com.yamdj.repository.TrackRepository;
 import com.yamdj.repository.UserRepository;
+import com.yamdj.service.NotificationService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class TipService {
     private final FedaPayService fedapayService;
     private final BrevoEmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     public TipService(TipRepository tipRepository,
                       UserRepository userRepository,
@@ -43,7 +45,8 @@ public class TipService {
                       TrackRepository trackRepository,
                       FedaPayService fedapayService,
                       BrevoEmailService emailService,
-                      SimpMessagingTemplate messagingTemplate) {
+                      SimpMessagingTemplate messagingTemplate,
+                      NotificationService notificationService) {
         this.tipRepository = tipRepository;
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
@@ -51,6 +54,7 @@ public class TipService {
         this.fedapayService = fedapayService;
         this.emailService = emailService;
         this.messagingTemplate = messagingTemplate;
+        this.notificationService = notificationService;
     }
 
     private User currentUser() {
@@ -158,6 +162,13 @@ public class TipService {
                         emailService.sendTipReceivedEmail(artistUser.getEmail(),
                                 profile.getStageName(), tip.getAmountXof(),
                                 fanPseudoOf(tip.getFromUserId()), tip.getMessage()));
+
+                // Notification in-app + push (Phase 2.4)
+                notificationService.notifyUser(tip.getToArtistId(), "TIP_RECEIVED",
+                        "Tip recu : " + tip.getAmountXof() + " F",
+                        fanPseudoOf(tip.getFromUserId()) + " te soutient avec "
+                                + tip.getAmountXof() + " FCFA !",
+                        "/dashboard");
             });
 
             return new TipResponse(tip.getId(), tip.getPaymentToken(), null,

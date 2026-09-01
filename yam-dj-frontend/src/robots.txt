@@ -1,0 +1,15 @@
+# YAM DJ — la musique africaine qui vibre
+# Streaming + Studio DJ + monetisation mobile money (Afrique de l'Ouest)
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /playlists
+Disallow: /playlist/
+Disallow: /dj-studio
+Disallow: /upload
+
+# Sitemap dynamique (pistes + artistes + pages publiques)
+Sitemap: https://yam-dj-frontend.vercel.app/sitemap.xml
