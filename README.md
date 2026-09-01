@@ -116,17 +116,21 @@ npm start
 
 ### 3️⃣ Comptes de demonstration
 
-Le `schema.sql` + `scripts/seed_yamdj.py` creent les comptes de demo
-(mots de passe ADMIN reinitialises par le seed) :
+Comptes reels en production (https://yam-dj-frontend.vercel.app) — mots de
+passe reinitialises et verifies le 2026-09-01 :
 
 | Compte | Email | Mot de passe | Role |
 |---|---|---|---|
-| Admin | `admin@yamdj.africa` | `AdminYamDj2024!` | ADMIN (moderation, retraits) |
-| Artiste | `artist@yamdj.africa` | `Password123` | ARTIST (upload + tips) |
-| DJ | `dj@yamdj.africa` | `DjDemo1234!` | DJ (studio + mixtapes) |
-| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | `Demo1234!` | ARTIST |
+| Admin | `admin@yamdj.africa` | `AdminYamDj2026!` | ADMIN (moderation, retraits, redevances) |
+| Artiste | `artist@yamdj.africa` | `DemoYamDj2026!` | ARTIST (upload + tips) |
+| DJ | `dj@yamdj.africa` | `DemoYamDj2026!` | DJ (studio + mixtapes) |
+| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | `DemoYamDj2026!` | ARTIST |
+| Fan seed | `fan-test@demo.yamdj.africa` | `DemoYamDj2026!` | USER |
 
 > ⚠️ En production, changer immediatement ces mots de passe en base.
+> ℹ️ Les uploads des artistes sont auto-approuves (visible immediatement).
+> Pour retablir la file de moderation stricte : variable d'environnement
+> `YAMDJ_MODERATION_AUTO_APPROVE=false` sur Render.
 
 ### 4️⃣ Test rapide du flux complet
 
@@ -151,6 +155,13 @@ Le `schema.sql` + `scripts/seed_yamdj.py` creent les comptes de demo
    (le `render.yaml` est deja pret : runtime Docker avec FFmpeg integre)
 3. Renseigner les variables d'environnement (meme noms que le `.env`)
 4. URL : `https://yam-dj.onrender.com`
+
+> 🔁 **Anti mise en veille (IMPORTANT)** : le plan gratuit Render endort le
+> service apres ~15 min sans trafic (cold start de 50-90 s au reveil, qui
+> faisait echouer connexions/inscriptions/uploads). Le workflow GitHub
+> `.github/workflows/keepalive.yml` pinge l'API toutes les 10 minutes :
+> le serveur reste eveille 24h/24. Verifier qu'il est actif dans l'onglet
+> **Actions** du repo GitHub. Si tu passes en plan payant, desactive-le.
 
 ### Frontend → Vercel
 
