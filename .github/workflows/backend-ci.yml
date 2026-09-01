@@ -1,0 +1,42 @@
+# CI du backend : compilation Maven + JDK 17 a chaque push.
+# But : detecter les erreurs de compilation AVANT le deploiement Render
+# (le build Render n'expose pas ses logs via API, la CI si).
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'yam-dj-backend/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compilation + packaging (tests sautes)
+        working-directory: yam-dj-backend
+        run: mvn -B package -DskipTests
+
+      - name: Artefact JAR (diagnostic)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yam-dj-backend-jar
+          path: yam-dj-backend/target/*.jar
+          retention-days: 3
