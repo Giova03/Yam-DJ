@@ -11,8 +11,6 @@ import com.yamdj.repository.WeeklyChartRepository;
 import com.yamdj.repository.PlayHistoryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,17 +53,13 @@ public class ChartService {
         this.artistProfileRepository = artistProfileRepository;
     }
 
-    /** Recalcul au demarrage (chart immediatement disponible). */
-    @EventListener(ApplicationReadyEvent.class)
-    public void onStartup() {
-        try {
-            refreshWeeklyChart();
-        } catch (Exception e) {
-            log.warn("Chart initial non calcule : {}", e.getMessage());
-        }
-    }
-
-    /** Recalcul horaire (ecoutes de la semaine en cours). */
+    /**
+     * Recalcul au demarrage (chart immediatement disponible).
+     * NOTE : appele par ChartStartupRefresher (composant externe) et non en
+     * auto-invocation — un appel this.refreshWeeklyChart() contournerait le
+     * proxy @Transactional et le deleteByWeekStart (@Modifying) echouerait
+     * (TransactionRequiredException).
+     */
     @Scheduled(fixedDelay = 3600_000, initialDelay = 300_000)
     @Transactional
     public void refreshWeeklyChart() {
