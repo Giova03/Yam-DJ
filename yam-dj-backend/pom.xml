@@ -51,7 +51,12 @@
         </dependency>
         <!-- Cache Caffeine : memoire vive pour les endpoints chauds (feed,
              charts) — divise la latence et la charge DB sur le plan gratuit
-             Render (0.1 CPU partage). -->
+             Render (0.1 CPU partage). starter-cache apporte
+             spring-context-support (CaffeineCacheManager). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
