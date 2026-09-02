@@ -47,4 +47,45 @@ public class MeController {
         User user = trackService.currentUser();
         return ResponseEntity.ok(trackService.likedTracks(user.getId(), Math.min(limit, 100)));
     }
+
+    // ============= VAGUE 2 : sync hors ligne, reprise, partages recus =============
+
+    /** SYNC HORS LIGNE : applique les ecoutes accumulees sans reseau. */
+    @PostMapping("/plays/sync")
+    public ResponseEntity<Map<String, Object>> syncPlays(
+            @RequestBody com.yamdj.dto.CommonDtos.PlaySyncRequest request) {
+        User user = trackService.currentUser();
+        int synced = trackService.syncPlays(user.getId(),
+                request == null ? null : request.plays());
+        return ResponseEntity.ok(Map.of("synced", synced));
+    }
+
+    /** REPRISE DE LECTURE : sauvegarde la position de la piste en cours. */
+    @PostMapping("/progress")
+    public ResponseEntity<Void> saveProgress(
+            @RequestBody com.yamdj.dto.CommonDtos.ProgressRequest body) {
+        if (body == null || body.trackId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        User user = trackService.currentUser();
+        trackService.saveProgress(user.getId(), body.trackId(),
+                body.positionSec() == null ? 0 : body.positionSec(),
+                body.durationSec());
+        return ResponseEntity.ok().build();
+    }
+
+    /** REPRISE DE LECTURE : positions enregistrees (toutes pistes). */
+    @GetMapping("/progress")
+    public ResponseEntity<List<Map<String, Object>>> listProgress() {
+        User user = trackService.currentUser();
+        return ResponseEntity.ok(trackService.listProgress(user.getId()));
+    }
+
+    /** PARTAGES : sons recus d'autres utilisateurs YAM DJ. */
+    @GetMapping("/shares")
+    public ResponseEntity<List<Map<String, Object>>> myShares(
+            @RequestParam(defaultValue = "30") int limit) {
+        User user = trackService.currentUser();
+        return ResponseEntity.ok(trackService.receivedShares(user.getId(), limit));
+    }
 }

@@ -29,6 +29,9 @@ public interface PlayHistoryRepository extends JpaRepository<PlayHistory, UUID> 
     @Query("DELETE FROM PlayHistory ph WHERE ph.trackId = :trackId")
     int deleteByTrackId(@Param("trackId") UUID trackId);
 
+    /** Idempotence du sync hors ligne : evenement client deja applique ? */
+    boolean existsByClientEventId(UUID clientEventId);
+
     /**
      * Agregation des ecoutes par piste depuis une date (charts hebdo).
      * Requete native : le JOIN avec track + le COUNT en SQL pur evitent

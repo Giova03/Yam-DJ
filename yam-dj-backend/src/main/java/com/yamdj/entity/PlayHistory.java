@@ -27,4 +27,21 @@ public class PlayHistory {
     @CreationTimestamp
     @Column(name = "played_at", nullable = false, updatable = false)
     private LocalDateTime playedAt;
+
+    /** Idempotence du sync hors ligne : identifiant d'evenement genere cote client. */
+    @Column(name = "client_event_id", unique = true)
+    private UUID clientEventId;
+
+    /** Duree reellement ecoutee (secondes) — statistiques et redevances. */
+    @Column(name = "listened_sec")
+    private Integer listenedSec;
+
+    /** Qualite utilisee : hq | lite | youtube | local. */
+    @Column(name = "quality", length = 10)
+    private String quality;
+
+    /** Ecoute comptee hors ligne puis synchronisee au retour du reseau. */
+    @Column(name = "offline", nullable = false)
+    @Builder.Default
+    private Boolean offline = Boolean.FALSE;
 }

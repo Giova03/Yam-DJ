@@ -422,3 +422,48 @@ ON CONFLICT (youtube_id) DO NOTHING;
 INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
 VALUES ('Sunshine Day - OSIBISA', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/MeH3OdgGHso/hqdefault.jpg', 299, 'Afro-Rock', 'Ghana', 'FR', 'APPROVED', 'LIBRE', 'Osibisa', 'MeH3OdgGHso', 'https://www.youtube.com/watch?v=MeH3OdgGHso', 0, 0, 0, FALSE)
 ON CONFLICT (youtube_id) DO NOTHING;
+
+-- =====================================================================
+-- VAGUE 2 (2026-09) — Mot de passe oublie, hors ligne, partage, reprise
+-- Toutes idempotentes : sans danger au redemarrage.
+-- =====================================================================
+
+-- ---- Mot de passe oublie ----
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64);
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_user_reset_token ON app_user(reset_token) WHERE reset_token IS NOT NULL;
+
+-- ---- Historique hors ligne (sync differe + idempotence) ----
+ALTER TABLE play_history ADD COLUMN IF NOT EXISTS client_event_id UUID;
+ALTER TABLE play_history ADD COLUMN IF NOT EXISTS listened_sec INT;
+ALTER TABLE play_history ADD COLUMN IF NOT EXISTS quality VARCHAR(10);
+ALTER TABLE play_history ADD COLUMN IF NOT EXISTS offline BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_history_client_event
+    ON play_history(client_event_id) WHERE client_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_history_played_at ON play_history(played_at DESC);
+
+-- ---- Reprise de lecture (par utilisateur x piste) ----
+CREATE TABLE IF NOT EXISTS user_track_progress (
+    user_id       UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    track_id      UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    position_sec  INT  NOT NULL DEFAULT 0,
+    duration_sec  INT,
+    created_at    TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMP NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, track_id)
+);
+
+-- ---- Partage de piste in-app (avec notification destinataire) ----
+CREATE TABLE IF NOT EXISTS track_share (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_user_id UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    to_user_id   UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    track_id     UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    message      VARCHAR(300),
+    seen_at      TIMESTAMP,
+    created_at   TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_share_to_user ON track_share(to_user_id, created_at DESC);
+
+-- ---- Nettoyage : colonnes orphelines du V1 (securite) ----
+-- (aucune suppression destructive : on garde tout)

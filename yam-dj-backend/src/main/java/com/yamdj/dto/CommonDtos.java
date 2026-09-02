@@ -45,4 +45,24 @@ public final class CommonDtos {
             List<UUID> trackIds,
             java.time.LocalDateTime createdAt
     ) {}
+
+    // ================== VAGUE 2 : hors ligne, partage, reprise ==================
+
+    /** Ecoute accumulee hors ligne puis synchronisee (idempotente). */
+    public record PlaySyncItem(
+            UUID trackId,
+            UUID clientEventId,
+            String quality,
+            Integer listenedSec
+    ) {}
+
+    public record PlaySyncRequest(List<PlaySyncItem> plays) {}
+
+    public record PlaySyncResponse(int synced) {}
+
+    /** Sauvegarde de la position de lecture (reprendre ou on s'est arrete). */
+    public record ProgressRequest(UUID trackId, Integer positionSec, Integer durationSec) {}
+
+    /** Envoi d'une piste a un ami YAM DJ (par pseudo). */
+    public record ShareRequest(String toPseudo, String message) {}
 }

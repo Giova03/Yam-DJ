@@ -46,6 +46,18 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${this.apiUrl}/api/auth/resend-verification`, { email });
   }
 
+  /** MOT DE PASSE OUBLIE : envoi du lien de reinitialisation par email. */
+  forgotPassword(email: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/api/auth/forgot-password`, { email });
+  }
+
+  /** NOUVEAU MOT DE PASSE : application du token recu par email. */
+  resetPassword(token: string, newPassword: string) {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/api/auth/reset-password`, {
+      token, newPassword
+    });
+  }
+
   me() {
     return this.http.get<any>(`${this.apiUrl}/api/me`);
   }

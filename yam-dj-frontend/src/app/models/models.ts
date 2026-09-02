@@ -273,3 +273,62 @@ export interface DownloadedTrack {
   downloadedAt: string;
   sizeBytes?: number;
 }
+
+// ==================== VAGUE 2 (2026-09) ====================
+
+/** Piste locale (fichier du telephone/ordinateur, jamais envoyee sur le reseau). */
+export interface LocalFileTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string;
+  coverUrl?: string;
+  duration: number;
+  fileName: string;
+  /** URL.createObjectURL — recree a chaque session si handle persiste. */
+  objectUrl?: string;
+  /** Handle File System Access (persistance IndexedDB), si disponible. */
+  handle?: any;
+  file?: File;
+}
+
+/** Ecoute accumulee hors ligne, synchronisee au retour du reseau. */
+export interface OfflinePlay {
+  trackId: string;
+  clientEventId: string;
+  quality: string;
+  listenedSec: number;
+  playedAt: string;
+}
+
+/** Element de la file d'attente affichable (streaming, YouTube ou local). */
+export interface QueueItem {
+  track: Track;
+  kind: 'stream' | 'youtube' | 'local';
+  local?: LocalFileTrack;
+}
+
+/** Sons recus d'autres utilisateurs (partage in-app). */
+export interface ReceivedShare {
+  id: string;
+  fromPseudo: string;
+  message?: string;
+  seen: boolean;
+  createdAt: string;
+  track: Track;
+}
+
+/** Preset d'egalisateur 5 bandes. */
+export interface EqPreset {
+  name: string;
+  gains: [number, number, number, number, number]; // dB : 60/250/1k/4k/12k
+}
+
+/** Statistiques d'ecoute (« Ton annee en sons »). */
+export interface ListeningStats {
+  totalPlays: number;
+  totalMinutes: number;
+  topArtists: { name: string; plays: number }[];
+  topGenres: { name: string; plays: number }[];
+  topTracks: { track: Track; plays: number }[];
+}

@@ -41,4 +41,14 @@ public final class AuthDtos {
     ) {}
 
     public record MessageResponse(String message) {}
+
+    /** Demande de reinitialisation : envoie un lien par email. */
+    public record ForgotPasswordRequest(@NotBlank @Email String email) {}
+
+    /** Nouveau mot de passe + token recu par email. */
+    public record ResetPasswordRequest(
+            @NotBlank String token,
+            @NotBlank @Size(min = 8, max = 100) String newPassword) {}
+
+    public record ResetPasswordResponse(String message) {}
 }

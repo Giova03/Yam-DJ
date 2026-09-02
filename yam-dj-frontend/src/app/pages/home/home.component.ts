@@ -41,6 +41,30 @@ import { Track, Mixtape } from '../../models/models';
       </section>
 
       <!-- Pour Toi -->
+      <!-- ============ YAM RADIO : suite infinie par genre / pays ============ -->
+      <section class="mb-10">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="yam-title">📡 YAM Radio {{ ' ' }}<span class="text-white/40 text-lg">— la suite continue toute seule</span></h2>
+        </div>
+        <p class="text-white/40 text-sm -mt-2 mb-4">Choisis une ambiance, YAM DJ enchaine les sons sans fin — parfait avec le mode Data-Lite.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          @for (r of radios(); track r.label) {
+            <button (click)="startRadio(r)" (contextmenu)="$event.preventDefault()"
+                    class="yam-card p-4 text-left hover:border-yam-orange/50 transition group">
+              <div class="text-3xl mb-2">{{ r.emoji }}</div>
+              <p class="font-bold text-sm group-hover:text-yam-orange transition">{{ r.label }}</p>
+              <p class="text-white/40 text-xs">{{ r.hint }}</p>
+            </button>
+          }
+        </div>
+        @if (player.radioMode(); as radio) {
+          <div class="yam-card p-3 mt-4 border-yam-orange/40 bg-yam-orange/5 flex items-center justify-between">
+            <p class="text-sm text-yam-orange font-semibold">📡 Radio en cours : {{ radio.genre || radio.country || 'Decouverte' }} — consulte la file d'attente 📋</p>
+            <button (click)="player.stopRadio()" class="text-xs text-white/50 hover:text-white underline shrink-0">Stop</button>
+          </div>
+        }
+      </section>
+
       <section class="mb-10">
         <div class="flex items-center justify-between mb-4">
           <h2 class="yam-title">✨ Pour Toi</h2>
@@ -179,6 +203,21 @@ export class HomeComponent implements OnInit {
   recent = signal<Track[]>([]);
   followFeedTracks = signal<Track[]>([]);
   mixtapes = signal<Mixtape[]>([]);
+
+  /** Radios disponibles (suite infinie par genre / pays). */
+  radios = signal<Array<{ label: string; emoji: string; hint: string; genre?: string; country?: string }>>([
+    { label: 'Tout YAM', emoji: '🎛️', hint: 'Decouverte sans fin' },
+    { label: 'Afrobeats', emoji: '🔥', hint: 'Le son qui bouge', genre: 'Afrobeats' },
+    { label: 'Coupé-Décalé', emoji: '💃', hint: 'Abidjan vibes', genre: 'Coupe-Decale' },
+    { label: 'Rap', emoji: '🎤', hint: 'Flow ouest-africain', genre: 'Rap' },
+    { label: 'Burkina', emoji: '🇧🇫', hint: 'Les sons du Faso', country: 'Burkina Faso' },
+    { label: 'Côte d\'Ivoire', emoji: '🇨🇮', hint: 'Le groove ivoirien', country: 'Cote d\'Ivoire' }
+  ]);
+
+  /** Lance une radio infinie (bouton d'accueil). */
+  startRadio(r: { genre?: string; country?: string }): void {
+    this.player.startRadio(r.genre, r.country);
+  }
 
   tipModalVisible = signal(false);
   tipArtist = signal<Track | null>(null);

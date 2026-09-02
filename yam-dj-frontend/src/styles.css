@@ -4,8 +4,9 @@
 
 /* ===== YAM DJ Design System (Spotify-like, sombre + clair) =====
    Fondations variables : triplets RGB pilotes par :root (sombre, defaut)
-   et html.light (mode clair). Les classes yam-dark/yam-surface/yam-card
-   de Tailwind les consomment avec transparence (bg-yam-surface/95...). */
+   et html.light (mode clair "Ivoire & Terre d'igname" — chaud, Boomplay-like).
+   Les classes yam-dark/yam-surface/yam-card de Tailwind les consomment
+   avec transparence (bg-yam-surface/95...). */
 
 :root {
   --c-bg-base: 10 10 10;       /* #0A0A0A */
@@ -16,11 +17,14 @@
   color-scheme: dark;
 }
 
-/* MODE CLAIR : fonds clairs, textes sombres (Boomplay-like) */
+/* MODE CLAIR « Ivoire & Terre d'igname » :
+   base ivoire chaud #FBF5EC (pas un gris froid), surfaces blanches,
+   textes brun-noir profonds. Les accents orange/or passent en versions
+   assombries AA (conseil designer) pour rester lisibles (>= 4.5:1). */
 html.light {
-  --c-bg-base: 246 247 249;    /* #F6F7F9 */
+  --c-bg-base: 251 245 236;    /* #FBF5EC — ivoire chaud */
   --c-bg-surface: 255 255 255; /* #FFFFFF */
-  --c-bg-card: 255 255 255;    /* cartes blanches sur fond gris clair */
+  --c-bg-card: 255 255 255;    /* cartes blanches sur fond ivoire */
   color-scheme: light;
 }
 
@@ -29,7 +33,7 @@ html {
 }
 
 html.light {
-  scrollbar-color: #bbb #f6f7f9;
+  scrollbar-color: #C2B49A #FBF5EC;
 }
 
 ::-webkit-scrollbar {
@@ -56,13 +60,18 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: #9aa0a8;
 }
 
+/* Transition douce entre les themes */
+html.theme-anim, html.theme-anim * {
+  transition: background-color .35s ease, border-color .35s ease, color .35s ease !important;
+}
+
 @layer components {
   .yam-card {
     @apply rounded-2xl border transition-all duration-300;
     background-color: rgb(var(--c-bg-card));
     border-color: rgba(127, 127, 127, 0.15);
   }
-  html.light .yam-card:hover { border-color: rgba(127, 127, 127, 0.4); }
+  html.light .yam-card:hover { border-color: #D6CBB8; }
   .yam-btn-primary {
     @apply bg-yam-orange text-white font-semibold rounded-full px-6 py-2.5 hover:bg-orange-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
@@ -97,57 +106,112 @@ html.light ::-webkit-scrollbar-thumb:hover {
    herites du design sombre. En mode clair on les reecrit proprement ici —
    un seul fichier, aucune modification des 30+ composants. */
 
-html.light .text-white { color: #1c1e21 !important; }
-html.light .text-white\/90 { color: rgba(28, 30, 33, 0.9) !important; }
-html.light .text-white\/80 { color: rgba(28, 30, 33, 0.8) !important; }
-html.light .text-white\/70 { color: rgba(28, 30, 33, 0.7) !important; }
-html.light .text-white\/60 { color: rgba(28, 30, 33, 0.62) !important; }
-html.light .text-white\/50 { color: rgba(28, 30, 33, 0.55) !important; }
-html.light .text-white\/40 { color: rgba(28, 30, 33, 0.45) !important; }
-html.light .text-white\/30 { color: rgba(28, 30, 33, 0.38) !important; }
-html.light .text-white\/20 { color: rgba(28, 30, 33, 0.28) !important; }
-html.light .placeholder\:text-white\/30::placeholder { color: rgba(28, 30, 33, 0.4) !important; }
+html.light .text-white { color: #1F1B16 !important; }
+html.light .text-white\/90 { color: rgba(31, 27, 22, 0.92) !important; }
+html.light .text-white\/80 { color: rgba(31, 27, 22, 0.84) !important; }
+html.light .text-white\/70 { color: rgba(31, 27, 22, 0.74) !important; }
+html.light .text-white\/60 { color: rgba(31, 27, 22, 0.64) !important; }
+html.light .text-white\/50 { color: rgba(31, 27, 22, 0.56) !important; }
+html.light .text-white\/40 { color: rgba(31, 27, 22, 0.46) !important; }
+html.light .text-white\/30 { color: rgba(31, 27, 22, 0.38) !important; }
+html.light .text-white\/20 { color: rgba(31, 27, 22, 0.28) !important; }
+html.light .placeholder\:text-white\/30::placeholder { color: rgba(31, 27, 22, 0.42) !important; }
 
-html.light .bg-white\/5 { background-color: rgba(15, 20, 30, 0.04) !important; }
-html.light .bg-white\/10 { background-color: rgba(15, 20, 30, 0.07) !important; }
-html.light .bg-white\/20 { background-color: rgba(15, 20, 30, 0.12) !important; }
-html.light .hover\:bg-white\/10:hover { background-color: rgba(15, 20, 30, 0.08) !important; }
-html.light .hover\:bg-white\/20:hover { background-color: rgba(15, 20, 30, 0.14) !important; }
+html.light .bg-white\/5 { background-color: rgba(31, 27, 22, 0.04) !important; }
+html.light .bg-white\/10 { background-color: rgba(31, 27, 22, 0.07) !important; }
+html.light .bg-white\/20 { background-color: rgba(31, 27, 22, 0.12) !important; }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(31, 27, 22, 0.08) !important; }
+html.light .hover\:bg-white\/20:hover { background-color: rgba(31, 27, 22, 0.14) !important; }
 
-html.light .border-white\/5 { border-color: rgba(15, 20, 30, 0.07) !important; }
-html.light .border-white\/10 { border-color: rgba(15, 20, 30, 0.12) !important; }
-html.light .border-white\/15 { border-color: rgba(15, 20, 30, 0.16) !important; }
-html.light .border-white\/20 { border-color: rgba(15, 20, 30, 0.2) !important; }
-html.light .border-white\/30 { border-color: rgba(15, 20, 30, 0.28) !important; }
-html.light .border-white\/40 { border-color: rgba(15, 20, 30, 0.35) !important; }
+html.light .border-white\/5 { border-color: rgba(31, 27, 22, 0.07) !important; }
+html.light .border-white\/10 { border-color: rgba(31, 27, 22, 0.12) !important; }
+html.light .border-white\/15 { border-color: rgba(31, 27, 22, 0.16) !important; }
+html.light .border-white\/20 { border-color: rgba(31, 27, 22, 0.2) !important; }
+html.light .border-white\/30 { border-color: rgba(31, 27, 22, 0.28) !important; }
+html.light .border-white\/40 { border-color: rgba(31, 27, 22, 0.35) !important; }
 
 /* Voiles sombres (modales) : restent fonces en mode clair (lisibilite) */
 html.light .bg-black\/70 { background-color: rgba(10, 12, 16, 0.55) !important; }
 html.light .bg-black\/80 { background-color: rgba(10, 12, 16, 0.6) !important; }
 
 /* Degres blancs (gradients subtils) */
-html.light .from-white\/10 { --tw-gradient-from: rgba(15, 20, 30, 0.07) !important; }
-html.light .to-white\/5 { --tw-gradient-to: rgba(15, 20, 30, 0.03) !important; }
+html.light .from-white\/10 { --tw-gradient-from: rgba(31, 27, 22, 0.07) !important; }
+html.light .to-white\/5 { --tw-gradient-to: rgba(31, 27, 22, 0.03) !important; }
+
+/* ============ R1 — ACCENTS TEXTE AA + GRADIENT LOGO ============
+   #FFD166 sur blanc = illisible (1,35:1). En clair, l'or devient #A16207,
+   l'orange texte devient #C2410C (5,2:1), le vert #15803D, le rouge #B91C1C. */
+html.light .text-yam-gold   { color: #A16207 !important; }
+html.light .text-yam-orange { color: #C2410C !important; }
+html.light .text-yam-green  { color: #15803D !important; }
+html.light .text-red-400    { color: #B91C1C !important; }
+html.light .text-red-500    { color: #B91C1C !important; }
+html.light .text-red-500\/90 { color: #B91C1C !important; }
+
+/* text-yam-dark : texte POSE sur fond orange/or (bouton play, badges).
+   En clair il reste BLANC sur les fonds vifs (pas #fff neige : ivoire). */
+html.light .text-yam-dark { color: #FFFFFF !important; }
+html.light .bg-white.text-yam-dark { background-color: #1F1B16 !important; color: #FFFFFF !important; }
+
+/* Logo/hero en degrade : version clair lisible (pas de segment or invisible) */
+html.light .yam-gradient-text {
+  background-image: linear-gradient(90deg, #C2410C, #A16207, #C2410C) !important;
+}
+
+/* ============ R2 — ETATS HOVER MANQUANTS ============ */
+html.light .hover\:text-white:hover { color: #1F1B16 !important; }
+html.light .hover\:text-yam-gold:hover { color: #A16207 !important; }
+html.light .hover\:text-yam-orange:hover { color: #C2410C !important; }
+html.light .hover\:text-red-400:hover { color: #B91C1C !important; }
+html.light .hover\:text-red-500:hover { color: #B91C1C !important; }
+html.light .hover\:border-yam-orange\/40:hover { border-color: rgba(194, 65, 12, 0.4) !important; }
+html.light .hover\:border-yam-orange\/50:hover { border-color: rgba(194, 65, 12, 0.5) !important; }
+
+/* ============ R3 — BASE CHAUDE + GRADIENTS + TINTS DENSES ============ */
+/* Moitie d'ecran noire sur login/register en mode clair : to-black fixe */
+html.light .to-black { --tw-gradient-to: #FBF5EC var(--tw-gradient-to-position) !important; }
+html.light .bg-black\/40 { background-color: rgba(31, 27, 22, 0.08) !important; }
+html.light .bg-black\/30 { background-color: rgba(31, 27, 22, 0.06) !important; }
+
+/* Tints : fonds pastel HOT (pas de blanc invisible) */
+html.light .bg-yam-gold\/15, html.light .bg-yam-gold\/10 { background-color: #F6E7C6 !important; }
+html.light .bg-yam-gold\/5 { background-color: #FAF0DA !important; }
+html.light .bg-yam-orange\/10 { background-color: #FCE9DC !important; }
+html.light .bg-yam-orange\/20 { background-color: #F8D4C0 !important; }
+html.light .bg-yam-orange\/5 { background-color: #FEF2EA !important; }
+html.light .bg-yam-green\/10 { background-color: #DFF3E6 !important; }
+html.light .bg-yam-green\/5 { background-color: #EDF9F1 !important; }
+html.light .bg-red-400\/10 { background-color: #FDE4E4 !important; }
+html.light .bg-red-500\/10 { background-color: #FDE4E4 !important; }
+html.light .bg-red-500\/20 { background-color: #FBD5D5 !important; }
+
+/* Bordures accent */
+html.light .border-yam-orange\/30 { border-color: rgba(194, 65, 12, 0.3) !important; }
+html.light .border-yam-orange\/40 { border-color: rgba(194, 65, 12, 0.4) !important; }
+html.light .border-yam-gold\/30 { border-color: rgba(161, 98, 7, 0.3) !important; }
+html.light .border-yam-gold\/40 { border-color: rgba(161, 98, 7, 0.4) !important; }
+html.light .border-yam-green\/40 { border-color: rgba(21, 128, 61, 0.4) !important; }
+html.light .border-red-400\/40 { border-color: rgba(185, 28, 28, 0.4) !important; }
+
+/* ============ R4 — CTA, FOCUS, SLIDERS ============ */
+html.light .yam-btn-primary { background-color: #E8511F !important; }
+html.light .yam-btn-primary:hover { background-color: #C63D0D !important; }
+html.light .accent-yam-orange { accent-color: #C2410C !important; }
+html.light .accent-yam-gold { accent-color: #A16207 !important; }
+html.light .yam-input:focus,
+html.light .focus\:ring-yam-orange:focus {
+  border-color: #C2410C !important;
+  --tw-ring-color: rgba(194, 65, 12, 0.6) !important;
+}
+
+/* ============ R5 — BORDURES / OMBRES CHAUDES ============ */
+html.light .yam-card { border-color: #EDE5D8 !important; }
+html.light .shadow-black\/50 { --tw-shadow-color: rgba(74, 52, 24, 0.18) !important; --tw-shadow: var(--tw-shadow-colored) !important; }
+html.light .shadow-black\/40 { --tw-shadow-color: rgba(74, 52, 24, 0.15) !important; --tw-shadow: var(--tw-shadow-colored) !important; }
+html.light .border-yam-dark { border-color: #FBF5EC !important; }
 
 /* Barre de lecture : pochette du bouton play reste foncee (contraste logo) */
-html.light .text-yam-dark { color: #ffffff !important; }
-html.light .bg-white.text-yam-dark { background-color: #1c1e21 !important; color: #ffffff !important; }
-
-/* Gradient anime du logo */
-.yam-gradient-text {
-  background: linear-gradient(90deg, #FF6B35, #FFD166, #FF6B35);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: yam-shine 4s linear infinite;
-}
-
-@keyframes yam-shine {
-  to {
-    background-position: 200% center;
-  }
-}
+html.light .bg-yam-dark\/98 { background-color: #FFFFFF !important; }
 
 /* Equalizer anime (track en lecture) */
 .eq-bar {
@@ -155,6 +219,7 @@ html.light .bg-white.text-yam-dark { background-color: #1c1e21 !important; color
   background: #FF6B35;
   animation: eq-bounce 0.9s ease-in-out infinite;
 }
+html.light .eq-bar { background: #C2410C; }
 .eq-bar:nth-child(2) { animation-delay: 0.15s; }
 .eq-bar:nth-child(3) { animation-delay: 0.3s; }
 .eq-bar:nth-child(4) { animation-delay: 0.45s; }
@@ -162,3 +227,16 @@ html.light .bg-white.text-yam-dark { background-color: #1c1e21 !important; color
   0%, 100% { height: 4px; }
   50% { height: 16px; }
 }
+
+/* Zone tactile elargie des sliders (cible pouce >= 44px, conseil designer) */
+input[type="range"] { touch-action: none; }
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  background: #FF6B35;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  margin-top: -6px;
+}
+html.light input[type="range"]::-webkit-slider-thumb { background: #C2410C; }

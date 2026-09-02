@@ -41,7 +41,10 @@ import { AuthService } from '../../services/auth.service';
                 <input type="email" [(ngModel)]="email" placeholder="ton@email.com" class="yam-input">
               </div>
               <div>
-                <label class="text-sm text-white/60 mb-1 block">Mot de passe</label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-sm text-white/60 block">Mot de passe</label>
+                  <a routerLink="/forgot-password" class="text-xs text-yam-orange hover:underline">Oublié ?</a>
+                </div>
                 <input type="password" [(ngModel)]="password" placeholder="••••••••" class="yam-input" (keyup.enter)="doLogin()">
               </div>
             </div>

@@ -1,5 +1,8 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Track } from '../../models/models';
+import { TrackService } from '../../services/track.service';
+import { AuthService } from '../../services/auth.service';
 
 /** Domaine public du frontend — cible des liens de partage profonds. */
 const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
@@ -12,6 +15,7 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
 @Component({
   selector: 'yam-share-modal',
   standalone: true,
+  imports: [FormsModule],
   template: `
     @if (visible() && track()) {
       <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" (click)="close.emit()">
@@ -44,10 +48,14 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
           </div>
 
           <!-- Reseaux sociaux -->
-          <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="grid grid-cols-4 gap-2 mb-4">
             <button (click)="shareWhatsApp()"
                     class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#25D366]/20">
               <span class="text-xl">💬</span> WhatsApp
+            </button>
+            <button (click)="shareTelegram()"
+                    class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#229ED9]/20">
+              <span class="text-xl">✈️</span> Telegram
             </button>
             <button (click)="shareFacebook()"
                     class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#1877F2]/20">
@@ -58,6 +66,32 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
               <span class="text-xl">✖️</span> X
             </button>
           </div>
+
+          <!-- Envoi IN-APP a un ami YAM DJ -->
+          @if (auth.isLoggedIn()) {
+            <div class="bg-yam-surface rounded-2xl p-4 border border-white/10 mb-4">
+              <p class="text-sm font-semibold mb-2">🎵 Envoyer a un ami YAM DJ</p>
+              @if (sendState() === 'done') {
+                <p class="text-yam-green text-sm">{{ sendMessage() }}</p>
+              } @else {
+                <div class="flex gap-2">
+                  <input type="text" [(ngModel)]="friendPseudo" placeholder="Pseudo de ton ami (ex : faso-king)"
+                         class="yam-input !py-2.5 text-sm flex-1">
+                  <button (click)="sendToFriend()" [disabled]="sendState() === 'sending' || !friendPseudo.trim()"
+                          class="yam-btn-primary !px-4 !py-2.5 text-sm shrink-0">
+                    {{ sendState() === 'sending' ? '...' : 'Envoyer' }}
+                  </button>
+                </div>
+                <input type="text" [(ngModel)]="friendMessage" placeholder="Petit mot (optionnel)..."
+                       class="yam-input !py-2 text-sm mt-2">
+                @if (sendState() === 'error') {
+                  <p class="text-red-400 text-xs mt-2">{{ sendMessage() }}</p>
+                } @else {
+                  <p class="text-white/40 text-xs mt-2">Ton ami recevra une notification dans son application.</p>
+                }
+              }
+            </div>
+          }
 
           <p class="text-white/30 text-xs text-center">{{ shareText() }}</p>
         </div>
@@ -70,6 +104,14 @@ export class ShareModalComponent {
   track = input<Track | null>(null);
   close = output<void>();
   shared = output<string>();
+
+  private trackService = inject(TrackService);
+  auth = inject(AuthService);
+
+  friendPseudo = '';
+  friendMessage = '';
+  sendState = signal<'idle' | 'sending' | 'done' | 'error'>('idle');
+  sendMessage = signal('');
 
   copied = signal<boolean>(false);
   private copiedTimer: any = null;
@@ -116,6 +158,30 @@ export class ShareModalComponent {
   shareX(): void {
     this.openWindow(`https://twitter.com/intent/tweet?text=${encodeURIComponent(this.shareText())}`);
     this.shared.emit('x');
+  }
+
+  shareTelegram(): void {
+    this.openWindow(`https://t.me/share/url?url=${encodeURIComponent(this.shareUrl())}&text=${encodeURIComponent(this.shareText())}`);
+    this.shared.emit('telegram');
+  }
+
+  /** Envoi in-app : le destinataire recoit une notification. */
+  sendToFriend(): void {
+    const t = this.track();
+    const pseudo = this.friendPseudo.trim();
+    if (!t || !pseudo) return;
+    this.sendState.set('sending');
+    this.trackService.shareTrack(t.id, pseudo, this.friendMessage.trim() || undefined).subscribe({
+      next: res => {
+        this.sendState.set('done');
+        this.sendMessage.set(res?.message || `Son envoye a ${pseudo} !`);
+        this.shared.emit('in-app');
+      },
+      error: err => {
+        this.sendState.set('error');
+        this.sendMessage.set(err?.error?.message || 'Envoi impossible — verifie le pseudo.');
+      }
+    });
   }
 
   private openWindow(url: string): void {

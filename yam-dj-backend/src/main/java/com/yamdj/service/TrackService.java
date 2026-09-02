@@ -1,5 +1,6 @@
 package com.yamdj.service;
 
+import com.yamdj.dto.CommonDtos;
 import com.yamdj.dto.CommonDtos.*;
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.*;
@@ -9,7 +10,9 @@ import com.yamdj.entity.ArtistProfile;
 import com.yamdj.entity.Mixtape;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.TrackLike;
+import com.yamdj.entity.TrackShare;
 import com.yamdj.entity.User;
+import com.yamdj.entity.UserTrackProgress;
 import com.yamdj.entity.enums.TrackStatus;
 import com.yamdj.entity.enums.UserRole;
 import com.yamdj.exception.ApiException;
@@ -59,6 +62,8 @@ public class TrackService {
     private final PlaylistRepository playlistRepository;
     private final MixtapeRepository mixtapeRepository;
     private final TrackLikeRepository trackLikeRepository;
+    private final TrackShareRepository trackShareRepository;
+    private final UserTrackProgressRepository progressRepository;
     private final SupabaseStorageService storage;
     private final AudioProcessingService audioProcessor;
     private final NotificationService notificationService;
@@ -76,6 +81,8 @@ public class TrackService {
                         PlaylistRepository playlistRepository,
                         MixtapeRepository mixtapeRepository,
                         TrackLikeRepository trackLikeRepository,
+                        TrackShareRepository trackShareRepository,
+                        UserTrackProgressRepository progressRepository,
                         SupabaseStorageService storage,
                         AudioProcessingService audioProcessor,
                         NotificationService notificationService) {
@@ -86,6 +93,8 @@ public class TrackService {
         this.playlistRepository = playlistRepository;
         this.mixtapeRepository = mixtapeRepository;
         this.trackLikeRepository = trackLikeRepository;
+        this.trackShareRepository = trackShareRepository;
+        this.progressRepository = progressRepository;
         this.storage = storage;
         this.audioProcessor = audioProcessor;
         this.notificationService = notificationService;
@@ -317,6 +326,23 @@ public class TrackService {
     @Transactional
     @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public void registerPlay(UUID trackId, UUID userId) {
+        registerPlay(trackId, userId, null, null, null, false);
+    }
+
+    /**
+     * Enregistre une ecoute enrichie (V2) : qualite, duree ecoutee, idempotence
+     * par evenement client (sync hors ligne). Compteur + historique + stats.
+     */
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
+    public void registerPlay(UUID trackId, UUID userId, String quality,
+                             Integer listenedSec, UUID clientEventId, boolean offline) {
+        // Idempotence du sync hors ligne : un meme evenement client ne compte
+        // jamais deux fois (index unique sur client_event_id).
+        if (clientEventId != null
+                && playHistoryRepository.existsByClientEventId(clientEventId)) {
+            return;
+        }
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
         track.setPlayCount(track.getPlayCount() + 1);
@@ -330,7 +356,136 @@ public class TrackService {
         // Toute ecoute alimente l'historique (userId null = anonyme) :
         // les charts hebdomadaires comptent aussi les auditeurs non connectes.
         playHistoryRepository.save(PlayHistory.builder()
-                .userId(userId).trackId(trackId).build());
+                .userId(userId).trackId(trackId)
+                .quality(quality).listenedSec(listenedSec)
+                .clientEventId(clientEventId)
+                .offline(offline)
+                .build());
+    }
+
+    // ==================== YAM RADIO (suite infinie) ====================
+
+    /**
+     * RADIO : suite aleatoire de pistes approuvees, filtree par genre et/ou
+     * pays. Le client renouvelle la file quand elle s'epuise — experience
+     * "radio" sans fin, style Spotify Radio mais afro-centree.
+     */
+    @Transactional(readOnly = true)
+    public List<TrackResponse> radio(String genre, String country, int limit) {
+        int cap = Math.max(1, Math.min(limit, 30));
+        String g = (genre == null || genre.isBlank() || "all".equalsIgnoreCase(genre)) ? null : genre.trim();
+        String c = (country == null || country.isBlank() || "all".equalsIgnoreCase(country)) ? null : country.trim();
+        List<Track> tracks = trackRepository.radioPick(g, c, cap);
+        return toResponses(tracks);
+    }
+
+    // ================ SYNC HORS LIGNE (ecoutes differees) ================
+
+    /**
+     * Applique un lot d'ecoutes accumulees hors ligne. Idempotent par
+     * clientEventId : le client peut rejouer le sync apres un echec reseau
+     * sans gonfler les compteurs.
+     */
+    @Transactional
+    public int syncPlays(UUID userId, List<CommonDtos.PlaySyncItem> items) {
+        if (items == null || items.isEmpty()) return 0;
+        int applied = 0;
+        for (CommonDtos.PlaySyncItem item : items) {
+            if (item == null || item.trackId() == null) continue;
+            try {
+                registerPlay(item.trackId(), userId, item.quality(),
+                        item.listenedSec(), item.clientEventId(), true);
+                applied++;
+            } catch (ResourceNotFoundException e) {
+                // piste supprimee pendant le hors ligne : ignore
+            }
+        }
+        return applied;
+    }
+
+    // ================ REPRISE DE LECTURE (position par piste) ================
+
+    @Transactional
+    public void saveProgress(UUID userId, UUID trackId, int positionSec, Integer durationSec) {
+        UserTrackProgress.UserTrackProgressId id = UserTrackProgress.UserTrackProgressId.builder()
+                .userId(userId).trackId(trackId).build();
+        UserTrackProgress p = progressRepository.findById(id).orElseGet(() ->
+                UserTrackProgress.builder().id(id).build());
+        p.setPositionSec(Math.max(0, positionSec));
+        p.setDurationSec(durationSec);
+        progressRepository.save(p);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listProgress(UUID userId) {
+        return progressRepository.findByIdUserIdOrderByUpdatedAtDesc(userId).stream()
+                .map(p -> Map.<String, Object>of(
+                        "trackId", p.getId().getTrackId(),
+                        "positionSec", p.getPositionSec(),
+                        "durationSec", p.getDurationSec() == null ? 0 : p.getDurationSec(),
+                        "updatedAt", p.getUpdatedAt() == null ? "" : p.getUpdatedAt().toString()))
+                .collect(Collectors.toList());
+    }
+
+    // ================ PARTAGE IN-APP (piste a un ami) ================
+
+    /**
+     * Envoie une piste a un autre utilisateur (par pseudo) avec message
+     * optionnel. Notifie le destinataire. Retourne le partage cree.
+     */
+    @Transactional
+    public TrackShare shareTrack(UUID fromUserId, UUID trackId, String toPseudo, String message) {
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable"));
+        if (track.getStatus() != TrackStatus.APPROVED) {
+            throw new IllegalArgumentException("Cette piste n'est pas disponible");
+        }
+        User to = userRepository.findByPseudo(toPseudo == null ? "" : toPseudo.trim())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aucun utilisateur avec le pseudo \"" + toPseudo + "\""));
+        if (to.getId().equals(fromUserId)) {
+            throw new IllegalArgumentException("Tu ne peux pas t'envoyer un son a toi-meme 🙂");
+        }
+        TrackShare share = trackShareRepository.save(TrackShare.builder()
+                .fromUserId(fromUserId).toUserId(to.getId()).trackId(trackId)
+                .message(message == null ? null : message.trim())
+                .build());
+        User from = userRepository.findById(fromUserId).orElse(null);
+        String fromName = from == null ? "Un utilisateur" : from.getPseudo();
+        notificationService.notifyUser(to.getId(), "SHARE",
+                fromName + " t'envoie un son 🎵",
+                "\"" + track.getTitle() + "\"" +
+                        (message != null && !message.isBlank() ? " — \"" + message.trim() + "\"" : ""),
+                "/track/" + trackId);
+        return share;
+    }
+
+    /** Partages recus par l'utilisateur, enrichis des infos pistes. */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> receivedShares(UUID userId, int limit) {
+        List<TrackShare> shares = trackShareRepository
+                .findByToUserIdOrderByCreatedAtDesc(userId)
+                .stream().limit(Math.max(1, Math.min(limit, 50))).toList();
+        if (shares.isEmpty()) return List.of();
+        Map<UUID, Track> tracks = trackRepository.findAllById(
+                        shares.stream().map(TrackShare::getTrackId).toList()).stream()
+                .collect(Collectors.toMap(Track::getId, Function.identity()));
+        Map<UUID, String> pseudos = new HashMap<>();
+        userRepository.findAllById(shares.stream()
+                .map(TrackShare::getFromUserId).filter(Objects::nonNull).toList())
+                .forEach(u -> pseudos.put(u.getId(), u.getPseudo()));
+        return shares.stream().map(s -> {
+            Track t = tracks.get(s.getTrackId());
+            if (t == null) return null;
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId().toString());
+            m.put("fromPseudo", s.getFromUserId() == null ? "Anonyme" : pseudos.getOrDefault(s.getFromUserId(), "Utilisateur"));
+            m.put("message", s.getMessage());
+            m.put("seen", s.getSeenAt() != null);
+            m.put("createdAt", s.getCreatedAt() == null ? "" : s.getCreatedAt().toString());
+            m.put("track", TrackDtos.from(t, artistNameOf(t.getArtistId()), "unknown"));
+            return m;
+        }).filter(Objects::nonNull).toList();
     }
 
     @Transactional(readOnly = true)

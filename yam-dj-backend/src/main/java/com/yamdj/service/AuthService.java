@@ -14,7 +14,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Authentification : inscription (USER / ARTIST / DJ), verification email
@@ -180,5 +182,51 @@ public class AuthService {
             userRepository.save(user);
         }
         emailService.sendVerificationEmail(user.getEmail(), code);
+    }
+
+    /**
+     * MOT DE PASSE OUBLIE (etape 1) : genere un token usage unique de 30 min
+     * et envoie le lien de reinitialisation par email. Reponse volontairement
+     * identique que l'email existe ou non (anti-enumeration de comptes).
+     */
+    @Transactional
+    public void forgotPassword(String rawEmail) {
+        String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            String token = UUID.randomUUID().toString().replace("-", "");
+            user.setResetToken(token);
+            user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
+            userRepository.save(user);
+            emailService.sendResetPasswordEmail(user.getEmail(), user.getPseudo(), token);
+        });
+    }
+
+    /**
+     * MOT DE PASSE OUBLIE (etape 2) : applique le nouveau mot de passe si le
+     * token est valide et non expire. Invalide le token (usage unique) et
+     * reactive le compte au passage.
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        User user = userRepository.findByResetToken(token == null ? "" : token.trim())
+                .orElseThrow(() -> new IllegalArgumentException("Lien de reinitialisation invalide"));
+        if (user.getResetTokenExpiresAt() == null
+                || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            user.setResetToken(null);
+            user.setResetTokenExpiresAt(null);
+            userRepository.save(user);
+            throw new IllegalArgumentException("Lien expire — demande un nouveau lien de reinitialisation");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExpiresAt(null);
+        // Un reset de mot de passe prouve la possession de la boite mail :
+        // on reactive le compte et confirme l'email si ce n'etait pas fait.
+        user.setEnabled(true);
+        if (!user.isEmailVerified()) {
+            user.setEmailVerified(true);
+            user.setVerificationCode(null);
+        }
+        userRepository.save(user);
     }
 }

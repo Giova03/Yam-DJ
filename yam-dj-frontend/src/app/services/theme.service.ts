@@ -20,7 +20,10 @@ export class ThemeService {
     const next = this.theme() === 'light' ? 'dark' : 'light';
     this.theme.set(next);
     localStorage.setItem('yam-theme', next);
+    // Transition douce entre les themes (palette V2 : ivoire chaud en clair)
+    document.documentElement.classList.add('theme-anim');
     this.apply(next);
+    setTimeout(() => document.documentElement.classList.remove('theme-anim'), 400);
   }
 
   isLight(): boolean {
@@ -34,10 +37,10 @@ export class ThemeService {
     } else {
       root.classList.remove('light');
     }
-    // couleur de la barre navigateur mobile (PWA)
+    // couleur de la barre navigateur mobile (PWA) — ivoire chaud en clair
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', theme === 'light' ? '#F6F7F9' : '#0A0A0A');
+      meta.setAttribute('content', theme === 'light' ? '#FBF5EC' : '#0A0A0A');
     }
   }
 

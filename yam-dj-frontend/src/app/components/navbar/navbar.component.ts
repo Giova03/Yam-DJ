@@ -56,6 +56,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
             }
 
             <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">📊 Charts</a>
+            <a routerLink="/stats" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden lg:inline" title="Ton annee en sons">🎧 Mes stats</a>
             <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline" title="Mes telechargements hors ligne">📥{{ offline.count() > 0 ? ' ' + offline.count() : '' }}</a>
             <a routerLink="/local" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Ma Musique</a>
             @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
@@ -93,6 +94,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       <div class="max-w-7xl mx-auto px-4 h-10 flex items-center gap-3 overflow-x-auto scrollbar-hide border-t border-white/5 sm:hidden">
         <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="text-red-600 hover:text-red-500 text-sm whitespace-nowrap font-semibold transition">▶ YouTube</a>
         <a routerLink="/charts" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📊 Charts</a>
+        <a routerLink="/stats" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">🎧 Stats</a>
         <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📥 Telechargements</a>
         <a routerLink="/local" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Ma Musique</a>
         <a routerLink="/features" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Guide</a>

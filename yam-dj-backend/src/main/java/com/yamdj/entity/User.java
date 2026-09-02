@@ -42,6 +42,14 @@ public class User {
     @Column(name = "verification_code", length = 10)
     private String verificationCode;
 
+    /** Token de reinitialisation de mot de passe (UUID, usage unique). */
+    @Column(name = "reset_token", length = 64)
+    private String resetToken;
+
+    /** Expiration du token de reset (30 minutes). */
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
+
     @Builder.Default
     private String country = "Burkina Faso";
 

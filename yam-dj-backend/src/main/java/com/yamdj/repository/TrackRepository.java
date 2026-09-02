@@ -61,4 +61,21 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
 
     @Query("SELECT t FROM Track t WHERE t.status = 'APPROVED' AND t.bpm IS NOT NULL AND t.id IN :ids")
     List<Track> findAllByIdWithAudio(@Param("ids") List<UUID> ids);
+
+    /**
+     * YAM RADIO : tirage aleatoire de pistes approuvees, filtre optionnel
+     * genre/pays. Requete native PostgreSQL (random() natif + LIMIT).
+     * Filtres NULL-safe : une chaine vide est normalisee en NULL cote service.
+     */
+    @Query(value = """
+            SELECT * FROM track
+            WHERE status = 'APPROVED'
+              AND (:genre   IS NULL OR genre   = :genre)
+              AND (:country IS NULL OR country = :country)
+            ORDER BY random()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Track> radioPick(@Param("genre") String genre,
+                          @Param("country") String country,
+                          @Param("limit") int limit);
 }

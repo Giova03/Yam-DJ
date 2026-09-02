@@ -1,6 +1,8 @@
 package com.yamdj.controller;
 
 import com.yamdj.dto.TrackDtos.*;
+import com.yamdj.dto.CommonDtos;
+import com.yamdj.entity.User;
 import com.yamdj.service.TrackService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -127,6 +129,27 @@ public class TrackController {
     public ResponseEntity<Void> download(@PathVariable UUID id) {
         trackService.incrementDownload(id);
         return ResponseEntity.ok().build();
+    }
+
+    // ================== VAGUE 2 : YAM RADIO + PARTAGE IN-APP ==================
+
+    /** YAM RADIO : suite aleatoire infinie par genre et/ou pays. */
+    @GetMapping("/radio")
+    public ResponseEntity<List<TrackResponse>> radio(
+            @RequestParam(required = false, defaultValue = "all") String genre,
+            @RequestParam(required = false, defaultValue = "all") String country,
+            @RequestParam(defaultValue = "12") int limit) {
+        return ResponseEntity.ok(trackService.radio(genre, country, limit));
+    }
+
+    /** Envoi d'une piste a un ami YAM DJ (par pseudo) + notification. */
+    @PostMapping("/{id}/share")
+    public ResponseEntity<Map<String, Object>> share(@PathVariable UUID id,
+                                                     @Valid @RequestBody CommonDtos.ShareRequest body) {
+        User me = trackService.currentUser();
+        trackService.shareTrack(me.getId(), id, body.toPseudo(), body.message());
+        return ResponseEntity.ok(Map.of("message",
+                "Son envoye a " + body.toPseudo() + " — il recevra une notification"));
     }
 
     /** Upload d'une piste (artistes uniquement) : audio + pochette. */

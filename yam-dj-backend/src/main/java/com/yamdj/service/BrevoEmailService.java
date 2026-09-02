@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Integration Brevo (ex-Sendinblue) : emails transactionnels gratuits
@@ -33,6 +34,10 @@ public class BrevoEmailService {
 
     @Value("${yamdj.brevo.base-url}")
     private String baseUrl;
+
+    /** URL du frontend (lien de reset de mot de passe). */
+    @Value("${yamdj.frontend-url:https://yam-dj-frontend.vercel.app}")
+    private String frontendUrl;
 
     private static final String[] SUBJECTS_TIP = {
             "Tu as recu un YAM Tip !", "Un fan te soutient sur YAM DJ", "Nouveau tip Orange Money recu"
@@ -60,6 +65,26 @@ public class BrevoEmailService {
                 </div>
                 """.formatted(code);
         sendEmail(to, "Ton code de verification YAM DJ", html);
+    }
+
+    @Async
+    public void sendResetPasswordEmail(String to, String pseudo, String token) {
+        String link = frontendUrl + "/reset-password?token=" + token;
+        String html = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#fff;padding:40px;border-radius:16px">
+                  <h1 style="color:#FF6B35;font-size:28px;margin:0 0 16px">🎧 YAM DJ</h1>
+                  <h2 style="font-size:20px;font-weight:normal">Reinitialisation de ton mot de passe</h2>
+                  <p style="color:#bbb;line-height:1.6">Salut %s ! Tu as demande a recuperer ton compte YAM DJ.
+                  Clique sur le bouton ci-dessous pour choisir un nouveau mot de passe :</p>
+                  <div style="text-align:center;margin:28px 0">
+                    <a href="%s" style="background:#FF6B35;color:#fff;text-decoration:none;font-weight:bold;padding:14px 32px;border-radius:999px;display:inline-block">Choisir un nouveau mot de passe</a>
+                  </div>
+                  <p style="color:#777;font-size:12px">Ce lien est valable 30 minutes et ne fonctionne qu'une seule fois.
+                  Si tu n'es pas a l'origine de cette demande, ignore simplement ce message — ton mot de passe actuel reste inchang.</p>
+                  <p style="color:#FF6B35;font-weight:bold">L'equipe YAM DJ 🇧🇫</p>
+                </div>
+                """.formatted(pseudo, link);
+        sendEmail(to, "Recupere ton mot de passe YAM DJ", html);
     }
 
     @Async

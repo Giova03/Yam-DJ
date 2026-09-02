@@ -50,6 +50,9 @@ public class SecurityConfig {
                 // motif couvre aussi DELETE /api/tracks/{id} et /api/tracks/mine.
                 .requestMatchers(HttpMethod.DELETE, "/api/tracks/**").authenticated()
                 .requestMatchers("/api/tracks/mine").authenticated()
+                // Partage in-app : exige un JWT (place AVANT le permitAll
+                // "/api/tracks/{id}/**" qui couvre sinon POST .../share).
+                .requestMatchers(HttpMethod.POST, "/api/tracks/*/share").authenticated()
                 // Commentaires : lecture publique, ecriture/suppression JWT.
                 // Place AVANT le permitAll general : premiere regle gagnante,
                 // GET /api/comments/** doit rester ouvert, POST/DELETE non.

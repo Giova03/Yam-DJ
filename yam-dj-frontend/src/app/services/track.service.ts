@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Track, TrackPage } from '../models/models';
+import { Track, TrackPage, ReceivedShare } from '../models/models';
 
 /** Service des pistes : recherche, feed, plays, uploads. */
 @Injectable({ providedIn: 'root' })
@@ -77,5 +77,28 @@ export class TrackService {
   /** Supprime une piste (artiste proprietaire ou admin) — 204 No Content. */
   deleteTrack(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/api/tracks/${id}`);
+  }
+
+  // ================== VAGUE 2 ==================
+
+  /** YAM RADIO : suite aleatoire infinie par genre et/ou pays. */
+  radio(genre?: string, country?: string, limit = 12): Observable<Track[]> {
+    const p = new URLSearchParams();
+    if (genre) p.set('genre', genre);
+    if (country) p.set('country', country);
+    p.set('limit', String(limit));
+    return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/radio?${p.toString()}`);
+  }
+
+  /** Envoie une piste a un ami YAM DJ (par pseudo) + notification. */
+  shareTrack(trackId: string, toPseudo: string, message?: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/api/tracks/${trackId}/share`, {
+      toPseudo, message
+    });
+  }
+
+  /** Partages recus (sons envoyes par d'autres utilisateurs). */
+  myShares(limit = 30): Observable<ReceivedShare[]> {
+    return this.http.get<ReceivedShare[]>(`${this.apiUrl}/api/me/shares?limit=${limit}`);
   }
 }
