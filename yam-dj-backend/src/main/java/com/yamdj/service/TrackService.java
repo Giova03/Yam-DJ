@@ -392,6 +392,11 @@ public class TrackService {
         int applied = 0;
         for (CommonDtos.PlaySyncItem item : items) {
             if (item == null || item.trackId() == null) continue;
+            // Doublon deja synchronise ? (idempotence visible dans la reponse)
+            if (item.clientEventId() != null
+                    && playHistoryRepository.existsByClientEventId(item.clientEventId())) {
+                continue;
+            }
             try {
                 registerPlay(item.trackId(), userId, item.quality(),
                         item.listenedSec(), item.clientEventId(), true);
