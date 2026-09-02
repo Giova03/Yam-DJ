@@ -50,6 +50,12 @@ export class PlayerService {
   nightMode = signal<boolean>(false);
   loading = signal<boolean>(false);
 
+  /** Piste YouTube en cours : lecture via l'iframe integre (pas d'element audio). */
+  isYouTube = computed<boolean>(() => !!this.currentTrack()?.youtubeId);
+
+  /** Iframe YouTube enregistree par le composant player (commandes postMessage). */
+  private ytIframe: HTMLIFrameElement | null = null;
+
   /** Jingle sponsorise en cours de lecture (UI "Publicite"). */
   adPlaying = signal<boolean>(false);
   adText = signal<string>('');
@@ -115,6 +121,19 @@ export class PlayerService {
     this.loading.set(true);
     this.duration.set(track.durationSec || 0);
 
+    // PISTE YOUTUBE : lecture via l'iframe integre, aucune ressource audio
+    // a charger — le composant player cree l'embed avec autoplay.
+    if (track.youtubeId) {
+      this.destroyHls();
+      this.audio.pause();
+      this.audio.removeAttribute('src');
+      this.position.set(0);
+      this.isPlaying.set(true);
+      this.loading.set(false);
+      this.comptabiliserPlay();
+      return;
+    }
+
     // MODE HORS LIGNE : piste telechargee → le Service Worker sert le
     // cache (m3u8 + segments Data-Lite) — zero reseau, zero data mobile.
     if (!this.offline.online() && this.offline.isDownloaded(track.id) && track.audioUrlLq) {
@@ -161,6 +180,11 @@ export class PlayerService {
   }
 
   toggle(): void {
+    if (this.isYouTube()) {
+      this.ytCommand(this.isPlaying() ? 'pauseVideo' : 'playVideo');
+      this.isPlaying.set(!this.isPlaying());
+      return;
+    }
     if (this.isPlaying()) {
       this.audio.pause();
     } else {
@@ -171,6 +195,11 @@ export class PlayerService {
   }
 
   seek(seconds: number): void {
+    if (this.isYouTube()) {
+      this.ytCommand('seekTo', [Math.max(0, Math.floor(seconds)), true]);
+      this.position.set(seconds);
+      return;
+    }
     if (isFinite(seconds)) {
       this.audio.currentTime = seconds;
     }
@@ -178,7 +207,24 @@ export class PlayerService {
 
   setVolume(vol: number): void {
     this.volume.set(vol);
+    if (this.isYouTube()) {
+      this.ytCommand('setVolume', [Math.round(vol * 100)]);
+      return;
+    }
     this.audio.volume = vol;
+  }
+
+  /** Enregistre l'iframe YouTube affichee par le composant player. */
+  registerYoutubeIframe(el: HTMLIFrameElement | null): void {
+    this.ytIframe = el;
+  }
+
+  /** Commande postMessage de l'API YouTube IFrame (play/pause/seek/volume). */
+  private ytCommand(func: string, args: any[] = []): void {
+    try {
+      this.ytIframe?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func, args }), '*');
+    } catch { /* iframe non prete : ignore */ }
   }
 
   next(): void {

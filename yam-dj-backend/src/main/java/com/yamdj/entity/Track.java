@@ -75,6 +75,23 @@ public class Track {
     @Builder.Default
     private TrackStatus status = TrackStatus.PENDING;
 
+    /** Identifiant YouTube (11 car.) : piste lue via le player integre. */
+    @Column(name = "youtube_id", length = 20, unique = true)
+    private String youtubeId;
+
+    /** Origine : UPLOAD (fichier), YOUTUBE (import utilisateur), LIBRE (catalogue gratuit). */
+    @Column(length = 20)
+    @Builder.Default
+    private String source = "UPLOAD";
+
+    /** Nom d'artiste d'origine (chaine YouTube / pays d'un hymne). */
+    @Column(name = "source_artist", length = 150)
+    private String sourceArtist;
+
+    /** URL source (page YouTube d'origine). */
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
     @Column(name = "data_lite_ready", nullable = false)
     @Builder.Default
     private boolean dataLiteReady = false;

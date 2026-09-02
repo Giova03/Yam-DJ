@@ -173,6 +173,15 @@ CREATE INDEX IF NOT EXISTS idx_track_like_track ON track_like(track_id);
 -- ============== NOUVELLES COLONNES (Phases 2.4/2.6/3.1/3.2) ============
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP;
 
+-- ============ INTEGRATION YOUTUBE + MUSIQUES LIBRES ================
+ALTER TABLE track ADD COLUMN IF NOT EXISTS youtube_id VARCHAR(20);
+ALTER TABLE track ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'UPLOAD';
+ALTER TABLE track ADD COLUMN IF NOT EXISTS source_artist VARCHAR(150);
+ALTER TABLE track ADD COLUMN IF NOT EXISTS source_url VARCHAR(500);
+-- Une video YouTube ne peut etre importee qu'une seule fois
+CREATE UNIQUE INDEX IF NOT EXISTS uq_track_youtube ON track(youtube_id);
+CREATE INDEX IF NOT EXISTS idx_track_source ON track(source);
+
 -- ====================== CHARTS HEBDOMADAIRES (2.6) ==================
 CREATE TABLE IF NOT EXISTS weekly_chart (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -292,15 +301,124 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_mixtape_purchase_token ON mixtape_purchase(
 -- ====================== DONNEES DE DEMO ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES
-  ('00000000-0000-0000-0000-000000000001', 'admin@yamdj.africa', '$2a$10$fty6Xq2fkqDhGUeh.RJ.3uQWZHG6Tpgx4fvvyL/PDZdT8FQ9S34.W', 'YamAdmin', 'ADMIN', TRUE, 'Burkina Faso'),
+  ('00000000-0000-0000-0000-000000000001', 'giobamos03@gmail.com', '$2a$10$eTHWUK80g09Q4u5eZxQ/a.i43QVLTz1r9EiLnrTCNY0Yu/kC.xncm', 'GioBamos', 'ADMIN', TRUE, 'Burkina Faso'),
   ('00000000-0000-0000-0000-000000000002', 'artist@yamdj.africa', '$2a$10$fty6Xq2fkqDhGUeh.RJ.3uQWZHG6Tpgx4fvvyL/PDZdT8FQ9S34.W', 'FasoArtist', 'ARTIST', TRUE, 'Burkina Faso'),
-  ('00000000-0000-0000-0000-000000000003', 'dj@yamdj.africa',   '$2a$10$fty6Xq2fkqDhGUeh.RJ.3uQWZHG6Tpgx4fvvyL/PDZdT8FQ9S34.W', 'DJOuaga',   'DJ',     TRUE, 'Burkina Faso')
+  ('00000000-0000-0000-0000-000000000003', 'dj@yamdj.africa',   '$2a$10$fty6Xq2fkqDhGUeh.RJ.3uQWZHG6Tpgx4fvvyL/PDZdT8FQ9S34.W', 'DJOuaga',   'DJ',     TRUE, 'Burkina Faso'),
+  ('00000000-0000-0000-0000-000000000005', 'system@yamdj.africa', '$2a$10$eTHWUK80g09Q4u5eZxQ/a.i43QVLTz1r9EiLnrTCNY0Yu/kC.xncm', 'YAM Music', 'ARTIST', TRUE, 'Afrique de l''Ouest')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO artist_profile (user_id, stage_name, bio)
 VALUES ('00000000-0000-0000-0000-000000000002', 'FasoArtist', 'Artiste demo — coupes-decale et afrobeats depuis Ouagadougou.')
 ON CONFLICT (user_id) DO NOTHING;
 
+INSERT INTO artist_profile (user_id, stage_name, bio)
+VALUES ('00000000-0000-0000-0000-000000000005', 'YAM Music', 'Catalogue officiel YAM DJ : hymnes nationaux et musiques libres d''acces.')
+ON CONFLICT (user_id) DO NOTHING;
+
 INSERT INTO dj_profile (user_id, dj_name, bio)
 VALUES ('00000000-0000-0000-0000-000000000003', 'DJOuaga', 'DJ resident demo — mix afro, coupe-decale, ndombolo.')
 ON CONFLICT (user_id) DO NOTHING;
+
+-- Le compte admin personnel remplace l'ancien admin demo : l'email ayant
+-- change, on neutralise l'ancienne ligne si elle reapparait (reprise de DB).
+UPDATE app_user SET role = 'ADMIN', email_verified = TRUE
+WHERE email = 'giobamos03@gmail.com';
+
+-- ============ HYMNES NATIONAUX + MUSIQUES LIBRES D'ACCES ============
+-- Catalogue "YAM Music" : lecture gratuite via le player YouTube integre.
+-- Idempotent : un videoId ne peut exister qu'une fois (index unique).
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('National Anthem of Burkina Faso - Une Seule Nuit', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/TZwoXTuoQ_M/hqdefault.jpg', 144, 'Hymne', 'Burkina Faso', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Burkina Faso', 'TZwoXTuoQ_M', 'https://www.youtube.com/watch?v=TZwoXTuoQ_M', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('l''hymne national de Côte d''Ivoire -  l''Abidjanaise', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/aXEbPyjGB-I/hqdefault.jpg', 99, 'Hymne', 'Cote d''Ivoire', 'FR', 'APPROVED', 'LIBRE', 'Hymne National de la Cote d''Ivoire', 'aXEbPyjGB-I', 'https://www.youtube.com/watch?v=aXEbPyjGB-I', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('National Anthem of Senegal - Pincez tous vos koras, frappez les balafons', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/iTRkbcylTDY/hqdefault.jpg', 96, 'Hymne', 'Senegal', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Senegal', 'iTRkbcylTDY', 'https://www.youtube.com/watch?v=iTRkbcylTDY', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Hymne National du Mali', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/dp_LDtwmyiY/hqdefault.jpg', 342, 'Hymne', 'Mali', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Mali', 'dp_LDtwmyiY', 'https://www.youtube.com/watch?v=dp_LDtwmyiY', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('National Anthem of Benin: "L''Aube nouvelle"', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/MKwNVlvIF0U/hqdefault.jpg', 211, 'Hymne', 'Benin', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Benin', 'MKwNVlvIF0U', 'https://www.youtube.com/watch?v=MKwNVlvIF0U', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('National Anthem of Togo - Terre de nos aïeux', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/_Azd8dpZTbU/hqdefault.jpg', 100, 'Hymne', 'Togo', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Togo', '_Azd8dpZTbU', 'https://www.youtube.com/watch?v=_Azd8dpZTbU', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Hymne national du Niger', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/4KLCVp52Yc4/hqdefault.jpg', 111, 'Hymne', 'Niger', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Niger', '4KLCVp52Yc4', 'https://www.youtube.com/watch?v=4KLCVp52Yc4', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Hymne National de la Guinée - "Liberté" | Version Officielle', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/DNDxrOliKFc/hqdefault.jpg', 86, 'Hymne', 'Guinee', 'FR', 'APPROVED', 'LIBRE', 'Hymne National de la Guinee', 'DNDxrOliKFc', 'https://www.youtube.com/watch?v=DNDxrOliKFc', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('National Anthem of Ghana - God Bless Our Homeland Ghana', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/T1d1GSZ9m5w/hqdefault.jpg', 89, 'Hymne', 'Ghana', 'FR', 'APPROVED', 'LIBRE', 'Ghana National Anthem', 'T1d1GSZ9m5w', 'https://www.youtube.com/watch?v=T1d1GSZ9m5w', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Nigerian National Anthem - "Arise, Oh Compatriots" (EN)', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/avPeagYhbgo/hqdefault.jpg', 80, 'Hymne', 'Nigeria', 'FR', 'APPROVED', 'LIBRE', 'Nigeria National Anthem', 'avPeagYhbgo', 'https://www.youtube.com/watch?v=avPeagYhbgo', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Cameroon National Anthem “Ô Cameroun berceau de nos ancêtres” (Lyrics) (USE 1080p) (French Version)', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/oC9OimNHiFI/hqdefault.jpg', 69, 'Hymne', 'Cameroun', 'FR', 'APPROVED', 'LIBRE', 'Hymne National du Cameroun', 'oC9OimNHiFI', 'https://www.youtube.com/watch?v=oC9OimNHiFI', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('LA MARSEILLAISE - HYMNE DE LA FRANCE - PAROLES', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/kLKEZBI3_gU/hqdefault.jpg', 67, 'Hymne', 'France', 'FR', 'APPROVED', 'LIBRE', 'Hymne National de la France', 'kLKEZBI3_gU', 'https://www.youtube.com/watch?v=kLKEZBI3_gU', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Magic System - 1Er Gaou', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/CKUZ-ZIUiwg/hqdefault.jpg', 206, 'Coupes-Decale', 'Cote d''Ivoire', 'FR', 'APPROVED', 'LIBRE', 'Magic System', 'CKUZ-ZIUiwg', 'https://www.youtube.com/watch?v=CKUZ-ZIUiwg', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Tiken Jah Fakoly - Plus jamais ça (Official video)', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/mYxhJn6Q994/hqdefault.jpg', 252, 'Reggae', 'Cote d''Ivoire', 'FR', 'APPROVED', 'LIBRE', 'Tiken Jah Fakoly', 'mYxhJn6Q994', 'https://www.youtube.com/watch?v=mYxhJn6Q994', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Youssou N''Dour - 7 Seconds ft. Neneh Cherry', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/wqCpjFMvz-k/hqdefault.jpg', 272, 'Mbalax', 'Senegal', 'FR', 'APPROVED', 'LIBRE', 'Youssou N''Dour & Neneh Cherry', 'wqCpjFMvz-k', 'https://www.youtube.com/watch?v=wqCpjFMvz-k', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Salif Keita    Africa', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/fj9MS13jhrI/hqdefault.jpg', 251, 'Afro-Pop', 'Mali', 'FR', 'APPROVED', 'LIBRE', 'Salif Keita', 'fj9MS13jhrI', 'https://www.youtube.com/watch?v=fj9MS13jhrI', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Fally Ipupa - Eloko Oyo (Clip officiel)', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/T4KNVT2w0mU/hqdefault.jpg', 309, 'Rumba', 'Congo', 'FR', 'APPROVED', 'LIBRE', 'Fally Ipupa', 'T4KNVT2w0mU', 'https://www.youtube.com/watch?v=T4KNVT2w0mU', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Burna Boy - Last Last [Official Music Video]', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/421w1j87fEM/hqdefault.jpg', 174, 'Afrobeats', 'Nigeria', 'FR', 'APPROVED', 'LIBRE', 'Burna Boy', '421w1j87fEM', 'https://www.youtube.com/watch?v=421w1j87fEM', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Wizkid - Essence (Official Video) ft. Tems', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/jipQpjUA_o8/hqdefault.jpg', 246, 'Afrobeats', 'Nigeria', 'FR', 'APPROVED', 'LIBRE', 'Wizkid', 'jipQpjUA_o8', 'https://www.youtube.com/watch?v=jipQpjUA_o8', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Davido - Fall (Official Video)', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/3Iyuym-Gci0/hqdefault.jpg', 258, 'Afrobeats', 'Nigeria', 'FR', 'APPROVED', 'LIBRE', 'Davido', '3Iyuym-Gci0', 'https://www.youtube.com/watch?v=3Iyuym-Gci0', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('"Water No Get Enemy" from FELA! Original Broadway Cast Recording.', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/Rp6KWhy2FAk/hqdefault.jpg', 170, 'Afrobeat', 'Nigeria', 'FR', 'APPROVED', 'LIBRE', 'Fela Kuti', 'Rp6KWhy2FAk', 'https://www.youtube.com/watch?v=Rp6KWhy2FAk', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Angelique Kidjo - "Agolo"', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/dlgESq5FAx4/hqdefault.jpg', 248, 'Afro-Pop', 'Benin', 'FR', 'APPROVED', 'LIBRE', 'Angelique Kidjo', 'dlgESq5FAx4', 'https://www.youtube.com/watch?v=dlgESq5FAx4', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Francky Vincent-Fruit de la passion', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/7GZMc_9A5rY/hqdefault.jpg', 240, 'Zouk', 'Guadeloupe', 'FR', 'APPROVED', 'LIBRE', 'Francky Vincent', '7GZMc_9A5rY', 'https://www.youtube.com/watch?v=7GZMc_9A5rY', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;
+
+INSERT INTO track (title, artist_id, cover_url, duration_sec, genre, country, language, status, source, source_artist, youtube_id, source_url, play_count, like_count, download_count, data_lite_ready)
+VALUES ('Sunshine Day - OSIBISA', '00000000-0000-0000-0000-000000000005', 'https://i.ytimg.com/vi/MeH3OdgGHso/hqdefault.jpg', 299, 'Afro-Rock', 'Ghana', 'FR', 'APPROVED', 'LIBRE', 'Osibisa', 'MeH3OdgGHso', 'https://www.youtube.com/watch?v=MeH3OdgGHso', 0, 0, 0, FALSE)
+ON CONFLICT (youtube_id) DO NOTHING;

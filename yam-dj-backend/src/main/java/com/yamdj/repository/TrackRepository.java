@@ -17,6 +17,12 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
 
     List<Track> findByArtistIdOrderByCreatedAtDesc(UUID artistId);
 
+    java.util.Optional<Track> findByYoutubeId(String youtubeId);
+
+    /** Musiques libres d'acces : hymnes + imports YouTube (lecture gratuite). */
+    @Query("SELECT t FROM Track t WHERE t.status = 'APPROVED' AND t.youtubeId IS NOT NULL ORDER BY t.createdAt DESC")
+    List<Track> findLibre(Pageable pageable);
+
     Page<Track> findByStatus(TrackStatus status, Pageable pageable);
 
     // CAST explicites : les parametres String nulls lies dans un test "IS NULL"

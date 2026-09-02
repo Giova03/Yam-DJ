@@ -1,11 +1,14 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PlayerService } from '../../services/player.service';
 
 /**
  * BARRE DE LECTURE GLOBALE (bas d'ecran, style Spotify).
  * Play/Pause/Next/Prev + progression + volume + toggles
  * Data-Lite / Nightclub + banniere pub non intrusive (Phase 3.5).
+ * Pistes YouTube : mini-player video integre (iframe officielle, commandes
+ * play/pause/seek/volume via postMessage) — zero extraction, conforme CGU.
  */
 @Component({
   selector: 'yam-audio-player',
@@ -24,6 +27,26 @@ import { PlayerService } from '../../services/player.service';
             </div>
           </div>
         }
+        <!-- Mini-player video YouTube (pistes importees / hymnes / libre) -->
+        @if (player.isYouTube()) {
+          <div class="max-w-7xl mx-auto px-4 pt-3">
+            <div class="relative w-[240px] sm:w-[288px] rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-black">
+              <iframe #ytFrame class="w-full aspect-video block"
+                      [src]="ytSafeUrl(track.youtubeId!)"
+                      (load)="onYtLoad($event)"
+                      frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen
+                      title="Lecteur YouTube YAM DJ"></iframe>
+              <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold">▶ YouTube</span>
+              <a [href]="track.sourceUrl || ('https://www.youtube.com/watch?v=' + track.youtubeId)"
+                 target="_blank" rel="noopener"
+                 class="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-full bg-black/60 text-white/80 text-[10px] font-semibold hover:bg-black/80 transition">
+                Ouvrir sur YouTube ↗
+              </a>
+            </div>
+          </div>
+        }
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
 
           <!-- Infos piste -->
@@ -37,7 +60,10 @@ import { PlayerService } from '../../services/player.service';
             </div>
             <div class="min-w-0">
               <p class="font-semibold truncate">{{ track.title }}</p>
-              <p class="text-white/50 text-sm truncate">{{ track.artistName }}</p>
+              <p class="text-white/50 text-sm truncate">
+                @if (track.youtubeId) { <span class="text-red-500/90 font-semibold">YouTube</span> · }
+                {{ track.sourceArtist || track.artistName }}
+              </p>
             </div>
           </div>
 
@@ -58,29 +84,37 @@ import { PlayerService } from '../../services/player.service';
               </button>
               <button (click)="player.next()" class="text-white/60 hover:text-white text-lg transition" title="Suivant">⏭</button>
             </div>
-            <div class="w-full flex items-center gap-2 text-xs text-white/50">
-              <span>{{ player.formatTime(player.position()) }}</span>
-              <input type="range" min="0" [max]="player.duration() || track.durationSec" [value]="player.position()"
-                     (input)="onSeek($event)"
-                     class="flex-1 h-1 accent-yam-orange cursor-pointer">
-              <span>{{ player.formatTime(player.duration() || track.durationSec) }}</span>
-            </div>
+            @if (player.isYouTube()) {
+              <div class="w-full text-center text-[11px] text-white/40 truncate">
+                Lecture video via le player YouTube integre — duree {{ player.formatTime(player.duration() || track.durationSec) }}
+              </div>
+            } @else {
+              <div class="w-full flex items-center gap-2 text-xs text-white/50">
+                <span>{{ player.formatTime(player.position()) }}</span>
+                <input type="range" min="0" [max]="player.duration() || track.durationSec" [value]="player.position()"
+                       (input)="onSeek($event)"
+                       class="flex-1 h-1 accent-yam-orange cursor-pointer">
+                <span>{{ player.formatTime(player.duration() || track.durationSec) }}</span>
+              </div>
+            }
           </div>
 
-          <!-- Toggles + volume -->
+          <!-- Toggles + volume (audio local uniquement) -->
           <div class="flex items-center gap-3 w-1/4 justify-end">
-            <button (click)="player.toggleDataLite()"
-                    class="yam-badge cursor-pointer hover:bg-white/20"
-                    [class]="player.dataLite() ? '!bg-yam-gold/20 !text-yam-gold border border-yam-gold/40' : ''"
-                    title="Mode Data-Lite : 48 kbps pour economiser ta data (2G/3G)">
-              📱 Data-Lite
-            </button>
-            <button (click)="player.toggleNightMode()"
-                    class="yam-badge cursor-pointer hover:bg-white/20"
-                    [class]="player.nightMode() ? '!bg-yam-orange/20 !text-yam-orange border border-yam-orange/40' : ''"
-                    title="Mode Nightclub : bass boost + reverb club">
-              🪩 Nightclub
-            </button>
+            @if (!player.isYouTube()) {
+              <button (click)="player.toggleDataLite()"
+                      class="yam-badge cursor-pointer hover:bg-white/20"
+                      [class]="player.dataLite() ? '!bg-yam-gold/20 !text-yam-gold border border-yam-gold/40' : ''"
+                      title="Mode Data-Lite : 48 kbps pour economiser ta data (2G/3G)">
+                📱 Data-Lite
+              </button>
+              <button (click)="player.toggleNightMode()"
+                      class="yam-badge cursor-pointer hover:bg-white/20"
+                      [class]="player.nightMode() ? '!bg-yam-orange/20 !text-yam-orange border border-yam-orange/40' : ''"
+                      title="Mode Nightclub : bass boost + reverb club">
+                🪩 Nightclub
+              </button>
+            }
             <div class="hidden lg:flex items-center gap-2">
               <span class="text-white/50">🔊</span>
               <input type="range" min="0" max="1" step="0.05" [value]="player.volume()"
@@ -95,6 +129,18 @@ import { PlayerService } from '../../services/player.service';
 })
 export class AudioPlayerComponent {
   player = inject(PlayerService);
+  private sanitizer = inject(DomSanitizer);
+
+  /** URL de l'iframe YouTube : autoplay + API JS (commandes postMessage). */
+  ytSafeUrl(videoId: string): SafeResourceUrl {
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&playsinline=1`);
+  }
+
+  /** Enregistre l'iframe dans le service pour play/pause/seek/volume. */
+  onYtLoad(event: Event): void {
+    this.player.registerYoutubeIframe(event.target as HTMLIFrameElement);
+  }
 
   onSeek(event: Event): void {
     const value = (event.target as HTMLInputElement).value;

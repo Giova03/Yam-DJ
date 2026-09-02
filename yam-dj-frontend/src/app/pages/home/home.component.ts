@@ -6,6 +6,7 @@ import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
 import { ContentService } from '../../services/content.service';
 import { DjService } from '../../services/dj.service';
+import { YoutubeService } from '../../services/youtube.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
 import { Track, Mixtape } from '../../models/models';
@@ -29,6 +30,7 @@ import { Track, Mixtape } from '../../models/models';
           </p>
           <div class="flex flex-wrap gap-3">
             <button (click)="playFeed()" class="yam-btn-primary !px-8 !py-3 text-lg">▶ Ecouter Pour Toi</button>
+            <a routerLink="/youtube" class="yam-btn-secondary !px-8 !py-3 text-lg !bg-red-600/90 hover:!bg-red-600">▶ Musiques YouTube</a>
             <a routerLink="/charts" class="yam-btn-secondary !px-8 !py-3 text-lg">📊 Charts de la semaine</a>
             @if (auth.role() === 'DJ' || auth.role() === 'ADMIN') {
               <a routerLink="/dj-studio" class="yam-btn-secondary !px-8 !py-3 text-lg">🎚️ Ouvrir le Studio DJ</a>
@@ -56,6 +58,35 @@ import { Track, Mixtape } from '../../models/models';
           }
         </div>
       </section>
+
+      <!-- FILE D'ACTUALITE : nouveautes uploads + imports YouTube -->
+      @if (latest().length) {
+        <section class="mb-10">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="yam-title">📰 File d'actualite {{ ' ' }}<span class="text-white/40 text-lg">— nouveautes & imports YouTube</span></h2>
+            <a routerLink="/youtube" class="yam-badge text-red-500 border border-red-500/40 hover:bg-red-500/10 transition shrink-0">▶ Importer depuis YouTube</a>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            @for (track of latest(); track track) {
+              <yam-track-card [track]="track" (play)="onPlayLatest($event)" (tip)="openTip($event)" />
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Musiques libres d'acces : hymnes + classiques -->
+      @if (libre().length) {
+        <section class="mb-10">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="yam-title">🆓 Hymnes & musiques libres {{ ' ' }}<span class="text-white/40 text-lg">— ecoute gratuite</span></h2>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            @for (track of libre(); track track) {
+              <yam-track-card [track]="track" (play)="onPlayLibre($event)" (tip)="openTip($event)" />
+            }
+          </div>
+        </section>
+      }
 
       <!-- Abonnements (artistes suivis) -->
       @if (followFeedTracks().length) {
@@ -137,11 +168,14 @@ export class HomeComponent implements OnInit {
   private trackService = inject(TrackService);
   private djService = inject(DjService);
   private content = inject(ContentService);
+  private youtube = inject(YoutubeService);
   private title = inject(Title);
   private meta = inject(Meta);
 
   forYou = signal<Track[]>([]);
   trending = signal<Track[]>([]);
+  latest = signal<Track[]>([]);
+  libre = signal<Track[]>([]);
   recent = signal<Track[]>([]);
   followFeedTracks = signal<Track[]>([]);
   mixtapes = signal<Mixtape[]>([]);
@@ -164,6 +198,8 @@ export class HomeComponent implements OnInit {
 
     this.trackService.forYou(15).subscribe(t => this.forYou.set(t));
     this.trackService.trending(10).subscribe(t => this.trending.set(t));
+    this.trackService.latest(10).subscribe(t => this.latest.set(t));
+    this.youtube.libre(12).subscribe(t => this.libre.set(t));
     this.djService.publicMixtapes(6).subscribe(m => this.mixtapes.set(m));
     if (this.auth.isLoggedIn()) {
       this.trackService.history(10).subscribe({
@@ -184,6 +220,14 @@ export class HomeComponent implements OnInit {
 
   onPlay(track: Track): void {
     this.player.play(track, this.forYou());
+  }
+
+  onPlayLatest(track: Track): void {
+    this.player.play(track, this.latest());
+  }
+
+  onPlayLibre(track: Track): void {
+    this.player.play(track, this.libre());
   }
 
   openTip(track: Track): void {

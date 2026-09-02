@@ -21,6 +21,9 @@ import { Track } from '../../models/models';
         } @else {
           <span class="text-4xl opacity-40">🎵</span>
         }
+        @if (track().youtubeId) {
+          <span class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold shadow" title="Lecture via le player YouTube integre">▶ YouTube</span>
+        }
         @if (chartRank(); as rank) {
           <span class="absolute top-3 left-3 yam-badge bg-yam-gold/90 text-yam-dark border-none font-bold" title="Top 10 chart hebdo">
             🏆 #{{ rank }}
@@ -38,7 +41,7 @@ import { Track } from '../../models/models';
         </button>
       </div>
       <p class="font-semibold truncate group-hover:text-yam-orange transition">{{ track().title }}</p>
-      <p class="text-white/50 text-sm truncate">{{ track().artistName }}</p>
+      <p class="text-white/50 text-sm truncate">{{ track().sourceArtist || track().artistName }}</p>
       <div class="flex items-center justify-between mt-2">
         <div class="flex gap-1.5 flex-wrap">
           @if (track().genre) { <span class="yam-badge">{{ track().genre }}</span> }
@@ -50,10 +53,16 @@ import { Track } from '../../models/models';
           <button (click)="openShare(); $event.stopPropagation()" class="hover:text-white transition" title="Partager la piste">🔗</button>
           <button (click)="openComments(); $event.stopPropagation()" class="hover:text-yam-orange transition" title="Commentaires">💬</button>
           <button (click)="tip.emit(track()); $event.stopPropagation()" class="hover:text-yam-gold transition" title="Soutenir l'artiste">💰</button>
-          <button (click)="toggleDownload(); $event.stopPropagation()"
-                  class="transition"
-                  [class]="downloadState() === 'done' ? 'text-yam-green' : (downloadState() === 'loading' ? 'text-yam-gold animate-pulse' : 'hover:text-white')"
-                  [title]="downloadTitle()">{{ downloadIcon() }}</button>
+          @if (!track().youtubeId) {
+            <button (click)="toggleDownload(); $event.stopPropagation()"
+                    class="transition"
+                    [class]="downloadState() === 'done' ? 'text-yam-green' : (downloadState() === 'loading' ? 'text-yam-gold animate-pulse' : 'hover:text-white')"
+                    [title]="downloadTitle()">{{ downloadIcon() }}</button>
+          }
+          @if (track().youtubeId) {
+            <a [href]="track().sourceUrl || ('https://www.youtube.com/watch?v=' + track().youtubeId)" target="_blank" rel="noopener"
+               (click)="$event.stopPropagation()" class="hover:text-red-500 transition" title="Ouvrir sur YouTube">↗</a>
+          }
           <span class="flex items-center gap-1">▶ {{ formatPlays(track().playCount) }}</span>
         </div>
       </div>

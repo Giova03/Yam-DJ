@@ -78,6 +78,11 @@ public class SecurityConfig {
                 // Charts hebdo + sitemap : publics (SEO, partage)
                 .requestMatchers(HttpMethod.GET, "/api/charts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/seo/**").permitAll()
+                // YouTube : recherche et catalogue libre publics,
+                // import d'une video -> JWT exigé (anyRequest authenticated)
+                .requestMatchers(HttpMethod.GET, "/api/youtube/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/youtube/libre").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/youtube/combined").permitAll()
                 // Config pub (Phase 3.5) : publique, le lecteur l'applique
                 .requestMatchers(HttpMethod.GET, "/api/ads/config").permitAll()
                 // Cle publique VAPID seule : le reste de /api/notifications

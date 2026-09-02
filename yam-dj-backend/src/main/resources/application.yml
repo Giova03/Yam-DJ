@@ -72,6 +72,10 @@ yamdj:
     # IMMEDIATEMENT visibles (recommande en lancement V1). false = file
     # de moderation stricte (PENDING -> validation admin).
     auto-approve: ${YAMDJ_MODERATION_AUTO_APPROVE:true}
+  youtube:
+    # Cle YouTube Data API v3 OPTIONNELLE : sans cle, la recherche passe par
+    # la page de resultats YouTube (ytInitialData) — aucune configuration requise.
+    api-key: ${YOUTUBE_API_KEY:}
   supabase:
     # Bucket Storage du projet Supabase. Mode durable si SUPABASE_URL +
     # SUPABASE_SERVICE_KEY renseignes, sinon mode local (dossier de secours).

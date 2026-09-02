@@ -32,7 +32,27 @@ export interface Track {
   likeCount: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   dataLiteReady: boolean;
+  /** Identifiant YouTube : lecture via le player integre si present. */
+  youtubeId?: string;
+  /** Origine : UPLOAD | YOUTUBE (import) | LIBRE (catalogue gratuit). */
+  source?: string;
+  /** Artiste d'origine (chaine YouTube, pays d'un hymne). */
+  sourceArtist?: string;
+  /** URL source (page YouTube d'origine). */
+  sourceUrl?: string;
   createdAt: string;
+}
+
+/** Resultat de recherche YouTube (page d'import). */
+export interface YoutubeVideo {
+  videoId: string;
+  title: string;
+  channel: string;
+  durationText: string;
+  durationSec?: number | null;
+  thumbnailUrl: string;
+  watchUrl: string;
+  alreadyImported: boolean;
 }
 
 export interface TrackPage {

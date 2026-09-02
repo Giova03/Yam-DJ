@@ -32,6 +32,10 @@ public final class TrackDtos {
             long likeCount,
             TrackStatus status,
             boolean dataLiteReady,
+            String youtubeId,
+            String source,
+            String sourceArtist,
+            String sourceUrl,
             LocalDateTime createdAt
     ) {}
 
@@ -53,7 +57,8 @@ public final class TrackDtos {
                 t.getAudioUrlHq(), t.getAudioUrlLq(), t.getCoverUrl(),
                 t.getDurationSec(), t.getBpm(), t.getMusicalKey(), t.getCamelot(),
                 t.getGenre(), t.getCountry(), t.getPlayCount(), t.getLikeCount(),
-                t.getStatus(), t.isDataLiteReady(), t.getCreatedAt()
+                t.getStatus(), t.isDataLiteReady(),
+                t.getYoutubeId(), t.getSource(), t.getSourceArtist(), t.getSourceUrl(), t.getCreatedAt()
         );
     }
 }

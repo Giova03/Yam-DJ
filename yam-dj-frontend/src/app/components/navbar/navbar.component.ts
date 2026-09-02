@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { PlayerService } from '../../services/player.service';
 import { OfflineService } from '../../services/offline.service';
+import { ThemeService } from '../../services/theme.service';
 import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
 
 @Component({
@@ -35,6 +36,17 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
           @if (player.nightMode()) {
             <span class="yam-badge text-yam-orange border border-yam-orange/30 hidden sm:inline">🪩 Nightclub</span>
           }
+
+          <!-- Acces direct YouTube : recherche + import + musiques libres -->
+          <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium flex items-center gap-1" title="Rechercher sur YouTube et importer sur YAM DJ">
+            <span class="text-red-600">▶</span><span class="hidden sm:inline">YouTube</span>
+          </a>
+
+          <!-- Toggle theme clair / sombre -->
+          <button (click)="theme.toggle()" class="yam-badge cursor-pointer hover:bg-white/20 w-8 h-8 !px-0 justify-center"
+                  [title]="theme.isLight() ? 'Passer en mode sombre' : 'Passer en mode clair'">
+            {{ theme.isLight() ? '🌙' : '☀️' }}
+          </button>
 
           @if (auth.isLoggedIn()) {
             @if (isPremium()) {
@@ -79,6 +91,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       </div>
       <!-- Bandeau secondaire : navigation decouverte (mobile inclus) -->
       <div class="max-w-7xl mx-auto px-4 h-10 flex items-center gap-3 overflow-x-auto scrollbar-hide border-t border-white/5 sm:hidden">
+        <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="text-red-600 hover:text-red-500 text-sm whitespace-nowrap font-semibold transition">▶ YouTube</a>
         <a routerLink="/charts" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📊 Charts</a>
         <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📥 Telechargements</a>
         <a routerLink="/local" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Ma Musique</a>
@@ -92,6 +105,7 @@ export class NavbarComponent {
   auth = inject(AuthService);
   player = inject(PlayerService);
   offline = inject(OfflineService);
+  theme = inject(ThemeService);
   private router = inject(Router);
   premium = signal<boolean>(false);
 

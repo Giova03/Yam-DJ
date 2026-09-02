@@ -2,10 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== YAM DJ Design System (style Spotify-like dark) ===== */
+/* ===== YAM DJ Design System (Spotify-like, sombre + clair) =====
+   Fondations variables : triplets RGB pilotes par :root (sombre, defaut)
+   et html.light (mode clair). Les classes yam-dark/yam-surface/yam-card
+   de Tailwind les consomment avec transparence (bg-yam-surface/95...). */
+
+:root {
+  --c-bg-base: 10 10 10;       /* #0A0A0A */
+  --c-bg-surface: 20 20 20;    /* #141414 */
+  --c-bg-card: 30 30 30;       /* #1E1E1E */
+  --c-fg: 255 255 255;         /* texte principal */
+  --c-fg-muted: 255 255 255;   /* opacite appliquee par la classe */
+  color-scheme: dark;
+}
+
+/* MODE CLAIR : fonds clairs, textes sombres (Boomplay-like) */
+html.light {
+  --c-bg-base: 246 247 249;    /* #F6F7F9 */
+  --c-bg-surface: 255 255 255; /* #FFFFFF */
+  --c-bg-card: 255 255 255;    /* cartes blanches sur fond gris clair */
+  color-scheme: light;
+}
 
 html {
   scrollbar-color: #333 #0a0a0a;
+}
+
+html.light {
+  scrollbar-color: #bbb #f6f7f9;
 }
 
 ::-webkit-scrollbar {
@@ -22,27 +46,92 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+html.light ::-webkit-scrollbar-track {
+  background: #f6f7f9;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #c1c5cb;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #9aa0a8;
+}
 
 @layer components {
   .yam-card {
-    @apply bg-yam-card rounded-2xl border border-white/5 hover:border-white/20 transition-all duration-300;
+    @apply rounded-2xl border transition-all duration-300;
+    background-color: rgb(var(--c-bg-card));
+    border-color: rgba(127, 127, 127, 0.15);
   }
+  html.light .yam-card:hover { border-color: rgba(127, 127, 127, 0.4); }
   .yam-btn-primary {
     @apply bg-yam-orange text-white font-semibold rounded-full px-6 py-2.5 hover:bg-orange-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .yam-btn-secondary {
-    @apply bg-white/10 text-white font-semibold rounded-full px-6 py-2.5 hover:bg-white/20 active:scale-95 transition-all duration-200;
+    @apply font-semibold rounded-full px-6 py-2.5 active:scale-95 transition-all duration-200;
+    background-color: rgba(127, 127, 127, 0.18);
+    color: rgb(var(--c-fg));
+  }
+  .yam-btn-secondary:hover {
+    background-color: rgba(127, 127, 127, 0.3);
   }
   .yam-input {
-    @apply bg-yam-surface border border-white/10 rounded-xl px-4 py-3 w-full text-white placeholder-white/30 focus:outline-none focus:border-yam-orange focus:ring-1 focus:ring-yam-orange transition;
+    @apply border rounded-xl px-4 py-3 w-full focus:outline-none focus:border-yam-orange focus:ring-1 focus:ring-yam-orange transition;
+    background-color: rgb(var(--c-bg-surface));
+    border-color: rgba(127, 127, 127, 0.25);
+    color: rgb(var(--c-fg));
   }
+  .yam-input::placeholder { color: rgba(127, 127, 127, 0.75); }
   .yam-title {
     @apply font-display font-bold text-2xl md:text-3xl tracking-tight;
+    color: rgb(var(--c-fg));
   }
   .yam-badge {
-    @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10;
+    @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full;
+    background-color: rgba(127, 127, 127, 0.18);
+    color: rgb(var(--c-fg));
   }
 }
+
+/* ============ SURCHARGES MODE CLAIR (utilitaires blancs/noirs) ============
+   Les templates utilisent text-white/50, bg-white/10, border-white/10...
+   herites du design sombre. En mode clair on les reecrit proprement ici —
+   un seul fichier, aucune modification des 30+ composants. */
+
+html.light .text-white { color: #1c1e21 !important; }
+html.light .text-white\/90 { color: rgba(28, 30, 33, 0.9) !important; }
+html.light .text-white\/80 { color: rgba(28, 30, 33, 0.8) !important; }
+html.light .text-white\/70 { color: rgba(28, 30, 33, 0.7) !important; }
+html.light .text-white\/60 { color: rgba(28, 30, 33, 0.62) !important; }
+html.light .text-white\/50 { color: rgba(28, 30, 33, 0.55) !important; }
+html.light .text-white\/40 { color: rgba(28, 30, 33, 0.45) !important; }
+html.light .text-white\/30 { color: rgba(28, 30, 33, 0.38) !important; }
+html.light .text-white\/20 { color: rgba(28, 30, 33, 0.28) !important; }
+html.light .placeholder\:text-white\/30::placeholder { color: rgba(28, 30, 33, 0.4) !important; }
+
+html.light .bg-white\/5 { background-color: rgba(15, 20, 30, 0.04) !important; }
+html.light .bg-white\/10 { background-color: rgba(15, 20, 30, 0.07) !important; }
+html.light .bg-white\/20 { background-color: rgba(15, 20, 30, 0.12) !important; }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(15, 20, 30, 0.08) !important; }
+html.light .hover\:bg-white\/20:hover { background-color: rgba(15, 20, 30, 0.14) !important; }
+
+html.light .border-white\/5 { border-color: rgba(15, 20, 30, 0.07) !important; }
+html.light .border-white\/10 { border-color: rgba(15, 20, 30, 0.12) !important; }
+html.light .border-white\/15 { border-color: rgba(15, 20, 30, 0.16) !important; }
+html.light .border-white\/20 { border-color: rgba(15, 20, 30, 0.2) !important; }
+html.light .border-white\/30 { border-color: rgba(15, 20, 30, 0.28) !important; }
+html.light .border-white\/40 { border-color: rgba(15, 20, 30, 0.35) !important; }
+
+/* Voiles sombres (modales) : restent fonces en mode clair (lisibilite) */
+html.light .bg-black\/70 { background-color: rgba(10, 12, 16, 0.55) !important; }
+html.light .bg-black\/80 { background-color: rgba(10, 12, 16, 0.6) !important; }
+
+/* Degres blancs (gradients subtils) */
+html.light .from-white\/10 { --tw-gradient-from: rgba(15, 20, 30, 0.07) !important; }
+html.light .to-white\/5 { --tw-gradient-to: rgba(15, 20, 30, 0.03) !important; }
+
+/* Barre de lecture : pochette du bouton play reste foncee (contraste logo) */
+html.light .text-yam-dark { color: #ffffff !important; }
+html.light .bg-white.text-yam-dark { background-color: #1c1e21 !important; color: #ffffff !important; }
 
 /* Gradient anime du logo */
 .yam-gradient-text {
