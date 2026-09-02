@@ -70,8 +70,8 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
     @Query(value = """
             SELECT * FROM track
             WHERE status = 'APPROVED'
-              AND (:genre   IS NULL OR genre   = :genre)
-              AND (:country IS NULL OR country = :country)
+              AND (CAST(:genre AS varchar) IS NULL OR genre = CAST(:genre AS varchar))
+              AND (CAST(:country AS varchar) IS NULL OR country = CAST(:country AS varchar))
             ORDER BY random()
             LIMIT :limit
             """, nativeQuery = true)
