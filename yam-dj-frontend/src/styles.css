@@ -25,6 +25,8 @@ html.light {
   --c-bg-base: 251 245 236;    /* #FBF5EC — ivoire chaud */
   --c-bg-surface: 255 255 255; /* #FFFFFF */
   --c-bg-card: 255 255 255;    /* cartes blanches sur fond ivoire */
+  --c-fg: 31 27 22;            /* #1F1B16 — texte principal brun-noir */
+  --c-fg-muted: 87 83 78;      /* #57534E — texte secondaire */
   color-scheme: light;
 }
 
