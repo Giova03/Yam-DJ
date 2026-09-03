@@ -5,6 +5,7 @@ export const routes: Routes = [
   { path: '', loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent) },
   { path: 'youtube', loadComponent: () => import('./pages/youtube/youtube.component').then(m => m.YoutubeComponent) },
   { path: 'login', canActivate: [guestGuard], loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
+  { path: 'oauth/callback', loadComponent: () => import('./pages/oauth-callback/oauth-callback.component').then(m => m.OauthCallbackComponent) },
   { path: 'forgot-password', canActivate: [guestGuard], loadComponent: () => import('./pages/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent) },
   { path: 'reset-password', loadComponent: () => import('./pages/reset-password/reset-password.component').then(m => m.ResetPasswordComponent) },
   { path: 'stats', canActivate: [authGuard], loadComponent: () => import('./pages/stats/stats.component').then(m => m.StatsComponent) },

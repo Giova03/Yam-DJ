@@ -87,9 +87,27 @@ public class AudioProcessingService {
     }
 
     /**
-     * Genere un mix DJ : concatenation des pistes avec crossfade (filter xfade)
-     * et synchronisation optionnelle du tempo.
+     * TRANSCODE UN ENREGISTREMENT NAVIGATEUR (webm/opus, mp4/aac, mp3, ogg...)
+     * en MP3 192 kbps normalise, stocke de facon durable. Utilise par la
+     * publication des mixes enregistres en direct dans le Studio DJ.
      */
+    public MixResult transcodeToMp3(File input, String baseName) throws Exception {
+        File workDir = storage.createTempDir("yam-rec-" + UUID.randomUUID());
+        try {
+            File out = new File(workDir, "rec.mp3");
+            runCommand(ffmpegPath,
+                    "-y", "-i", input.getAbsolutePath(),
+                    "-af", "loudnorm=I=-14:TP=-1.0:LRA=11",
+                    "-b:a", "192k",
+                    out.getAbsolutePath());
+            int duration = probeDuration(out.getAbsolutePath());
+            String key = storage.uploadFile(out, "mixtapes/" + baseName + ".mp3", "audio/mpeg");
+            return new MixResult(key, duration);
+        } finally {
+            deleteRecursive(workDir);
+        }
+    }
+
     public MixResult createMix(List<String> audioFiles, int crossfadeSec, File cover) throws Exception {
         File workDir = storage.createTempDir("yam-mix-" + UUID.randomUUID());
         File mixId = new File("mix-" + System.currentTimeMillis());

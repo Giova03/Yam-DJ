@@ -47,7 +47,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/auth/forgot-password", new Limit(3, 60 * 60_000L),
             "/api/auth/verify-email", new Limit(15, 60 * 60_000L),
             "/api/auth/reset-password", new Limit(6, 60 * 60_000L),
-            "/api/auth/resend-verification", new Limit(5, 60 * 60_000L)
+            "/api/auth/resend-verification", new Limit(5, 60 * 60_000L),
+            "/api/auth/oauth/google/url", new Limit(10, 60 * 60_000L),
+            "/api/auth/oauth/google/callback", new Limit(20, 60 * 60_000L)
     );
 
     private record Window(long windowStart, AtomicLong count) {}

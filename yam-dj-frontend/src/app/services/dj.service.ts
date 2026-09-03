@@ -34,6 +34,21 @@ export class DjService {
     return this.http.post<Mixtape>(`${this.apiUrl}/api/dj/create-mixtape`, data);
   }
 
+  /**
+   * PUBLIE UN MIX ENREGISTRE EN DIRECT dans le Studio DJ (blob MediaRecorder :
+   * webm/opus ou mp4). Le serveur le transcode en MP3 et le reference comme
+   * mixtape du DJ connecte.
+   */
+  uploadMixtape(file: Blob, title: string, priceXof: number, durationSec: number): Observable<Mixtape> {
+    const fd = new FormData();
+    const ext = file.type.includes('mp4') ? 'm4a' : (file.type.includes('mpeg') ? 'mp3' : 'webm');
+    fd.append('file', file, `mix-yam-dj.${ext}`);
+    fd.append('title', title || 'Live YAM DJ');
+    fd.append('priceXof', String(priceXof || 0));
+    fd.append('durationSec', String(Math.max(0, Math.round(durationSec))));
+    return this.http.post<Mixtape>(`${this.apiUrl}/api/dj/mixtapes/upload`, fd);
+  }
+
   myMixtapes(): Observable<Mixtape[]> {
     return this.http.get<Mixtape[]>(`${this.apiUrl}/api/dj/my-mixtapes`);
   }

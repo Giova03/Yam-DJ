@@ -2,11 +2,12 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { GoogleButtonComponent } from '../../components/google-button/google-button.component';
 
 @Component({
   selector: 'yam-login',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, GoogleButtonComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-yam-dark to-black">
       <div class="w-full max-w-md">
@@ -59,6 +60,15 @@ import { AuthService } from '../../services/auth.service';
                     class="yam-btn-primary w-full mt-6 !py-3.5 text-lg">
               @if (loading()) { <span class="animate-pulse">Connexion...</span> } @else { Se connecter }
             </button>
+
+            <!-- Connexion sociale : Google -->
+            <div class="flex items-center gap-3 my-5">
+              <div class="h-px bg-white/10 flex-1"></div>
+              <span class="text-xs text-white/40">ou</span>
+              <div class="h-px bg-white/10 flex-1"></div>
+            </div>
+            <yam-google-button role="USER" />
+
             @if (loading() && slowServer()) {
               <p class="text-center text-white/40 text-xs mt-3 animate-pulse">
                 Le serveur se reveille (offre gratuite) : patiente encore un peu, ca arrive...

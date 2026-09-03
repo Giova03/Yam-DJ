@@ -47,6 +47,21 @@ public class DjController {
         return ResponseEntity.ok(djService.createMixtape(request));
     }
 
+    /**
+     * PUBLICATION D'UN MIX ENREGISTRE EN DIRECT depuis le Studio DJ
+     * (MediaRecorder navigateur : webm/opus ou mp4/aac). Le fichier est
+     * transcode en MP3 192 kbps cote serveur (compatibilite universelle),
+     * stocke de facon durable puis publie comme mixtape du DJ.
+     */
+    @PostMapping(value = "/mixtapes/upload", consumes = "multipart/form-data")
+    public ResponseEntity<MixtapeResponse> uploadMixtape(
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @org.springframework.web.bind.annotation.RequestParam(value = "title", required = false) String title,
+            @org.springframework.web.bind.annotation.RequestParam(value = "priceXof", required = false) Integer priceXof,
+            @org.springframework.web.bind.annotation.RequestParam(value = "durationSec", defaultValue = "0") int durationSec) {
+        return ResponseEntity.ok(djService.uploadMixtape(file, title, priceXof, durationSec));
+    }
+
     @GetMapping("/my-mixtapes")
     public ResponseEntity<List<MixtapeResponse>> myMixtapes() {
         return ResponseEntity.ok(djService.myMixtapes());

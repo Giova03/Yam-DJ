@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthResponse } from '../models/models';
 
@@ -56,6 +56,47 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${this.apiUrl}/api/auth/reset-password`, {
       token, newPassword
     });
+  }
+
+  // ============ CONNEXION GOOGLE (OAuth 2.0) ============
+
+  /** Etat de la connexion Google cote serveur (bouton affiche ou non). */
+  googleStatus(): Observable<{ enabled: boolean; redirectUri: string }> {
+    return this.http.get<{ enabled: boolean; redirectUri: string }>(
+      `${this.apiUrl}/api/auth/oauth/google/status`);
+  }
+
+  /**
+   * Demarre la connexion Google : recupere l'URL de consentement depuis le
+   * serveur puis redirige le navigateur. role = role souhaite pour un
+   * NOUVEAU compte (USER | ARTIST | DJ).
+   * Retourne une erreur si le serveur ne connait pas encore la route
+   * (backend pas encore deploye) ou si Google n'est pas configure.
+   */
+  googleLogin(role: string = 'USER'): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(
+      `${this.apiUrl}/api/auth/oauth/google/url?role=${encodeURIComponent(role)}`);
+  }
+
+  /**
+   * Retour du backend apres Google : le JWT arrive dans le fragment d'URL
+   * (#token=...&email=...) — jamais dans les logs serveur. Stocke la
+   * session comme un login classique.
+   */
+  applyOAuthFragment(fragment: string): { ok: boolean; error?: string } {
+    const params = new URLSearchParams(fragment);
+    const error = params.get('error');
+    if (error) return { ok: false, error };
+    const token = params.get('token');
+    if (!token) return { ok: false, error: 'Connexion Google sans jeton' };
+    this.handleAuth({
+      token,
+      email: params.get('email') || '',
+      pseudo: params.get('pseudo') || '',
+      role: params.get('role') || 'USER',
+      emailVerified: params.get('emailVerified') === 'true'
+    } as AuthResponse);
+    return { ok: true };
   }
 
   me() {

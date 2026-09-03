@@ -114,6 +114,14 @@ yamdj:
   app:
     base-url: ${APP_BASE_URL:http://localhost:8080}
     frontend-url: ${FRONTEND_URL:http://localhost:4200}
+  google:
+    # Connexion Google (OAuth 2.0). Renseigner GOOGLE_CLIENT_ID et
+    # GOOGLE_CLIENT_SECRET (Google Cloud Console -> API -> Identifiants ->
+    # OAuth client ID type "Application Web"). URI de redirection a
+    # enregistrer chez Google : {APP_BASE_URL}/api/auth/oauth/google/callback
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:}
   ffmpeg:
     path: ${FFMPEG_PATH:ffmpeg}
 

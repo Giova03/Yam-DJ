@@ -118,9 +118,66 @@ public class DjService {
     }
 
     /**
-     * Cree la mixtape : Auto-Mix IA (optionnel) -> rendu FFmpeg crossfade
-     * -> upload stockage -> sauvegarde.
+     * PUBLIE UN MIX ENREGISTRE EN DIRECT depuis le Studio DJ (nouveau moteur
+     * Web Audio). Le fichier navigateur (webm/opus, mp4/aac...) est transcode
+     * en MP3 cote serveur, stocke durablement, et reference comme mixtape.
      */
+    @Transactional
+    public MixtapeResponse uploadMixtape(org.springframework.web.multipart.MultipartFile file,
+                                          String title, Integer priceXof, int durationSec) {
+        User dj = currentDj();
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Fichier audio manquant");
+        }
+        if (file.getSize() > 60L * 1024 * 1024) {
+            throw new IllegalArgumentException("Enregistrement trop lourd (60 Mo max)");
+        }
+        String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        boolean looksAudio = name.endsWith(".webm") || name.endsWith(".mp4") || name.endsWith(".m4a")
+                || name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav")
+                || name.endsWith(".aac") || contentType.startsWith("audio/");
+        if (!looksAudio) {
+            throw new IllegalArgumentException("Format audio non reconnu (webm, mp4, mp3, ogg, wav)");
+        }
+
+        File tmp;
+        try {
+            tmp = File.createTempFile("yam-rec", ".bin");
+            file.transferTo(tmp);
+        } catch (IOException e) {
+            throw new IllegalStateException("Lecture du fichier impossible");
+        }
+        try {
+            AudioProcessingService.MixResult result =
+                    audioProcessor.transcodeToMp3(tmp, "rec-" + System.currentTimeMillis());
+            String finalTitle = (title == null || title.isBlank())
+                    ? "Live de " + dj.getPseudo() : title.trim();
+            if (finalTitle.length() > 200) finalTitle = finalTitle.substring(0, 200);
+
+            Mixtape mixtape = Mixtape.builder()
+                    .djId(dj.getId())
+                    .title(finalTitle)
+                    .audioUrl(result.audioKey())
+                    .durationSec(durationSec > 0 ? durationSec : result.durationSec())
+                    .crossfadeSec(0)
+                    .priceXof(mixtapeStore.sanitizePrice(priceXof))
+                    .build();
+            mixtapeRepository.save(mixtape);
+
+            djProfileRepository.findByUserId(dj.getId()).ifPresent(profile -> {
+                profile.setMixtapeCount(profile.getMixtapeCount() + 1);
+                djProfileRepository.save(profile);
+            });
+            return toResponse(mixtape, dj.getId());
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Publication de l'enregistrement impossible : " + e.getMessage());
+        } finally {
+            tmp.delete();
+        }
+    }
+
     @Transactional
     public MixtapeResponse createMixtape(CreateMixtapeRequest request) {
         User dj = currentDj();
