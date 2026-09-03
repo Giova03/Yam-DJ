@@ -19,12 +19,27 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
       <h1 class="yam-title mb-6">🔎 Explorer la musique</h1>
 
       <!-- Barre de recherche -->
-      <div class="relative mb-6">
-        <input type="text" [ngModel]="query()" (ngModelChange)="onQueryChange($event)"
-               placeholder="Titre, artiste, DJ..."
-               class="yam-input !py-4 text-lg pl-12">
-        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-white/30">🎵</span>
+      <div class="relative mb-6 flex gap-2">
+        <div class="relative flex-1">
+          <input type="text" [ngModel]="query()" (ngModelChange)="onQueryChange($event)"
+                 placeholder="Titre, artiste, DJ... ou parle 🎙"
+                 class="yam-input !py-4 text-lg pl-12">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-white/30">🎵</span>
+        </div>
+        @if (voiceSupported()) {
+          <button (click)="toggleVoice()" [disabled]="searching()"
+                  class="w-14 shrink-0 rounded-2xl flex items-center justify-center text-2xl transition border"
+                  [class]="listening() ? 'bg-red-500 text-white border-red-400 animate-pulse shadow-lg shadow-red-500/30' : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'"
+                  [title]="listening() ? 'Arrêter l\u2019écoute' : 'Recherche vocale — dis le nom d\u2019un artiste ou d\u2019une chanson'">
+            {{ listening() ? '⏹' : '🎙' }}
+          </button>
+        }
       </div>
+      @if (voiceMessage()) {
+        <p class="text-sm mb-4 rounded-xl px-3 py-2" [class]="listening() ? 'bg-red-400/10 text-red-300' : 'bg-white/10 text-white/60'">
+          {{ voiceMessage() }}
+        </p>
+      }
 
       <!-- Filtres -->
       <div class="flex flex-wrap gap-2 mb-4">
@@ -120,6 +135,58 @@ export class SearchComponent {
   tipArtist = signal<Track | null>(null);
 
   private searchTimer: any = null;
+
+  // ================= RECHERCHE VOCALE =================
+  voiceSupported = signal(false);
+  listening = signal(false);
+  voiceMessage = signal<string | null>(null);
+  private recognition: any = null;
+
+  constructor() {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    this.voiceSupported.set(!!SR);
+    if (SR) {
+      this.recognition = new SR();
+      this.recognition.lang = 'fr-FR';
+      this.recognition.interimResults = false;
+      this.recognition.maxAlternatives = 1;
+      this.recognition.onresult = (e: any) => {
+        const text = e.results?.[0]?.[0]?.transcript || '';
+        this.listening.set(false);
+        if (text.trim()) {
+          this.voiceMessage.set('🎙 « ' + text + ' »');
+          this.query.set(text.trim());
+          this.applyFilters();
+        } else {
+          this.voiceMessage.set('Je n\u2019ai rien entendu — réessaie.');
+        }
+      };
+      this.recognition.onerror = (e: any) => {
+        this.listening.set(false);
+        const msg = e?.error === 'not-allowed'
+          ? 'Micro refusé — autorise-le dans ton navigateur pour la recherche vocale.'
+          : e?.error === 'no-speech' ? 'Aucune voix détectée — réessaie.'
+            : 'Recherche vocale indisponible (' + (e?.error || 'erreur') + ').';
+        this.voiceMessage.set(msg);
+      };
+      this.recognition.onend = () => this.listening.set(false);
+    }
+  }
+
+  toggleVoice(): void {
+    if (!this.recognition) return;
+    if (this.listening()) {
+      this.recognition.stop();
+      this.listening.set(false);
+      return;
+    }
+    this.voiceMessage.set('🎙 Parle maintenant — dis un nom d\u2019artiste ou de chanson...');
+    this.listening.set(true);
+    try { this.recognition.start(); } catch {
+      this.listening.set(false);
+      this.voiceMessage.set('Recherche vocale indisponible.');
+    }
+  }
 
   onQueryChange(value: string): void {
     this.query.set(value);

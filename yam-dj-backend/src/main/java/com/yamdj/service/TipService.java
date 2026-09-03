@@ -66,7 +66,7 @@ public class TipService {
         return userRepository.findByEmailIgnoreCase(auth.getName()).orElse(null);
     }
 
-    /** Etape 1 : creation du tip + initiation du paiement CinetPay. */
+    /** Etape 1 : creation du tip + initiation du paiement FedaPay. */
     @Transactional
     public TipResponse createTip(TipRequest request) {
         User artist = userRepository.findById(request.artistId())

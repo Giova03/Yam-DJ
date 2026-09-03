@@ -30,7 +30,7 @@ public class ArtistProfile {
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
 
-    /** Solde en FCFA (XOF) — credite par les tips CinetPay. */
+    /** Solde en FCFA (XOF) — credite par les tips FedaPay. */
     @Column(name = "balance_xof", nullable = false)
     @Builder.Default
     private long balanceXof = 0;

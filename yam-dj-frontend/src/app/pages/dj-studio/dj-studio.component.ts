@@ -48,7 +48,7 @@ import { DjDeck, DjEngine } from './dj-engine';
       <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 class="yam-title">🎚️ Studio DJ <span class="yam-gradient-text">PRO</span></h1>
-          <p class="text-white/50 text-sm">Moteur Web Audio réel : waveform, EQ, sync BPM, boucles précises, enregistrement du mix.</p>
+          <p class="text-white/50 text-sm">Moteur Web Audio réel : ta musique locale ou le catalogue, waveform, EQ, effets, sync BPM, boucles précises, enregistrement.</p>
         </div>
         <div class="flex gap-2 flex-wrap items-center">
           <button (click)="toggleHelp()" class="yam-btn-secondary text-sm">⌨️ Aide</button>
@@ -135,10 +135,14 @@ import { DjDeck, DjEngine } from './dj-engine';
                       @if (panel.deck.track.camelot) { · 🎹 {{ panel.deck.track.camelot }} }
                     </p>
                   </div>
+                  <button (click)="pickLocalFile(panel)" title="Charger un fichier de mon téléphone / ordinateur"
+                          class="w-8 h-8 rounded-full text-white/40 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0">📂</button>
                   <button (click)="ejectDeck(panel)" title="Ejecter la piste"
                           class="w-8 h-8 rounded-full text-white/40 hover:text-red-400 hover:bg-red-400/10 transition shrink-0">⏏</button>
                 } @else {
-                  <p class="text-white/30 text-sm flex-1">Deck libre — charge une piste ci-dessous</p>
+                  <p class="text-white/30 text-sm flex-1">Deck libre — charge une piste ou un fichier 📂</p>
+                  <button (click)="pickLocalFile(panel)" title="Charger un fichier de mon téléphone / ordinateur"
+                          class="w-8 h-8 rounded-full text-yam-gold/60 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0">📂</button>
                 }
               </div>
 
@@ -230,25 +234,65 @@ import { DjDeck, DjEngine } from './dj-engine';
               </div>
 
               <!-- Filtre + effets -->
-              <div class="grid grid-cols-3 gap-2 mb-3">
-                <div>
-                  <label class="text-[10px] text-white/40 block text-center mb-1">
-                    FILTRE <b class="text-white/70">{{ filterText(panel) }}</b>
-                  </label>
-                  <input type="range" min="0" max="1" step="0.02" [value]="panel.filter()"
-                         (input)="setFilter(panel, $event)" class="w-full h-1.5 accent-yam-orange cursor-pointer"
-                         title="Gauche = passe-bas (basse) · droite = passe-haut (aigu)">
+              <div class="mb-3">
+                <div class="flex justify-between text-[10px] text-white/40 mb-1">
+                  <span>FILTRE <b class="text-white/70">{{ filterText(panel) }}</b></span>
+                  <span>EFFETS — clic ON, molette = intensité</span>
                 </div>
-                <button (click)="toggleEcho(panel)" [disabled]="!panel.deck.track"
-                        class="text-xs font-bold px-2 rounded-xl transition disabled:opacity-30 border"
-                        [class]="panel.echoOn() ? 'bg-yam-orange text-white border-yam-orange' : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'">
-                  ⏱ ECHO {{ panel.echoOn() ? 'ON' : '' }}
-                </button>
-                <button (click)="toggleReverb(panel)" [disabled]="!panel.deck.track"
-                        class="text-xs font-bold px-2 rounded-xl transition disabled:opacity-30 border"
-                        [class]="panel.reverbOn() ? 'bg-yam-gold text-yam-dark border-yam-gold' : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'">
-                  🏛 REVERB {{ panel.reverbOn() ? 'ON' : '' }}
-                </button>
+                <input type="range" min="0" max="1" step="0.02" [value]="panel.filter()"
+                       (input)="setFilter(panel, $event)" class="w-full h-1.5 accent-yam-orange cursor-pointer"
+                       title="Gauche = passe-bas (basse) · droite = passe-haut (aigu)">
+                <div class="grid grid-cols-3 gap-2 mt-2">
+                  <div class="rounded-xl border p-1.5 transition"
+                        [class]="panel.echoOn() ? 'border-yam-orange/60 bg-yam-orange/10' : 'border-white/10'">
+                    <button (click)="toggleEcho(panel)" [disabled]="!panel.deck.track"
+                            class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
+                            [class]="panel.echoOn() ? 'bg-yam-orange text-white' : 'text-white/60 hover:bg-white/10'">
+                      ⏱ ECHO {{ panel.echoOn() ? 'ON' : '' }}
+                    </button>
+                    @if (panel.echoOn()) {
+                      <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.echoWet()"
+                             (input)="setEchoWet(panel, $event)" class="w-full h-1 mt-1.5 accent-yam-orange cursor-pointer"
+                             title="Intensité de l'écho">
+                    }
+                  </div>
+                  <div class="rounded-xl border p-1.5 transition"
+                        [class]="panel.reverbOn() ? 'border-yam-gold/60 bg-yam-gold/10' : 'border-white/10'">
+                    <button (click)="toggleReverb(panel)" [disabled]="!panel.deck.track"
+                            class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
+                            [class]="panel.reverbOn() ? 'bg-yam-gold text-yam-dark' : 'text-white/60 hover:bg-white/10'">
+                      🏛 REVERB {{ panel.reverbOn() ? 'ON' : '' }}
+                    </button>
+                    @if (panel.reverbOn()) {
+                      <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.reverbWet()"
+                             (input)="setReverbWet(panel, $event)" class="w-full h-1 mt-1.5 accent-yam-gold cursor-pointer"
+                             title="Intensité de la réverbe">
+                    }
+                  </div>
+                  <div class="rounded-xl border p-1.5 transition"
+                        [class]="panel.flangerOn() ? 'border-yam-green/60 bg-yam-green/10' : 'border-white/10'">
+                    <button (click)="toggleFlanger(panel)" [disabled]="!panel.deck.track"
+                            class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
+                            [class]="panel.flangerOn() ? 'bg-yam-green text-white' : 'text-white/60 hover:bg-white/10'">
+                      ✈ FLANGER {{ panel.flangerOn() ? 'ON' : '' }}
+                    </button>
+                    @if (panel.flangerOn()) {
+                      <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.flangerWet()"
+                             (input)="setFlangerWet(panel, $event)" class="w-full h-1 mt-1.5 accent-yam-green cursor-pointer"
+                             title="Profondeur de l'effet avion">
+                    }
+                  </div>
+                </div>
+                <!-- Presets d'effets 1 clic -->
+                <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <span class="text-[10px] text-white/30 shrink-0">PRESETS</span>
+                  @for (p of fxPresets; track p.name) {
+                    <button (click)="applyPreset(panel, p)" [disabled]="!panel.deck.track"
+                            class="text-[10px] font-bold px-2 py-1 rounded-full transition shrink-0 disabled:opacity-30
+                                   bg-white/10 text-white/50 hover:bg-white/20 hover:text-white"
+                            [title]="p.desc">{{ p.label }}</button>
+                  }
+                </div>
               </div>
 
               <!-- Boucles + hot cues -->
@@ -307,11 +351,55 @@ import { DjDeck, DjEngine } from './dj-engine';
 
       <!-- ============ BIBLIOTHEQUE ============ -->
       <section>
-        <h2 class="text-xl font-bold mb-1">🎵 Bibliothèque du studio</h2>
+        <h2 class="text-xl font-bold mb-1">🎵 Ma musique & bibliothèque</h2>
         <p class="text-white/40 text-sm mb-4">
+          Charge TES fichiers (mp3, m4a, wav...) ou choisis dans le catalogue — BPM détecté automatiquement.
           Chargement complet en mémoire pour un mix précis (rendu {{ quality() === 'lite' ? 'Data-Lite 48 kbps' : 'HQ 128 kbps' }}).
           @if (ytExcluded > 0) { {{ ytExcluded }} pistes sans audio direct masquées. }
         </p>
+
+        <!-- Zone fichiers locaux -->
+        <div class="yam-card p-4 mb-4 border-dashed border-yam-gold/30">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p class="font-semibold text-sm">📂 Ma musique locale</p>
+              <p class="text-white/40 text-xs mt-0.5">Tes fichiers ne quittent jamais ton appareil — chargés en mémoire pour le mix.</p>
+            </div>
+            <button (click)="localFilesInput.click()" class="yam-btn-primary text-sm shrink-0">
+              ➕ Ajouter des fichiers
+            </button>
+            <input #localFilesInput type="file" accept="audio/*,.mp3,.m4a,.wav,.flac,.ogg,.aac" multiple
+                   class="hidden" (change)="onLocalFilesSelected($event)">
+          </div>
+          @if (localFiles().length) {
+            <div class="grid grid-cols-1 gap-2 mt-3">
+              @for (item of localFiles(); track item.id) {
+                <div class="flex items-center gap-3 rounded-xl bg-black/30 border border-white/10 p-2.5">
+                  <button (click)="loadLocalToDeck(item, panels[0])" [disabled]="rowLoadingLocal(item) || panels[0].loading()"
+                          class="w-10 h-10 rounded-full font-black text-xs shrink-0 transition bg-yam-orange/15 text-yam-orange hover:bg-yam-orange hover:text-white disabled:opacity-30"
+                          title="Charger dans le deck A">A</button>
+                  <button (click)="loadLocalToDeck(item, panels[1])" [disabled]="rowLoadingLocal(item) || panels[1].loading()"
+                          class="w-10 h-10 rounded-full font-black text-xs shrink-0 transition bg-yam-gold/15 text-yam-gold hover:bg-yam-gold hover:text-yam-dark disabled:opacity-30 -ml-2"
+                          title="Charger dans le deck B">B</button>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-medium truncate text-sm">{{ item.track.title }}</p>
+                    <p class="text-white/40 text-xs truncate">Fichier local · {{ fmt(item.track.durationSec) }}
+                      @if (item.track.bpm) { · <b class="tabular-nums">{{ item.track.bpm }}</b> BPM (détecté) }
+                    </p>
+                  </div>
+                  @if (item.loading) {
+                    <span class="text-xs text-yam-orange animate-pulse shrink-0">analyse…</span>
+                  }
+                  <button (click)="removeLocalFile(item)" title="Retirer"
+                          class="w-8 h-8 rounded-full text-white/30 hover:text-red-400 hover:bg-red-400/10 transition shrink-0">✕</button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Catalogue plateforme -->
+        <h3 class="text-sm font-bold text-white/60 mb-2">Catalogue YAM DJ</h3>
 
         <div class="flex gap-2 mb-4 flex-wrap">
           <input type="text" [(ngModel)]="filterText_" (ngModelChange)="filterLibrary()"
@@ -494,13 +582,15 @@ import { DjDeck, DjEngine } from './dj-engine';
           <div class="bg-yam-card rounded-3xl p-6 w-full max-w-lg border border-white/10 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
             <h2 class="yam-title mb-4">⌨️ Pilotage du studio</h2>
             <ul class="space-y-2 text-sm text-white/70">
+              <li><b class="text-yam-orange">📂 Ma musique locale</b> — charge TES mp3/m4a/wav dans un deck (bouton 📂 du deck ou zone « Ma musique locale ») — BPM détecté automatiquement</li>
               <li><b class="text-yam-orange">Espace</b> — lecture/pause deck A · <b class="text-yam-gold">Maj+Espace</b> — deck B</li>
               <li><b class="text-yam-orange">← / →</b> — déplacer le crossfader</li>
               <li><b class="text-yam-orange">S</b> — synchroniser le deck B sur A</li>
               <li><b class="text-yam-orange">1 à 4</b> — hot cues du deck A (Maj+1-4 : deck B)</li>
+              <li><b>Effets</b> — ECHO / REVERB / FLANGER : clic = ON, molette = intensité · presets 1 clic (CLUB, SPACE, SWEEP...)</li>
               <li><b>CUE</b> : en lecture = retour au point ; en pause = lecture depuis le point ; premier appui = pose le point</li>
-              <li><b>Loop</b> : boucle exacte de 1 à 16 temps (4 temps = 1 mesure) relancée à l'échantillon près</li>
-              <li><b>Sync</b> : aligne le BPM (moitié/double automatique si l'écart dépasse ±8 %) — affine la phase avec ◀◀/▶▶</li>
+              <li><b>Loop</b> : boucle exacte de 1 à 16 temps relancée à l'échantillon près</li>
+              <li><b>Sync</b> : aligne le BPM (moitié/double auto) — affine la phase avec ◀◀/▶▶</li>
               <li><b>Pitch</b> : le ton suit le tempo, comme sur une vraie platine vinyle</li>
               <li><b>Enregistrer</b> : capture la sortie master (limiteur inclus) — publie-la ou télécharge-la</li>
             </ul>
@@ -546,6 +636,21 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   compatOnly = signal(false);
   ytExcluded = 0;
   loadingRows = signal<string[]>([]);
+
+  // ================= FICHIERS LOCAUX =================
+  localFiles = signal<LocalFileEntry[]>([]);
+  private localSeq = 0;
+  private filePickerTarget: DeckPanel | null = null;
+
+  /** Presets d'effets 1 clic (EQ + filtre + FX). */
+  readonly fxPresets: FxPreset[] = [
+    { name: 'clean', label: '✨ CLEAN', desc: 'EQ neutre, aucun effet', eq: [0, 0, 0], filter: 0.5, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'bass', label: '🔊 BASS+', desc: 'Graves boostés +4 dB, aigus -2 dB', eq: [4, 0, -2], filter: 0.42, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'club', label: '🪩 CLUB', desc: 'EQ club + echo léger synchro BPM', eq: [2, 1, 2], filter: 0.5, echo: true, reverb: false, flanger: false, wet: 0.25 },
+    { name: 'radio', label: '📻 RADIO', desc: 'Passe-haut type radio FM', eq: [-6, 3, 4], filter: 0.68, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'space', label: '🌌 SPACE', desc: 'Reverb ample + echo profond', eq: [0, 1, 3], filter: 0.5, echo: true, reverb: true, flanger: false, wet: 0.55 },
+    { name: 'sweep', label: '✈ SWEEP', desc: 'Flanger montée davion (build-up)', eq: [0, 0, 1], filter: 0.5, echo: false, reverb: false, flanger: true, wet: 0.6 }
+  ];
 
   // ================= AUTO-MIX / MIXTAPES =================
   analysis = signal<string | null>(null);
@@ -1045,19 +1150,166 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     const on = !panel.echoOn();
     const bpm = panel.deck.effectiveBpm;
     const beatSync = bpm ? 60 / bpm : undefined;
-    panel.deck.setEcho(on, 0.5, beatSync);
+    panel.deck.setEcho(on, panel.echoWet(), beatSync);
     panel.echoOn.set(on);
+  }
+
+  setEchoWet(panel: DeckPanel, event: Event): void {
+    const wet = Number((event.target as HTMLInputElement).value);
+    panel.echoWet.set(wet);
+    const bpm = panel.deck.effectiveBpm;
+    const beatSync = bpm ? 60 / bpm : undefined;
+    if (panel.echoOn()) panel.deck.setEcho(true, wet, beatSync);
   }
 
   toggleReverb(panel: DeckPanel): void {
     const on = !panel.reverbOn();
-    panel.deck.setReverb(on, 0.4);
+    panel.deck.setReverb(on, panel.reverbWet());
     panel.reverbOn.set(on);
+  }
+
+  setReverbWet(panel: DeckPanel, event: Event): void {
+    const wet = Number((event.target as HTMLInputElement).value);
+    panel.reverbWet.set(wet);
+    if (panel.reverbOn()) panel.deck.setReverb(true, wet);
+  }
+
+  toggleFlanger(panel: DeckPanel): void {
+    const on = !panel.flangerOn();
+    panel.deck.setFlanger(on, panel.flangerWet());
+    panel.flangerOn.set(on);
+  }
+
+  setFlangerWet(panel: DeckPanel, event: Event): void {
+    const wet = Number((event.target as HTMLInputElement).value);
+    panel.flangerWet.set(wet);
+    if (panel.flangerOn()) panel.deck.setFlanger(true, wet);
+  }
+
+  /** Applique un preset d'effets (EQ + filtre + effets) au deck. */
+  applyPreset(panel: DeckPanel, preset: FxPreset): void {
+    panel.deck.setEq('low', preset.eq[0]);
+    panel.deck.setEq('mid', preset.eq[1]);
+    panel.deck.setEq('high', preset.eq[2]);
+    panel.eqLow.set(preset.eq[0]);
+    panel.eqMid.set(preset.eq[1]);
+    panel.eqHigh.set(preset.eq[2]);
+    panel.deck.setFilter(preset.filter);
+    panel.filter.set(preset.filter);
+    const bpm = panel.deck.effectiveBpm;
+    const beatSync = bpm ? 60 / bpm : undefined;
+    panel.deck.setEcho(preset.echo, preset.wet, beatSync);
+    panel.echoOn.set(preset.echo);
+    panel.echoWet.set(preset.wet);
+    panel.deck.setReverb(preset.reverb, preset.wet);
+    panel.reverbOn.set(preset.reverb);
+    panel.reverbWet.set(Math.min(0.9, preset.wet));
+    panel.deck.setFlanger(preset.flanger, preset.wet);
+    panel.flangerOn.set(preset.flanger);
+    panel.flangerWet.set(preset.wet);
   }
 
   toggleLoop(panel: DeckPanel, bars: number): void {
     this.ensureEngine();
     panel.deck.setLoopBars(bars, panel.deck.track?.bpm ?? null);
+  }
+
+  // ================= FICHIERS LOCAUX =================
+
+  /** Ouvre le selecteur de fichier pour charger directement dans un deck. */
+  pickLocalFile(panel: DeckPanel): void {
+    if (panel.playing()) {
+      panel.error.set('Ce deck joue — mets-le en pause avant de charger un autre fichier.');
+      return;
+    }
+    this.filePickerTarget = panel;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*,.mp3,.m4a,.wav,.flac,.ogg,.aac';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file && this.filePickerTarget) {
+        const entry = this.addLocalEntry(file);
+        this.loadLocalToDeck(entry, this.filePickerTarget);
+      }
+      this.filePickerTarget = null;
+    };
+    input.click();
+  }
+
+  /** Selection multiple depuis la zone "Ma musique locale". */
+  onLocalFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    for (const f of files) this.addLocalEntry(f);
+    input.value = '';
+  }
+
+  private addLocalEntry(file: File): LocalFileEntry {
+    const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || file.name;
+    const entry: LocalFileEntry = {
+      id: 'local-' + (++this.localSeq),
+      file,
+      loading: false,
+      track: {
+        id: 'local-' + this.localSeq,
+        title,
+        artistId: '',
+        artistName: 'Fichier local',
+        artistPseudo: '',
+        durationSec: 0,
+        playCount: 0,
+        likeCount: 0,
+        status: 'APPROVED' as const,
+        dataLiteReady: false,
+        createdAt: new Date().toISOString()
+      }
+    };
+    this.localFiles.set([...this.localFiles(), entry]);
+    return entry;
+  }
+
+  rowLoadingLocal(item: LocalFileEntry): boolean { return item.loading; }
+
+  removeLocalFile(item: LocalFileEntry): void {
+    this.localFiles.set(this.localFiles().filter(f => f.id !== item.id));
+  }
+
+  /** Charge un fichier local dans un deck (avec BPM detecte automatiquement). */
+  loadLocalToDeck(item: LocalFileEntry, panel: DeckPanel): void {
+    if (!this.engine || panel.loading()) return;
+    if (panel.playing()) {
+      panel.error.set('Ce deck joue — mets-le en pause avant de charger un autre fichier.');
+      return;
+    }
+    this.ensureEngine();
+    panel.loading.set(true);
+    panel.error.set(null);
+    panel.pct.set(0);
+    panel.detail.set('Lecture du fichier...');
+    item.loading = true;
+    this.localFiles.set([...this.localFiles()]);
+
+    panel.deck.loadLocalFile(item.file, item.track, (p, phase, detail) => {
+      panel.pct.set(Math.round(p * 100));
+      panel.detail.set(detail);
+    }).then(bpm => {
+      // synchronise la piste (BPM/duree mis a jour par le moteur)
+      item.track = panel.deck.track!;
+      item.loading = false;
+      this.localFiles.set([...this.localFiles()]);
+      panel.loading.set(false);
+      panel.playing.set(false);
+      this.renderStaticWave(panel);
+      if (bpm) {
+        panel.detail.set('BPM détecté : ' + bpm);
+      }
+    }).catch(() => {
+      item.loading = false;
+      this.localFiles.set([...this.localFiles()]);
+      panel.loading.set(false);
+      panel.error.set(panel.deck.loadError || 'Fichier illisible sur ce navigateur.');
+    });
   }
 
   // ================= ENREGISTREMENT =================
@@ -1438,8 +1690,33 @@ class DeckPanel {
   vol = signal(1);
   filter = signal(0.5);
   echoOn = signal(false);
+  echoWet = signal(0.5);
   reverbOn = signal(false);
+  reverbWet = signal(0.4);
+  flangerOn = signal(false);
+  flangerWet = signal(0.5);
   cues = signal<(number | null)[]>([null, null, null, null]);
 
   constructor(readonly id: 'A' | 'B', readonly deck: DjDeck) { }
+}
+
+/** Fichier audio local ajoute par le DJ. */
+interface LocalFileEntry {
+  id: string;
+  file: File;
+  loading: boolean;
+  track: Track;
+}
+
+/** Preset d'effets appliquable en 1 clic. */
+interface FxPreset {
+  name: string;
+  label: string;
+  desc: string;
+  eq: [number, number, number];
+  filter: number;
+  echo: boolean;
+  reverb: boolean;
+  flanger: boolean;
+  wet: number;
 }

@@ -212,7 +212,7 @@ public class DjService {
 
         // Telechargement des fichiers maitres : on recombine depuis les segments HLS
         // Solution robuste : extraire la version HQ en MP3 temporaire via ffmpeg
-        // sur l'URL publique R2 (ffmpeg supporte les URLs HTTP/HLS).
+        // sur l'URL publique Supabase Storage (ffmpeg supporte les URLs HTTP/HLS).
         List<String> audioUrls = orderedTracks.stream()
                 .map(t -> storage.publicUrl(t.getAudioUrlHq()))
                 .collect(Collectors.toList());

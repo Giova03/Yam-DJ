@@ -41,10 +41,6 @@ public class Tip {
     @Column(name = "provider_txn_id", length = 100)
     private String providerTxnId;
 
-    /** Ancien identifiant CinetPay (conserve pour historique). */
-    @Column(name = "cinetpay_id", length = 100)
-    private String cinetpayId;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

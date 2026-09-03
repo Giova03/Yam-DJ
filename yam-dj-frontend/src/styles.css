@@ -160,7 +160,7 @@ html.light .yam-gradient-text {
   background-image: linear-gradient(90deg, #C2410C, #A16207, #C2410C) !important;
 }
 
-/* ============ R2 — ETATS HOVER MANQUANTS ============ */
+/* ============ ETATS HOVER COMPLEMENTS ============ */
 html.light .hover\:text-white:hover { color: #1F1B16 !important; }
 html.light .hover\:text-yam-gold:hover { color: #A16207 !important; }
 html.light .hover\:text-yam-orange:hover { color: #C2410C !important; }

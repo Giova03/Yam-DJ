@@ -2,7 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PaymentService } from '../../services/payment.service';
 
-/** Page de retour CinetPay apres paiement du tip. */
+/** Page de retour FedaPay apres paiement du tip. */
 @Component({
   selector: 'yam-tip-success',
   standalone: true,

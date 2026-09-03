@@ -110,7 +110,6 @@ CREATE TABLE IF NOT EXISTS tip (
     amount_xof      INTEGER NOT NULL,
     message         VARCHAR(300),
     payment_token   VARCHAR(100) UNIQUE,
-    cinetpay_id     VARCHAR(100),
     status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     completed_at    TIMESTAMP

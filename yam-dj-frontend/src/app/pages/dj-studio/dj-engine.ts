@@ -88,6 +88,94 @@ export function computePeaks(buffer: AudioBuffer, columns: number): Float32Array
   return peaks;
 }
 
+/**
+ * Detection BPM cote navigateur (fichiers locaux) :
+ * 1. downmix mono + filtre passe-bas mobile (accentue le kick) ;
+ * 2. energie par fenetre ~11,6 ms ;
+ * 3. onsets = pics d'energie au-dessus d'un seuil adaptatif ;
+ * 4. histogramme des intervalles inter-onsets -> candidat dominant,
+ *    replie dans la plage 75-180 BPM.
+ */
+export function detectBpm(buffer: AudioBuffer): number | null {
+  const rate = buffer.sampleRate;
+  const n = buffer.length;
+  const ch0 = buffer.getChannelData(0);
+  const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+
+  // 1. Fenetres d'energie
+  const win = 512;
+  const hop = 512;
+  const nWin = Math.floor(n / hop);
+  if (nWin < 200) return null; // trop court
+  const energy = new Float32Array(nWin);
+  let smooth = 0;
+  const K = 0.25; // passe-bas simple pour isoler le grave
+  for (let w = 0; w < nWin; w++) {
+    let sum = 0;
+    const start = w * hop;
+    const end = start + win;
+    for (let i = start; i < end; i += 4) { // sous-echantillonnage x4
+      const v = ch1 ? (ch0[i] + ch1[i]) * 0.5 : ch0[i];
+      const lp = smooth + K * (v - smooth);
+      smooth = lp;
+      sum += lp * lp;
+    }
+    energy[w] = sum;
+  }
+
+  // 2. Onsets : energie nettement au-dessus de la moyenne locale
+  const onsets: number[] = [];
+  const winPerSec = rate / hop;
+  const neigh = Math.round(winPerSec * 0.35);
+  for (let w = 1; w < nWin - 1; w++) {
+    const e = energy[w];
+    if (e <= 0) continue;
+    let mean = 0, cnt = 0;
+    for (let k = Math.max(0, w - neigh); k < Math.min(nWin, w + neigh); k++) { mean += energy[k]; cnt++; }
+    mean /= Math.max(1, cnt);
+    if (e > mean * 1.35 && e >= energy[w - 1] && e > energy[w + 1]) {
+      onsets.push(w);
+    }
+  }
+  if (onsets.length < 8) return null;
+
+  // 3. Intervalles entre onsets proches (<= 2 s)
+  const hist = new Map<number, number>();
+  const bump = (bpm: number) => {
+    let b = bpm;
+    while (b < 84) b *= 2;
+    while (b > 168) b /= 2;
+    if (b < 84 || b > 168) return;
+    for (const d of [-1, 0, 1]) { // tolerance +-1 BPM
+      const key = Math.round(b) + d;
+      hist.set(key, (hist.get(key) || 0) + (d === 0 ? 2 : 1));
+    }
+  };
+  for (let i = 0; i < onsets.length; i++) {
+    for (let j = i + 1; j < onsets.length && j <= i + 4; j++) {
+      const dt = (onsets[j] - onsets[i]) / winPerSec;
+      if (dt < 0.25 || dt > 2.0) continue;
+      bump(60 / dt);
+    }
+  }
+
+  // 4. Meilleur candidat ( avec lissage des voisins )
+  const score = (bpm: number) =>
+    (hist.get(bpm) || 0) + (hist.get(bpm - 1) || 0) * 0.3 + (hist.get(bpm + 1) || 0) * 0.3;
+  let best = 0, bestBpm: number | null = null;
+  for (const [bpm] of hist) {
+    const s = score(bpm);
+    if (s > best) { best = s; bestBpm = bpm; }
+  }
+  // Correction d'octave de tempo : si le gagnant est lent mais que son double
+  // est presque aussi fort, on prefere le double (plage reelle des genres ouest-africains).
+  if (bestBpm != null && bestBpm < 100) {
+    const dbl = bestBpm * 2;
+    if (dbl <= 168 && score(dbl) >= best * 0.4) bestBpm = dbl;
+  }
+  return bestBpm;
+}
+
 /** Fetch avec progression octets (peu utilise : segments via compteur). */
 async function fetchBuffer(url: string): Promise<ArrayBuffer> {
   const res = await fetch(url, { mode: 'cors' });
@@ -145,6 +233,10 @@ export class DjDeck {
   private readonly echoFeedback: GainNode;
   private readonly reverb: ConvolverNode;
   private readonly reverbWet: GainNode;
+  private readonly flanger: DelayNode;
+  private readonly flangerWet: GainNode;
+  private readonly flangerLfo: OscillatorNode;
+  private readonly flangerLfoGain: GainNode;
   private readonly analyser: AnalyserNode;
   private readonly vuData: Uint8Array;
 
@@ -190,6 +282,20 @@ export class DjDeck {
     this.reverbWet = ctx.createGain();
     this.reverbWet.gain.value = 0;
 
+    // Flanger : delai court module par un LFO (0.005-0.010 s, 0.15 Hz)
+    this.flanger = ctx.createDelay(0.05);
+    this.flanger.delayTime.value = 0.0065;
+    this.flangerWet = ctx.createGain();
+    this.flangerWet.gain.value = 0;
+    this.flangerLfo = ctx.createOscillator();
+    this.flangerLfo.type = 'sine';
+    this.flangerLfo.frequency.value = 0.15;
+    this.flangerLfoGain = ctx.createGain();
+    this.flangerLfoGain.gain.value = 0.0022;
+    this.flangerLfo.connect(this.flangerLfoGain);
+    this.flangerLfoGain.connect(this.flanger.delayTime);
+    this.flangerLfo.start();
+
     // Câblage
     this.input.connect(this.eqLow);
     this.eqLow.connect(this.eqMid);
@@ -208,6 +314,10 @@ export class DjDeck {
     this.hpf.connect(this.reverb);
     this.reverb.connect(this.reverbWet);
     this.reverbWet.connect(this.channelGain);
+    // flanger : hpf -> flanger -> flangerWet -> channelGain
+    this.hpf.connect(this.flanger);
+    this.flanger.connect(this.flangerWet);
+    this.flangerWet.connect(this.channelGain);
 
     this.channelGain.connect(this.crossGain);
     this.crossGain.connect(this.analyser);
@@ -333,6 +443,44 @@ export class DjDeck {
     for (const b of buffers) { ts.set(b, p); p += b.length; }
     onProgress(0.72, 'decode', 'Extraction audio...');
     return extractAacFromTs(ts);
+  }
+
+  /**
+   * Charge un FICHIER LOCAL (mp3/m4a/wav/flac/ogg du telephone ou PC) :
+   * decode direct dans l'AudioContext, detection BPM auto, waveform reelle.
+   * Retourne le BPM detecte (ou null).
+   */
+  async loadLocalFile(file: File, track: Track, onProgress: ProgressCb): Promise<number | null> {
+    this.resetDeckState();
+    this.track = track;
+    this.loading = true;
+    try {
+      onProgress(0.2, 'segments', 'Lecture du fichier...');
+      const data = await file.arrayBuffer();
+      onProgress(0.55, 'decode', 'Decodage audio...');
+      const buf = await this.ctx.decodeAudioData(data);
+      onProgress(0.8, 'peaks', 'Detection BPM...');
+      const bpm = detectBpm(buf);
+      if (bpm) {
+        this.track = { ...track, bpm, durationSec: Math.round(buf.duration) };
+      } else {
+        this.track = { ...track, durationSec: Math.round(buf.duration) };
+      }
+      onProgress(0.9, 'peaks', 'Analyse de la waveform...');
+      this.peaks = computePeaks(buf, 1400);
+      this.buffer = buf;
+      this.loading = false;
+      this.phase = 'ready';
+      onProgress(1, 'ready', 'Pret !');
+      return bpm;
+    } catch (e: any) {
+      this.loading = false;
+      this.phase = 'error';
+      this.loadError = 'Fichier illisible : ' + (e?.message ? String(e.message) : 'format non supporte');
+      this.track = null;
+      this.buffer = null;
+      throw e;
+    }
   }
 
   private resetDeckState(): void {
@@ -542,6 +690,11 @@ export class DjDeck {
 
   setReverb(on: boolean, wet = 0.4): void {
     this.reverbWet.gain.setTargetAtTime(on ? wet : 0, this.ctx.currentTime, 0.05);
+  }
+
+  /** Flanger : sweep de peigne lent (effet "avion") — depth 0..1. */
+  setFlanger(on: boolean, wet = 0.5): void {
+    this.flangerWet.gain.setTargetAtTime(on ? wet : 0, this.ctx.currentTime, 0.08);
   }
 
   // ============ VU ============

@@ -14,7 +14,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
     <nav class="fixed top-0 left-0 right-0 z-40 bg-yam-dark/90 backdrop-blur-md border-b border-white/5">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <a routerLink="/" class="flex items-center gap-2 shrink-0">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-yam-orange to-yam-gold flex items-center justify-center text-lg font-black">Y</div>
+          <img src="assets/favicon.svg" alt="YAM DJ" class="w-9 h-9 rounded-xl" aria-hidden="true">
           <span class="font-display font-extrabold text-xl yam-gradient-text hidden sm:block">YAM DJ</span>
         </a>
 
