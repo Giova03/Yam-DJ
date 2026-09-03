@@ -527,10 +527,13 @@ CREATE TABLE IF NOT EXISTS mixtape_track (
     mixtape_id   UUID NOT NULL REFERENCES mixtape(id) ON DELETE CASCADE,
     track_id     UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
     position     INTEGER NOT NULL DEFAULT 0,
+    added_at     TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT uq_mixtape_track UNIQUE (mixtape_id, track_id)
 );
 CREATE INDEX IF NOT EXISTS idx_mixtape_track_mix ON mixtape_track(mixtape_id, position);
 CREATE INDEX IF NOT EXISTS idx_mixtape_track_track ON mixtape_track(track_id);
+-- Migration : colonne added_at manquante sur les bases creees avant V1.1
+ALTER TABLE mixtape_track ADD COLUMN IF NOT EXISTS added_at TIMESTAMP NOT NULL DEFAULT now();
 
 INSERT INTO mixtape_track (mixtape_id, track_id, position)
 SELECT m.id, trim(x.value)::uuid, x.rn - 1
