@@ -58,22 +58,47 @@ public class TrackProcessingService {
      * en statut PROCESSING est deja visible en base quand le job demarre).
      */
     @Async("trackProcessingExecutor")
-    @Transactional
     public void processAsync(UUID trackId, File sourceFile) {
-        Track track = trackRepository.findById(trackId).orElse(null);
+        // RACE CONDITION upload->job : la tache est soumise AVANT le commit
+        // de la transaction d'upload — la piste peut etre encore invisible.
+        // On attend sa visibilite (jusqu'a 30 s) avant de demarrer.
+        Track track = null;
+        for (int i = 0; i < 30; i++) {
+            track = findTrackInNewTransaction(trackId);
+            if (track != null) break;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                cleanup(sourceFile);
+                return;
+            }
+        }
         if (track == null) {
+            log.error("Piste {} introuvable apres 30 s : le job de traitement est abandonne "
+                    + "(l'upload a-t-il echoue ?)", trackId);
             cleanup(sourceFile);
             return;
         }
-        // Doublon de job (double-clic / retry concurrent) : un job deja en
-        // cours depuis moins de 30 min est ignore.
-        if (track.getStatus() == TrackStatus.PROCESSING
-                && track.getProcessingStartedAt() != null
-                && track.getProcessingStartedAt().isAfter(LocalDateTime.now().minusMinutes(30))) {
-            cleanup(sourceFile);
-            return;
-        }
+        process(track, sourceFile);
+    }
 
+    /** Lecture hors transaction courante (voit les donnees committees). */
+    private Track findTrackInNewTransaction(UUID trackId) {
+        try {
+            return trackRepository.findById(trackId).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Traitement effectif (chaque ecriture repository a sa propre
+     * transaction — un redemarrage en cours de job laisse la piste en
+     * PROCESSING, recuperee par un retry manuel).
+     */
+    void process(Track track, File sourceFile) {
+        UUID trackId = track.getId();
         try {
             track.setStatus(TrackStatus.PROCESSING);
             track.setProcessingStartedAt(LocalDateTime.now());
