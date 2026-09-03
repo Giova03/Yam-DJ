@@ -96,6 +96,30 @@ public class Track {
     @Builder.Default
     private boolean dataLiteReady = false;
 
+    // ============ PIPELINE ASYNCHRONE (V1.1) ============
+
+    /** Erreur du dernier traitement (statut FAILED). */
+    @Column(name = "processing_error", columnDefinition = "TEXT")
+    private String processingError;
+
+    @Column(name = "processing_started_at")
+    private LocalDateTime processingStartedAt;
+
+    @Column(name = "processing_completed_at")
+    private LocalDateTime processingCompletedAt;
+
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
+
+    /** Cle du fichier source dans le stockage (retry sans re-upload). */
+    @Column(name = "source_key", length = 500)
+    private String sourceKey;
+
+    /** Slug SEO public : /track/{slug}. */
+    @Column(length = 220, unique = true)
+    private String slug;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

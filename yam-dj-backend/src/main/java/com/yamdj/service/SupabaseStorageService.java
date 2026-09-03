@@ -96,17 +96,69 @@ public class SupabaseStorageService {
         return folder + "/" + base + "-" + UUID.randomUUID() + ext;
     }
 
-    /** Upload d'un fichier Multipart (pochette, mix exporte). Retourne la cle. */
+    /**
+     * Upload d'un fichier Multipart (pochette, mix exporte). Retourne la cle.
+     * V1.1 : copie en STREAMING vers un fichier temporaire puis envoi via
+     * FileSystemResource — le fichier n'est JAMAIS charge entierement en
+     * memoire (directive equipe : supprimer file.getBytes()).
+     */
     public String uploadMultipart(MultipartFile file, String folder) throws IOException {
         String key = buildKey(folder, file.getOriginalFilename());
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
-        upload(key, file.getBytes(), contentType);
+        Path temp = Files.createTempFile("yam-multipart-", ".upload");
+        try {
+            try (var in = file.getInputStream()) {
+                Files.copy(in, temp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            uploadFile(temp.toFile(), key, contentType);
+        } finally {
+            try {
+                Files.deleteIfExists(temp);
+            } catch (IOException ignored) {
+            }
+        }
         return key;
     }
 
-    /** Upload d'un fichier local (segments HLS, mix genere). Retourne la cle. */
+    /**
+     * Upload d'un fichier local (segments HLS, mix genere, source audio).
+     * V1.1 : STREAMING via ResourceHttpMessageConverter (FileSystemResource
+     * avec Content-Length connue) — un mix de 50 Mo ne consomme plus 50 Mo
+     * de RAM, plusieurs uploads simultanes ne provoquent plus d'OOM.
+     * Retourne la cle.
+     */
     public String uploadFile(File file, String key, String contentType) throws IOException {
-        upload(key, Files.readAllBytes(file.toPath()), contentType);
+        if (localMode) {
+            Path target = resolveLocal(key);
+            Files.createDirectories(target.getParent());
+            Files.copy(file.toPath(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return key;
+        }
+        try {
+            HttpHeaders headers = authHeaders();
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.set("x-upsert", "true");
+            // ResourceHttpMessageConverter streame le corps : Content-Length
+            // vient de file.length(), aucun octet n'est bufferise en RAM.
+            org.springframework.core.io.FileSystemResource resource =
+                    new org.springframework.core.io.FileSystemResource(file);
+            ResponseEntity<String> resp = http.postForEntity(
+                    objectUrl(key), new HttpEntity<>(resource, headers), String.class);
+            if (!resp.getStatusCode().is2xxSuccessful()) {
+                throw new IOException("Statut " + resp.getStatusCode());
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("Supabase upload {} ({} octets) -> {}", key, file.length(), resp.getStatusCode());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            String detail = e.getMessage();
+            if (detail != null && detail.contains("401")) {
+                log.error("Supabase 401 : SUPABASE_SERVICE_KEY invalide — verifie le service_role secret");
+            }
+            throw new IOException("Upload Supabase impossible (cle " + key + ") : " + detail);
+        }
         return key;
     }
 
@@ -160,7 +212,7 @@ public class SupabaseStorageService {
         return null;
     }
 
-    /** Telechargement des octets d'un objet. */
+    /** Telechargement des octets d'un objet (petits fichiers uniquement). */
     public byte[] download(String key) throws IOException {
         if (key == null || key.isBlank()) throw new IOException("Cle de stockage vide");
         if (key.startsWith("http://") || key.startsWith("https://")) {
@@ -183,6 +235,33 @@ public class SupabaseStorageService {
             return resp.getBody() != null ? resp.getBody() : new byte[0];
         } catch (Exception e) {
             throw new IOException("Telechargement Supabase impossible (cle " + key + ") : " + e.getMessage());
+        }
+    }
+
+    /**
+     * Telechargement en STREAMING vers un fichier local (V1.1) : les gros
+     * objets (fichier source 50 Mo) ne passent plus par la memoire —
+     * utilise pour le retry de traitement sans re-upload.
+     */
+    public void downloadToFile(String key, File target) throws IOException {
+        if (key == null || key.isBlank()) throw new IOException("Cle de stockage vide");
+        if (localMode) {
+            Files.copy(resolveLocal(key), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return;
+        }
+        String url = key.startsWith("http://") ? key : objectUrl(key);
+        try {
+            http.execute(url, HttpMethod.GET, request -> {
+                request.getHeaders().setBearerAuth(serviceKey);
+            }, response -> {
+                try (var body = response.getBody();
+                     var out = Files.newOutputStream(target.toPath())) {
+                    if (body != null) body.transferTo(out);
+                }
+                return null;
+            });
+        } catch (Exception e) {
+            throw new IOException("Telechargement impossible (cle " + key + ") : " + e.getMessage());
         }
     }
 

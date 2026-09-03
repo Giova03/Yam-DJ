@@ -116,19 +116,24 @@ npm start
 
 ### 3️⃣ Comptes de demonstration
 
-Comptes reels en production (https://yam-dj-frontend.vercel.app) — mots de
-passe reinitialises et verifies le 2026-09-01 :
+Comptes reels en production (https://yam-dj-frontend.vercel.app).
 
-| Compte | Email | Mot de passe | Role |
-|---|---|---|---|
-| Admin | `admin@yamdj.africa` | `AdminYamDj2026!` | ADMIN (moderation, retraits, redevances) |
-| Artiste | `artist@yamdj.africa` | `DemoYamDj2026!` | ARTIST (upload + tips) |
-| DJ | `dj@yamdj.africa` | `DemoYamDj2026!` | DJ (studio + mixtapes) |
-| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | `DemoYamDj2026!` | ARTIST |
-| Fan seed | `fan-test@demo.yamdj.africa` | `DemoYamDj2026!` | USER |
+> 🔒 **Securite (V1.1)** : plus AUCUN mot de passe dans ce depot public —
+> les identifiants sont communiquees en prive a l'equipe uniquement.
+> Les mots de passe historiquement publies dans le README ont ete ROTUES
+> en production le 2026-09-04. Utilise « Mot de passe oublie » sur la page
+> de connexion, ou demande-les a l'administrateur.
 
-> ⚠️ En production, changer immediatement ces mots de passe en base.
-> ℹ️ Les uploads des artistes sont auto-approuves (visible immediatement).
+| Compte | Email | Role |
+|---|---|---|
+| Admin | `admin@yamdj.africa` | ADMIN (moderation, retraits, redevances) |
+| Artiste | `artist@yamdj.africa` | ARTIST (upload + tips) |
+| DJ | `dj@yamdj.africa` | DJ (studio + mixtapes) |
+| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | ARTIST |
+| Fan seed | `fan-test@demo.yamdj.africa` | USER |
+
+> ℹ️ Les uploads des artistes sont auto-approuves (visible immediatement
+> apres le traitement asynchrone FFmpeg : statut PROCESSING -> APPROVED).
 > Pour retablir la file de moderation stricte : variable d'environnement
 > `YAMDJ_MODERATION_AUTO_APPROVE=false` sur Render.
 

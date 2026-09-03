@@ -4,12 +4,14 @@ import com.yamdj.dto.DjDtos.*;
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.entity.DjProfile;
 import com.yamdj.entity.Mixtape;
+import com.yamdj.entity.MixtapeTrack;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.User;
 import com.yamdj.entity.enums.TrackStatus;
 import com.yamdj.exception.ResourceNotFoundException;
 import com.yamdj.repository.DjProfileRepository;
 import com.yamdj.repository.MixtapeRepository;
+import com.yamdj.repository.MixtapeTrackRepository;
 import com.yamdj.repository.TrackRepository;
 import com.yamdj.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 public class DjService {
 
     private final MixtapeRepository mixtapeRepository;
+    private final MixtapeTrackRepository mixtapeTrackRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
     private final DjProfileRepository djProfileRepository;
@@ -38,6 +41,7 @@ public class DjService {
     private final MixtapeStoreService mixtapeStore;
 
     public DjService(MixtapeRepository mixtapeRepository,
+                     MixtapeTrackRepository mixtapeTrackRepository,
                      TrackRepository trackRepository,
                      UserRepository userRepository,
                      DjProfileRepository djProfileRepository,
@@ -45,6 +49,7 @@ public class DjService {
                      SupabaseStorageService storage,
                      MixtapeStoreService mixtapeStore) {
         this.mixtapeRepository = mixtapeRepository;
+        this.mixtapeTrackRepository = mixtapeTrackRepository;
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.djProfileRepository = djProfileRepository;
@@ -168,13 +173,20 @@ public class DjService {
                 .title(title)
                 .audioUrl(result.audioKey())
                 .durationSec(result.durationSec())
-                .trackIds(orderedTracks.stream()
-                        .map(t -> t.getId().toString())
-                        .collect(Collectors.joining(",")))
                 .crossfadeSec(crossfade)
                 .priceXof(mixtapeStore.sanitizePrice(request.priceXof()))
                 .build();
         mixtapeRepository.save(mixtape);
+
+        // V1.1 : ordre des pistes dans la table de liaison mixtape_track
+        // (une ligne par piste avec sa position — fin du CSV track_ids).
+        for (int i = 0; i < orderedTracks.size(); i++) {
+            mixtapeTrackRepository.save(MixtapeTrack.builder()
+                    .mixtapeId(mixtape.getId())
+                    .trackId(orderedTracks.get(i).getId())
+                    .position(i)
+                    .build());
+        }
 
         djProfileRepository.findByUserId(dj.getId()).ifPresent(profile -> {
             profile.setMixtapeCount(profile.getMixtapeCount() + 1);
@@ -283,8 +295,14 @@ public class DjService {
         Boolean purchased = paid ? (viewerId != null &&
                 (viewerId.equals(m.getDjId()) || mixtapeStore.hasPurchased(m.getId(), viewerId)))
                 : null;
+        // V1.1 : ordre reconstitue depuis la table de liaison (format CSV
+        // conserve dans la reponse pour compatibilite frontend existante).
+        String trackIdsCsv = mixtapeTrackRepository
+                .findByMixtapeIdOrderByPositionAsc(m.getId()).stream()
+                .map(row -> row.getTrackId().toString())
+                .collect(Collectors.joining(","));
         return new MixtapeResponse(m.getId(), m.getDjId(), djName, m.getTitle(), m.getCoverUrl(),
-                storage.publicUrl(m.getAudioUrl()), m.getDurationSec(), m.getTrackIds(),
+                storage.publicUrl(m.getAudioUrl()), m.getDurationSec(), trackIdsCsv,
                 m.getCrossfadeSec(), m.getPlayCount(),
                 m.getPriceXof() == null ? 0 : m.getPriceXof(), purchased, m.getCreatedAt());
     }

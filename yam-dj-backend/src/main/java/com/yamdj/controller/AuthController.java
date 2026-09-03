@@ -1,6 +1,7 @@
 package com.yamdj.controller;
 
 import com.yamdj.dto.AuthDtos.*;
+import com.yamdj.security.JwtService;
 import com.yamdj.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +17,11 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtService jwtService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, JwtService jwtService) {
         this.authService = authService;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -59,5 +62,24 @@ public class AuthController {
         authService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok(new ResetPasswordResponse(
                 "Mot de passe modifie ! Connecte-toi maintenant avec ton nouveau mot de passe."));
+    }
+
+    /**
+     * LOGOUT REEL (securite P0) : le JWT est revoque cote serveur (liste
+     * noire) jusqu'a son expiration — un token vole ne reste plus utilisable
+     * apres un logout, meme s'il etait encore valide 24 h.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<MessageResponse> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            try {
+                authService.logout(token, jwtService.extractExpiration(token));
+            } catch (Exception ignored) {
+                // Token deja invalide/expire : rien a revoquer
+            }
+        }
+        return ResponseEntity.ok(new MessageResponse("Deconnecte. A bientot sur YAM DJ !"));
     }
 }

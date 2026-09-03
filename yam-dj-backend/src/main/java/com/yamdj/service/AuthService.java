@@ -14,16 +14,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Random;
-import java.util.UUID;
+import java.util.HexFormat;
 
 /**
  * Authentification : inscription (USER / ARTIST / DJ), verification email
- * via code Brevo, login JWT.
+ * via code Brevo, login JWT, mot de passe oublie (token hash SHA-256),
+ * logout reel (liste noire des JWT).
  */
 @Service
 public class AuthService {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final ArtistProfileRepository artistProfileRepository;
@@ -31,19 +36,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final BrevoEmailService emailService;
+    private final com.yamdj.security.TokenBlacklistService tokenBlacklist;
 
     public AuthService(UserRepository userRepository,
                        ArtistProfileRepository artistProfileRepository,
                        DjProfileRepository djProfileRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       BrevoEmailService emailService) {
+                       BrevoEmailService emailService,
+                       com.yamdj.security.TokenBlacklistService tokenBlacklist) {
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
         this.djProfileRepository = djProfileRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.tokenBlacklist = tokenBlacklist;
     }
 
     @Transactional
@@ -95,8 +103,8 @@ public class AuthService {
             user = userRepository.save(user);
         }
 
-        // Envoi du code de verification
-        String code = String.format("%06d", new Random().nextInt(1000000));
+        // Envoi du code de verification (SecureRandom : non previsible)
+        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         user.setVerificationCode(code);
         userRepository.save(user);
         emailService.sendVerificationEmail(email, code);
@@ -152,7 +160,7 @@ public class AuthService {
             // pour ne pas invalider l'email deja recu par l'utilisateur.
             String code = user.getVerificationCode();
             if (code == null || code.isBlank()) {
-                code = String.format("%06d", new Random().nextInt(1000000));
+                code = String.format("%06d", RANDOM.nextInt(1_000_000));
                 user.setVerificationCode(code);
                 userRepository.save(user);
             }
@@ -177,7 +185,7 @@ public class AuthService {
         }
         String code = user.getVerificationCode();
         if (code == null || code.isBlank()) {
-            code = String.format("%06d", new Random().nextInt(1000000));
+            code = String.format("%06d", RANDOM.nextInt(1_000_000));
             user.setVerificationCode(code);
             userRepository.save(user);
         }
@@ -193,8 +201,14 @@ public class AuthService {
     public void forgotPassword(String rawEmail) {
         String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
         userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
-            String token = UUID.randomUUID().toString().replace("-", "");
-            user.setResetToken(token);
+            // Jeton aleatoire 256 bits (hex) — seul son SHA-256 est stocke en
+            // base (directive securite : une fuite de DB ne permet pas de
+            // reinitialiser les mots de passe).
+            byte[] bytes = new byte[32];
+            RANDOM.nextBytes(bytes);
+            String token = HexFormat.of().formatHex(bytes);
+
+            user.setResetToken(sha256(token));
             user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
             userRepository.save(user);
             emailService.sendResetPasswordEmail(user.getEmail(), user.getPseudo(), token);
@@ -208,7 +222,7 @@ public class AuthService {
      */
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        User user = userRepository.findByResetToken(token == null ? "" : token.trim())
+        User user = userRepository.findByResetToken(sha256(token == null ? "" : token.trim()))
                 .orElseThrow(() -> new IllegalArgumentException("Lien de reinitialisation invalide"));
         if (user.getResetTokenExpiresAt() == null
                 || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
@@ -228,5 +242,20 @@ public class AuthService {
             user.setVerificationCode(null);
         }
         userRepository.save(user);
+    }
+
+    /** LOGOUT REEL : le JWT est revoque cote serveur jusqu'a son expiration. */
+    public void logout(String token, long expirationEpochMs) {
+        tokenBlacklist.revoke(token, expirationEpochMs);
+    }
+
+    private static String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(
+                    digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 indisponible", e);
+        }
     }
 }

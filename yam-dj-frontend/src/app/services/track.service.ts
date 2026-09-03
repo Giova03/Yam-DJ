@@ -69,6 +69,21 @@ export class TrackService {
     return this.http.post<Track>(`${this.apiUrl}/api/tracks/upload`, formData);
   }
 
+  /** Statut d'une piste (pipeline asynchrone : PROCESSING -> APPROVED/FAILED). */
+  getById(trackId: string): Observable<Track> {
+    return this.http.get<Track>(`${this.apiUrl}/api/tracks/${trackId}`);
+  }
+
+  /** Page publique SEO par slug. */
+  getBySlug(slug: string): Observable<Track> {
+    return this.http.get<Track>(`${this.apiUrl}/api/tracks/slug/${slug}`);
+  }
+
+  /** Relance le traitement d'une piste FAILED (sans re-upload). */
+  retryProcessing(trackId: string): Observable<Track> {
+    return this.http.post<Track>(`${this.apiUrl}/api/tracks/${trackId}/retry`, {});
+  }
+
   /** Pistes de l'artiste connecte (tous statuts : PENDING / APPROVED / REJECTED). */
   getMyTracks(): Observable<Track[]> {
     return this.http.get<Track[]>(`${this.apiUrl}/api/tracks/mine`);

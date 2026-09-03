@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { ContentService } from '../../services/content.service';
 import { DjService } from '../../services/dj.service';
 import { YoutubeService } from '../../services/youtube.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
 import { Track, Mixtape } from '../../models/models';
@@ -29,7 +30,17 @@ import { Track, Mixtape } from '../../models/models';
             et la possibilite de soutenir tes artistes en 1 clic avec Orange Money.
           </p>
           <div class="flex flex-wrap gap-3">
-            <button (click)="playFeed()" class="yam-btn-primary !px-8 !py-3 text-lg">▶ Ecouter Pour Toi</button>
+            <!-- CTA ARTISTE (directive UX : parcours numero 1 de la plateforme) -->
+            @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
+              <a routerLink="/upload" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange">
+                🎤 Publier ma musique
+              </a>
+            } @else {
+              <a routerLink="/register" [queryParams]="{ role: 'ARTIST' }" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange">
+                🎤 Publier ma musique
+              </a>
+            }
+            <button (click)="playFeed()" class="yam-btn-secondary !px-8 !py-3 text-lg">▶ Ecouter Pour Toi</button>
             <a routerLink="/youtube" class="yam-btn-secondary !px-8 !py-3 text-lg !bg-red-600/90 hover:!bg-red-600">▶ Musiques YouTube</a>
             <a routerLink="/charts" class="yam-btn-secondary !px-8 !py-3 text-lg">📊 Charts de la semaine</a>
             @if (auth.role() === 'DJ' || auth.role() === 'ADMIN') {
@@ -193,8 +204,14 @@ export class HomeComponent implements OnInit {
   private djService = inject(DjService);
   private content = inject(ContentService);
   private youtube = inject(YoutubeService);
+  private analytics = inject(AnalyticsService);
   private title = inject(Title);
   private meta = inject(Meta);
+
+  /** Funnel artiste : clic sur le CTA 'Publier ma musique'. */
+  artistCta(): void {
+    this.analytics.track('artist_cta_click');
+  }
 
   forYou = signal<Track[]>([]);
   trending = signal<Track[]>([]);
@@ -234,6 +251,9 @@ export class HomeComponent implements OnInit {
     this.title.setTitle('YAM DJ — La musique africaine qui vibre | Streaming, charts et studio DJ');
     this.meta.updateTag({ name: 'description',
       content: 'Ecoute les sons d\'Afrique de l\'Ouest, suis les charts hebdomadaires, mixe dans le studio DJ et soutiens les artistes via mobile money.' });
+
+    // Funnel analytics : vue de la landing (1 fois par session)
+    this.analytics.track('landing_view', undefined, true);
 
     this.trackService.forYou(15).subscribe(t => this.forYou.set(t));
     this.trackService.trending(10).subscribe(t => this.trending.set(t));

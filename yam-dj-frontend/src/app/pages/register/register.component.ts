@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { AnalyticsService } from '../../services/analytics.service';
 
 const COUNTRIES = [
   'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'Guinee', 'Benin', 'Togo',
@@ -117,9 +118,20 @@ const COUNTRIES = [
     </div>
   `
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private analytics = inject(AnalyticsService);
+
+  /** Preselection du role depuis l'URL (ex : /register?role=ARTIST
+   *  depuis le CTA "Publier ma musique" de l'accueil). */
+  ngOnInit(): void {
+    const wanted = (this.route.snapshot.queryParamMap.get('role') || '').toUpperCase();
+    if (['USER', 'ARTIST', 'DJ'].includes(wanted)) {
+      this.role.set(wanted);
+    }
+  }
 
   countries = COUNTRIES;
   roles = [
@@ -166,6 +178,7 @@ export class RegisterComponent {
     this.pseudo = this.pseudo.trim();
     this.loading.set(true);
     this.startSlowHint();
+    this.analytics.track('signup_started', this.role());
     this.auth.register({
       email: this.email,
       password: this.password,
@@ -199,8 +212,13 @@ export class RegisterComponent {
     this.auth.verifyEmail(this.email.trim(), this.verificationCode).subscribe({
       next: res => {
         this.verifying.set(false);
-        if (res.token) this.router.navigate(['/']);
-        else this.error.set(res.message);
+        if (res.token) {
+          // Funnel : inscription verifiee et terminee
+          this.analytics.track('signup_completed', this.role());
+          this.router.navigate(['/']);
+        } else {
+          this.error.set(res.message);
+        }
       },
       error: err => {
         this.verifying.set(false);

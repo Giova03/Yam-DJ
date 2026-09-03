@@ -71,4 +71,9 @@ public class JwtService {
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
+
+    /** Expiration en epoch millis (logout : duree de revocation du token). */
+    public long extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration).getTime();
+    }
 }

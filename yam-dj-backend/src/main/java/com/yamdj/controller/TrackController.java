@@ -82,11 +82,26 @@ public class TrackController {
         return ResponseEntity.ok(trackService.getById(id));
     }
 
+    /** Page publique SEO : /track/{slug} (repli : slug absent -> 404 clair). */
+    @GetMapping("/slug/{slug}")
+    public ResponseEntity<TrackResponse> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(trackService.getBySlug(slug));
+    }
+
     /** Suppression d'une piste : artiste proprietaire ou administrateur (204). */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         trackService.deleteTrack(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * RELANCE du traitement d'une piste FAILED (pipeline asynchrone) sans
+     * re-upload : le fichier source est recupere depuis le stockage durable.
+     */
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<TrackResponse> retry(@PathVariable UUID id) {
+        return ResponseEntity.ok(trackService.retryProcessing(id));
     }
 
     @GetMapping("/artist/{artistId}")
@@ -99,7 +114,15 @@ public class TrackController {
     public ResponseEntity<Map<String, String>> stream(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "hq") String quality) {
-        return ResponseEntity.ok(Map.of("url", trackService.streamUrl(id, quality)));
+        String url = trackService.streamUrl(id, quality);
+        // Piste sans audio direct (import YouTube par ex.) : 404 clair au lieu
+        // d'un 500 (Map.of n'accepte pas les valeurs null) — le lecteur frontal
+        // gere ce cas et bascule sur le lecteur YouTube integre.
+        if (url == null || url.isBlank()) {
+            throw new com.yamdj.exception.ResourceNotFoundException(
+                    "Aucun flux audio direct pour cette piste");
+        }
+        return ResponseEntity.ok(Map.of("url", url));
     }
 
     @PostMapping("/{id}/play")

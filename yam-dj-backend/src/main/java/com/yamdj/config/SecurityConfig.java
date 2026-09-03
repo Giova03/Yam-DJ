@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.yamdj.security.JwtAuthFilter;
+import com.yamdj.security.RateLimitFilter;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,12 +29,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     @Value("${yamdj.cors.origins}")
     private String corsOrigins;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, RateLimitFilter rateLimitFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -53,6 +56,9 @@ public class SecurityConfig {
                 // Partage in-app : exige un JWT (place AVANT le permitAll
                 // "/api/tracks/{id}/**" qui couvre sinon POST .../share).
                 .requestMatchers(HttpMethod.POST, "/api/tracks/*/share").authenticated()
+                // Relance du traitement (pipeline asynchrone) : proprietaire
+                // uniquement — JWT obligatoire, avant le permitAll general.
+                .requestMatchers(HttpMethod.POST, "/api/tracks/*/retry").authenticated()
                 // Commentaires : lecture publique, ecriture/suppression JWT.
                 // Place AVANT le permitAll general : premiere regle gagnante,
                 // GET /api/comments/** doit rester ouvert, POST/DELETE non.
@@ -88,6 +94,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/youtube/combined").permitAll()
                 // Config pub (Phase 3.5) : publique, le lecteur l'applique
                 .requestMatchers(HttpMethod.GET, "/api/ads/config").permitAll()
+                // Analytics (V1.1) : evenements anonymes autorises (liste
+                // blanche stricte des noms cote service), lecture = admin.
+                .requestMatchers(HttpMethod.POST, "/api/analytics/event").permitAll()
                 // Cle publique VAPID seule : le reste de /api/notifications
                 // exige un JWT (anyRequest authenticated)
                 .requestMatchers(HttpMethod.GET, "/api/notifications/vapid-key").permitAll()
@@ -96,6 +105,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/dj/**").hasAnyRole("DJ", "ADMIN")
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

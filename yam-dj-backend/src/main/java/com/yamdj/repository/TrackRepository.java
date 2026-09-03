@@ -19,6 +19,13 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
 
     java.util.Optional<Track> findByYoutubeId(String youtubeId);
 
+    /** Recherche par slug SEO public (/track/{slug}). */
+    java.util.Optional<Track> findBySlug(String slug);
+
+    /** KPI North Star : artistes distincts avec au moins 1 piste APPROVED. */
+    @Query("SELECT count(DISTINCT t.artistId) FROM Track t WHERE t.status = 'APPROVED'")
+    long countPublishedArtists();
+
     /** Musiques libres d'acces : hymnes + imports YouTube (lecture gratuite). */
     @Query("SELECT t FROM Track t WHERE t.status = 'APPROVED' AND t.youtubeId IS NOT NULL ORDER BY t.createdAt DESC")
     List<Track> findLibre(Pageable pageable);

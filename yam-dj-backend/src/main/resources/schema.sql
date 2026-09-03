@@ -467,3 +467,91 @@ CREATE INDEX IF NOT EXISTS idx_share_to_user ON track_share(to_user_id, created_
 
 -- ---- Nettoyage : colonnes orphelines du V1 (securite) ----
 -- (aucune suppression destructive : on garde tout)
+
+-- =====================================================================
+-- V1.1 (2026-09, directives equipe multidisciplinaire) — pipeline upload
+-- asynchrone, tables de liaison playlists/mixtapes, slugs SEO, analytics
+-- =====================================================================
+
+-- ---- 1. PIPELINE UPLOAD : statut complet + retry ----
+ALTER TABLE track ADD COLUMN IF NOT EXISTS processing_error TEXT;
+ALTER TABLE track ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMP;
+ALTER TABLE track ADD COLUMN IF NOT EXISTS processing_completed_at TIMESTAMP;
+ALTER TABLE track ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE track ADD COLUMN IF NOT EXISTS source_key VARCHAR(500);
+
+-- ---- 2. SLUGS SEO (/track/{slug}) ----
+ALTER TABLE track ADD COLUMN IF NOT EXISTS slug VARCHAR(220);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_track_slug ON track(slug) WHERE slug IS NOT NULL;
+-- Retro-remplissage des pistes existantes (idempotent, accents manuels —
+-- la fonction unaccent n'est pas disponible sur le Supabase managé) :
+UPDATE track SET slug = regexp_replace(replace(replace(replace(lower(title),
+                'é','e'),'è','e'),'à','a'), '[^a-z0-9]+', '-', 'g')
+                  || '-' || substr(id::text, 1, 8)
+WHERE slug IS NULL;
+-- Nettoyage des slugs mal formes (accents restants, trop longs)
+UPDATE track SET slug = left(regexp_replace(slug, '[^a-z0-9-]', '', 'g'), 220)
+WHERE slug IS NOT NULL;
+-- Deduplication eventuelle (collision improbable grace au suffixe unique)
+UPDATE track SET slug = slug || '-' || substr(md5(random()::text), 1, 4)
+WHERE slug IS NOT NULL AND slug IN (
+    SELECT slug FROM track WHERE slug IS NOT NULL GROUP BY slug HAVING count(*) > 1
+);
+
+-- ---- 3. PLAYLISTS : vraie table de liaison (fin du CSV track_ids) ----
+CREATE TABLE IF NOT EXISTS playlist_track (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    playlist_id   UUID NOT NULL REFERENCES playlist(id) ON DELETE CASCADE,
+    track_id      UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    position      INTEGER NOT NULL DEFAULT 0,
+    added_at      TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT uq_playlist_track UNIQUE (playlist_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS idx_playlist_track_pl ON playlist_track(playlist_id, position);
+CREATE INDEX IF NOT EXISTS idx_playlist_track_track ON playlist_track(track_id);
+
+-- Retro-migration CSV -> lignes, idempotente :
+INSERT INTO playlist_track (playlist_id, track_id, position, added_at)
+SELECT p.id, trim(x.value)::uuid, x.rn - 1, p.created_at
+FROM playlist p
+CROSS JOIN LATERAL unnest(
+    string_to_array(regexp_replace(coalesce(p.track_ids, ''), '\s', '', 'g'), ',')
+) WITH ORDINALITY AS x(value, rn)
+WHERE coalesce(p.track_ids, '') <> ''
+  AND trim(x.value) <> ''
+  AND trim(x.value) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ON CONFLICT (playlist_id, track_id) DO NOTHING;
+
+-- ---- 4. MIXTAPES : vraie table de liaison ----
+CREATE TABLE IF NOT EXISTS mixtape_track (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mixtape_id   UUID NOT NULL REFERENCES mixtape(id) ON DELETE CASCADE,
+    track_id     UUID NOT NULL REFERENCES track(id) ON DELETE CASCADE,
+    position     INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT uq_mixtape_track UNIQUE (mixtape_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mixtape_track_mix ON mixtape_track(mixtape_id, position);
+CREATE INDEX IF NOT EXISTS idx_mixtape_track_track ON mixtape_track(track_id);
+
+INSERT INTO mixtape_track (mixtape_id, track_id, position)
+SELECT m.id, trim(x.value)::uuid, x.rn - 1
+FROM mixtape m
+CROSS JOIN LATERAL unnest(
+    string_to_array(regexp_replace(coalesce(m.track_ids, ''), '\s', '', 'g'), ',')
+) WITH ORDINALITY AS x(value, rn)
+WHERE coalesce(m.track_ids, '') <> ''
+  AND trim(x.value) <> ''
+  AND trim(x.value) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ON CONFLICT (mixtape_id, track_id) DO NOTHING;
+
+-- ---- 5. ANALYTICS PRODUIT (funnel artiste, KPI North Star) ----
+-- KPI North Star : "Published Artists" = artistes avec >= 1 piste APPROVED.
+CREATE TABLE IF NOT EXISTS analytics_event (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_name  VARCHAR(60) NOT NULL,
+    user_id     UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    metadata    VARCHAR(300),
+    created_at  TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_event_name ON analytics_event(event_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_event_user ON analytics_event(user_id);

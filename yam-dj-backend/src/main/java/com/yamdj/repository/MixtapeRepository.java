@@ -13,7 +13,4 @@ public interface MixtapeRepository extends JpaRepository<Mixtape, UUID> {
     List<Mixtape> findByDjIdOrderByCreatedAtDesc(UUID djId);
 
     List<Mixtape> findTop20ByOrderByPlayCountDesc();
-
-    /** Mixtapes referencant une piste (colonne CSV track_ids : id1,id2). */
-    List<Mixtape> findByTrackIdsContaining(String trackId);
 }

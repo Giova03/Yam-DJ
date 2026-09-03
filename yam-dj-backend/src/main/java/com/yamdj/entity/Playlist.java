@@ -33,9 +33,9 @@ public class Playlist {
     @Builder.Default
     private boolean isPublic = true;
 
-    /** Pistes : "id1,id2,id3". */
-    @Column(name = "track_ids")
-    private String trackIds;
+    // NB V1.1 : les pistes sont desormais dans la table playlist_track
+    // (une ligne par piste, avec position). L'ancienne colonne track_ids
+    // (CSV) n'est plus utilisee par le code et sera supprimee plus tard.
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

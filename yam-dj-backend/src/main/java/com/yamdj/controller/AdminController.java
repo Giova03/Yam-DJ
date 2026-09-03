@@ -41,6 +41,7 @@ public class AdminController {
     private final NotificationService notificationService;
     private final UserFollowRepository followRepository;
     private final RoyaltyService royaltyService;
+    private final com.yamdj.service.AnalyticsService analyticsService;
 
     public AdminController(TrackRepository trackRepository,
                            TrackService trackService,
@@ -49,7 +50,8 @@ public class AdminController {
                            WithdrawalService withdrawalService,
                            NotificationService notificationService,
                            UserFollowRepository followRepository,
-                           RoyaltyService royaltyService) {
+                           RoyaltyService royaltyService,
+                           com.yamdj.service.AnalyticsService analyticsService) {
         this.trackRepository = trackRepository;
         this.trackService = trackService;
         this.emailService = emailService;
@@ -58,6 +60,7 @@ public class AdminController {
         this.notificationService = notificationService;
         this.followRepository = followRepository;
         this.royaltyService = royaltyService;
+        this.analyticsService = analyticsService;
     }
 
     /** File de moderation : pistes en attente. */
@@ -120,6 +123,15 @@ public class AdminController {
         return ResponseEntity.ok(Map.of(
                 "totalTracks", total,
                 "pendingTracks", pending));
+    }
+
+    /**
+     * ANALYTICS PRODUIT (V1.1) : funnel 30 jours + KPI North Star
+     * "Published Artists" — repond a "pourquoi les artistes ne publient pas ?"
+     */
+    @GetMapping("/analytics/summary")
+    public ResponseEntity<Map<String, Object>> analyticsSummary() {
+        return ResponseEntity.ok(analyticsService.summary());
     }
 
     // ==================== RETRAITS ARTISTES (Phase 3.2) ====================

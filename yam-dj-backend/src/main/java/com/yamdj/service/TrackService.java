@@ -5,9 +5,9 @@ import com.yamdj.dto.CommonDtos.*;
 import com.yamdj.dto.TrackDtos;
 import com.yamdj.dto.TrackDtos.*;
 import com.yamdj.entity.PlayHistory;
-import com.yamdj.entity.Playlist;
+import com.yamdj.entity.PlaylistTrack;
 import com.yamdj.entity.ArtistProfile;
-import com.yamdj.entity.Mixtape;
+import com.yamdj.entity.MixtapeTrack;
 import com.yamdj.entity.Track;
 import com.yamdj.entity.TrackLike;
 import com.yamdj.entity.TrackShare;
@@ -59,13 +59,13 @@ public class TrackService {
     private final UserRepository userRepository;
     private final ArtistProfileRepository artistProfileRepository;
     private final PlayHistoryRepository playHistoryRepository;
-    private final PlaylistRepository playlistRepository;
-    private final MixtapeRepository mixtapeRepository;
+    private final PlaylistTrackRepository playlistTrackRepository;
+    private final MixtapeTrackRepository mixtapeTrackRepository;
     private final TrackLikeRepository trackLikeRepository;
     private final TrackShareRepository trackShareRepository;
     private final UserTrackProgressRepository progressRepository;
     private final SupabaseStorageService storage;
-    private final AudioProcessingService audioProcessor;
+    private final TrackProcessingService processingService;
     private final NotificationService notificationService;
 
     /** Auto-approbation a l'upload (defaut : true) — les sons sont visibles
@@ -78,25 +78,25 @@ public class TrackService {
                         UserRepository userRepository,
                         ArtistProfileRepository artistProfileRepository,
                         PlayHistoryRepository playHistoryRepository,
-                        PlaylistRepository playlistRepository,
-                        MixtapeRepository mixtapeRepository,
+                        PlaylistTrackRepository playlistTrackRepository,
+                        MixtapeTrackRepository mixtapeTrackRepository,
                         TrackLikeRepository trackLikeRepository,
                         TrackShareRepository trackShareRepository,
                         UserTrackProgressRepository progressRepository,
                         SupabaseStorageService storage,
-                        AudioProcessingService audioProcessor,
+                        TrackProcessingService processingService,
                         NotificationService notificationService) {
         this.trackRepository = trackRepository;
         this.userRepository = userRepository;
         this.artistProfileRepository = artistProfileRepository;
         this.playHistoryRepository = playHistoryRepository;
-        this.playlistRepository = playlistRepository;
-        this.mixtapeRepository = mixtapeRepository;
+        this.playlistTrackRepository = playlistTrackRepository;
+        this.mixtapeTrackRepository = mixtapeTrackRepository;
         this.trackLikeRepository = trackLikeRepository;
         this.trackShareRepository = trackShareRepository;
         this.progressRepository = progressRepository;
         this.storage = storage;
-        this.audioProcessor = audioProcessor;
+        this.processingService = processingService;
         this.notificationService = notificationService;
     }
 
@@ -110,26 +110,45 @@ public class TrackService {
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
     }
 
+    /**
+     * UPLOAD V1.1 — pipeline asynchrone (directive equipe CTO).
+     *
+     * La requete HTTP ne fait plus le traitement FFmpeg (avant : jusqu'a
+     * 90 s de blocage, timeout client, memoire elevee avec uploads
+     * simultanes). Elle se termine en quelques secondes :
+     *
+     *   1. copie en streaming du fichier source (jamais en memoire) ;
+     *   2. stockage durable du source dans tracks/{id}/source.ext ;
+     *   3. creation de la piste en statut PROCESSING ;
+     *   4. lancement du job FFmpeg en arriere-plan ;
+     *   5. reponse IMMEDIATE — l'artiste voit "en cours de traitement".
+     *
+     * BPM/tonalite restent modifiables manuellement mais sont auto-detectes
+     * par le job (formulaire allege : titre + audio + pochette suffisent).
+     */
     @Transactional
     @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
     public TrackResponse uploadTrack(String title, String genre, String country, String musicalKey,
                                      MultipartFile audioFile, MultipartFile coverFile,
                                      Integer bpm) {
         User artist = currentUser();
-        if (artist.getRole() != com.yamdj.entity.enums.UserRole.ARTIST
-                && artist.getRole() != com.yamdj.entity.enums.UserRole.ADMIN) {
+        if (artist.getRole() != UserRole.ARTIST && artist.getRole() != UserRole.ADMIN) {
             throw new IllegalArgumentException("Seuls les artistes peuvent publier des pistes");
         }
         if (audioFile == null || audioFile.isEmpty()) {
             throw new IllegalArgumentException("Fichier audio obligatoire");
         }
+        if (audioFile.getSize() > 100L * 1024 * 1024) {
+            throw new IllegalArgumentException("Fichier audio trop volumineux (max 100 Mo)");
+        }
 
         String trackId = UUID.randomUUID().toString();
 
-        // Upload du fichier source dans un fichier temporaire
+        // 1) Copie en STREAMING du fichier source (zero lecture memoire)
         File tempAudio;
+        String original;
         try {
-            String original = audioFile.getOriginalFilename() == null ? "upload.mp3"
+            original = audioFile.getOriginalFilename() == null ? "upload.mp3"
                     : audioFile.getOriginalFilename();
             tempAudio = File.createTempFile("yam-upload-", "-" + original);
             tempAudio.deleteOnExit();
@@ -138,15 +157,17 @@ public class TrackService {
             throw new IllegalStateException("Impossible de lire le fichier audio : " + e.getMessage());
         }
 
-        // Traitement : mastering + HLS 128k + HLS 48k (Data-Lite) + BPM
-        AudioProcessingService.ProcessedAudio processed;
+        // 2) Stockage durable du source (cle pour retry sans re-upload)
+        String ext = original.contains(".") ? original.substring(original.lastIndexOf('.')) : ".mp3";
+        String sourceKey = "tracks/" + trackId + "/source" + ext;
         try {
-            processed = audioProcessor.processTrack(tempAudio, trackId);
-        } catch (Exception e) {
-            throw new IllegalStateException("Traitement audio echoue : " + e.getMessage());
+            storage.uploadFile(tempAudio, sourceKey,
+                    audioFile.getContentType() != null ? audioFile.getContentType() : "audio/mpeg");
+        } catch (IOException e) {
+            throw new IllegalStateException("Stockage du fichier source echoue : " + e.getMessage());
         }
 
-        // Pochette optionnelle
+        // Pochette optionnelle (streaming via fichier temporaire, jamais en RAM)
         String coverKey = null;
         if (coverFile != null && !coverFile.isEmpty()) {
             try {
@@ -156,42 +177,103 @@ public class TrackService {
             }
         }
 
+        // 3) Piste en statut PROCESSING (visible par l'artiste, pas dans le feed)
         Track track = Track.builder()
                 .title(title)
                 .artistId(artist.getId())
-                .audioUrlHq(storage.publicUrl(processed.hlsKey()))
-                .audioUrlLq(storage.publicUrl(processed.liteKey()))
                 .coverUrl(storage.publicUrl(coverKey))
-                .durationSec(processed.durationSec())
-                .bpm(bpm != null ? bpm : processed.bpm())
+                .bpm(bpm)
                 .musicalKey(musicalKey)
                 .camelot(com.yamdj.service.HarmonicMixService.toCamelot(musicalKey))
                 .genre(genre == null || genre.isBlank() ? "Afrobeats" : genre)
                 .country(country == null || country.isBlank() ? artist.getCountry() : country)
-                .status(autoApprove ? TrackStatus.APPROVED : TrackStatus.PENDING)
-                .dataLiteReady(true)
+                .status(TrackStatus.PROCESSING)
+                .sourceKey(sourceKey)
+                .slug(uniqueSlug(title, trackId))
+                .processingStartedAt(java.time.LocalDateTime.now())
                 .build();
-
         track = trackRepository.save(track);
-        if (autoApprove) {
-            try {
-                notificationService.notifyUser(artist.getId(), "TRACK_PUBLISHED",
-                        "Ta piste est en ligne",
-                        "\"" + title + "\" est visible par toute la communaute. Bonne diffusion !",
-                        "/track/" + track.getId());
-            } catch (Exception notifEx) {
-                log.warn("Notification de publication non envoyee : {}", notifEx.getMessage());
-            }
-        }
+
+        // 4) Job FFmpeg en arriere-plan
         try {
-            Files.deleteIfExists(tempAudio.toPath());
-        } catch (IOException e) {
-            // Nettoyage du fichier temporaire non bloquant
+            processingService.processAsync(track.getId(), tempAudio);
+        } catch (org.springframework.core.task.TaskRejectedException e) {
+            // File saturee : la piste passe en FAILED, retry possible sans re-upload
+            track.setStatus(TrackStatus.FAILED);
+            track.setProcessingError("File de traitement saturee, reessaie dans un instant");
+            track = trackRepository.save(track);
         }
 
+        // 5) Reponse immediate
         String stageName = artistProfileRepository.findByUserId(artist.getId())
-                .map(p -> p.getStageName()).orElse(artist.getPseudo());
+                .map(ArtistProfile::getStageName).orElse(artist.getPseudo());
         return TrackDtos.from(track, stageName, artist.getPseudo());
+    }
+
+    /**
+     * Relance le traitement d'une piste FAILED sans re-upload : le fichier
+     * source est recupere depuis le stockage durable puis re-traite.
+     */
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "tracksFeed", allEntries = true)
+    public TrackResponse retryProcessing(UUID trackId) {
+        User user = currentUser();
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
+        if (!track.getArtistId().equals(user.getId()) && user.getRole() != UserRole.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Seul l'artiste proprietaire peut relancer le traitement");
+        }
+        if (track.getStatus() == TrackStatus.APPROVED || track.getStatus() == TrackStatus.PROCESSING) {
+            throw new IllegalArgumentException("Cette piste est deja en ligne ou en cours de traitement");
+        }
+        if (track.getSourceKey() == null || track.getSourceKey().isBlank()) {
+            throw new IllegalArgumentException("Fichier source introuvable : supprime la piste et renvoie le fichier");
+        }
+
+        File source;
+        try {
+            source = File.createTempFile("yam-retry-", ".audio");
+            source.deleteOnExit();
+            storage.downloadToFile(track.getSourceKey(), source);
+        } catch (Exception e) {
+            throw new IllegalStateException("Impossible de recuperer le fichier source : " + e.getMessage());
+        }
+
+        track.setStatus(TrackStatus.PROCESSING);
+        track.setProcessingStartedAt(java.time.LocalDateTime.now());
+        track.setProcessingError(null);
+        track.setRetryCount(track.getRetryCount() + 1);
+        track = trackRepository.save(track);
+        try {
+            processingService.processAsync(track.getId(), source);
+        } catch (org.springframework.core.task.TaskRejectedException e) {
+            track.setStatus(TrackStatus.FAILED);
+            track.setProcessingError("File de traitement saturee, reessaie dans un instant");
+            track = trackRepository.save(track);
+        }
+
+        final UUID artistId = track.getArtistId();
+        String stageName = artistProfileRepository.findByUserId(artistId)
+                .map(ArtistProfile::getStageName)
+                .orElseGet(() -> pseudoOf(artistId));
+        return TrackDtos.from(track, stageName, pseudoOf(artistId));
+    }
+
+    /** Slug SEO unique et stable : titre-normalise + suffixe court. */
+    private String uniqueSlug(String title, String trackId) {
+        String base = slugify(title);
+        if (base.isBlank()) base = "piste";
+        return base + "-" + trackId.substring(0, 8);
+    }
+
+    static String slugify(String input) {
+        if (input == null) return "";
+        String s = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
+        return s.length() > 180 ? s.substring(0, 180) : s;
     }
 
     @Transactional(readOnly = true)
@@ -203,16 +285,7 @@ public class TrackService {
                 (country == null || country.isBlank() || "all".equals(country)) ? null : country,
                 pageable);
 
-        List<TrackResponse> content = result.getContent().stream()
-                .map(t -> {
-                    String name = userRepository.findById(t.getArtistId())
-                            .map(u -> artistProfileRepository.findByUserId(u.getId())
-                                    .map(p -> p.getStageName()).orElse(u.getPseudo()))
-                            .orElse("Artiste inconnu");
-                    String pseudo = userRepository.findById(t.getArtistId())
-                            .map(User::getPseudo).orElse("unknown");
-                    return TrackDtos.from(t, name, pseudo);
-                }).toList();
+        List<TrackResponse> content = toResponses(result.getContent());
 
         return new TrackPageResponse(content, result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages());
@@ -296,30 +369,31 @@ public class TrackService {
         playHistoryRepository.deleteByTrackId(trackId);
         trackLikeRepository.deleteByTrackId(trackId);
 
-        // 2) References : colonnes CSV track_ids des playlists et mixtapes (id1,id2,...)
-        String trackIdStr = trackId.toString();
-        for (Playlist p : playlistRepository.findByTrackIdsContaining(trackIdStr)) {
-            List<String> ids = csvOf(p.getTrackIds());
-            if (ids.removeIf(trackIdStr::equals)) {
-                p.setTrackIds(String.join(",", ids));
-                playlistRepository.save(p);
-            }
-        }
-        for (Mixtape m : mixtapeRepository.findByTrackIdsContaining(trackIdStr)) {
-            List<String> ids = csvOf(m.getTrackIds());
-            if (ids.removeIf(trackIdStr::equals)) {
-                m.setTrackIds(String.join(",", ids));
-                mixtapeRepository.save(m);
-            }
-        }
+        // 2) References : tables de liaison playlists et mixtapes (V1.1)
+        playlistTrackRepository.deleteByTrackId(trackId);
+        mixtapeTrackRepository.deleteByTrackId(trackId);
 
         // 3) La piste elle-meme
         trackRepository.delete(track);
 
-        // 4) Fichiers du stockage (m3u8 hq, m3u8 lite, pochette) — jamais bloquant
+        // 4) Fichiers du stockage (m3u8 hq, m3u8 lite, pochette, SOURCE
+        //    conservee pour le retry) — jamais bloquant
         deleteStorageFile(track.getAudioUrlHq());
         deleteStorageFile(track.getAudioUrlLq());
         deleteStorageFile(track.getCoverUrl());
+        if (track.getSourceKey() != null && !track.getSourceKey().isBlank()) {
+            try {
+                storage.delete(track.getSourceKey());
+                // Mode local : le dossier tracks/{id} entier est nettoye
+                if (storage.isLocalMode()) {
+                    String dirKey = track.getSourceKey().substring(0,
+                            track.getSourceKey().lastIndexOf('/'));
+                    deleteLocalDirectory(dirKey);
+                }
+            } catch (Exception e) {
+                log.warn("Suppression du fichier source impossible : {}", e.getMessage());
+            }
+        }
     }
 
     /** Enregistre une ecoute : compteur + historique + stats artiste. */
@@ -626,10 +700,12 @@ public class TrackService {
         }).toList();
     }
 
-    /** Decoupe une colonne CSV (track_ids) en jetons, robuste aux valeurs vides. */
-    private List<String> csvOf(String csv) {
-        if (csv == null || csv.isBlank()) return new ArrayList<>();
-        return new ArrayList<>(Arrays.asList(csv.split(",")));
+    /** Recherche par slug SEO public (/track/{slug}). */
+    @Transactional(readOnly = true)
+    public TrackResponse getBySlug(String slug) {
+        Track t = trackRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + slug));
+        return TrackDtos.from(t, artistNameOf(t.getArtistId()), pseudoOf(t.getArtistId()));
     }
 
     /**

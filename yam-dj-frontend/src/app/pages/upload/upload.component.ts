@@ -1,8 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { TrackService } from '../../services/track.service';
+import { AnalyticsService } from '../../services/analytics.service';
+import { Track } from '../../models/models';
 
 const GENRES = ['Afrobeats', 'Coupe-Decale', 'Rap', 'Zouglou', 'Ndombolo', 'Reggae', 'Dancehall', 'Traditionnel', 'Gospel', 'R&B', 'Pop'];
 const COUNTRIES = ['Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'Guinee', 'Benin', 'Togo', 'Niger', 'Cameroun', 'RDC'];
@@ -13,6 +15,12 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_AUDIO_MB = 100;
 const MAX_COVER_MB = 5;
 
+/**
+ * Publication d'une piste — V1.1 : pipeline asynchrone.
+ * L'upload repond en quelques secondes (stockage du source + lancement du
+ * job FFmpeg), puis la page suit le traitement en direct : PROCESSING ->
+ * APPROVED (ou FAILED avec bouton Relancer, sans re-upload).
+ */
 @Component({
   selector: 'yam-upload',
   standalone: true,
@@ -21,7 +29,8 @@ const MAX_COVER_MB = 5;
     <div class="max-w-3xl mx-auto px-4 pt-6 pb-16">
       <h1 class="yam-title mb-2">🎵 Publier une piste</h1>
       <p class="text-white/50 text-sm mb-6">
-        Ton son sera disponible apres validation par la moderation (protection des droits d'auteur).
+        Titre, fichier, pochette — c'est tout. Duree, BPM et qualite sont detectes
+        automatiquement pendant le traitement.
       </p>
 
       @if (!canUpload()) {
@@ -34,7 +43,47 @@ const MAX_COVER_MB = 5;
           </p>
           <a routerLink="/dashboard" class="yam-btn-primary inline-block">Mon tableau de bord</a>
         </div>
-      } @else if (done()) {
+      } @else if (phase() === 'processing') {
+        <div class="yam-card p-10 text-center">
+          <div class="text-6xl mb-4">⚙️</div>
+          <h2 class="text-2xl font-bold mb-2">Traitement en cours...</h2>
+          <p class="text-white/50 text-sm mb-1">
+            <b class="text-white">{{ uploadedTitle() }}</b> est en cours de preparation :
+            mastering, qualite HQ, Data-Lite et detection du BPM.
+          </p>
+          <p class="text-white/40 text-xs mb-6">
+            Ca prend generalement 30 a 90 secondes. Tu peux quitter cette page —
+            la piste sera publiee automatiquement et tu recevras une notification.
+          </p>
+          <div class="w-full max-w-xs mx-auto h-2 bg-white/10 rounded-full overflow-hidden">
+            <div class="h-full bg-yam-orange rounded-full animate-pulse" style="width: 100%"></div>
+          </div>
+          <p class="text-white/30 text-xs mt-4">{{ elapsed() }} s</p>
+        </div>
+      } @else if (phase() === 'failed') {
+        <div class="yam-card p-10 text-center">
+          <div class="text-6xl mb-4">⚠️</div>
+          <h2 class="text-2xl font-bold mb-2">Traitement impossible</h2>
+          <p class="text-white/50 text-sm mb-2">
+            <b class="text-white">{{ uploadedTitle() }}</b> n'a pas pu etre traitee.
+          </p>
+          @if (processingError(); as err) {
+            <p class="text-white/40 text-xs mb-6 bg-white/5 rounded-xl p-3 text-left break-words">{{ err }}</p>
+          } @else {
+            <p class="text-white/40 text-xs mb-6">Le fichier est peut-etre corrompu ou dans un format non lisible.</p>
+          }
+          <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <button (click)="retry()" [disabled]="retrying()" class="yam-btn-primary">
+              @if (retrying()) { <span class="animate-pulse">Relance...</span> }
+              @else { 🔄 Relancer le traitement }
+            </button>
+            <button (click)="reset()" class="yam-btn-secondary">Reessayer avec un autre fichier</button>
+          </div>
+          <p class="text-white/30 text-xs mt-4">
+            La relance reutilise le fichier deja envoye — aucun re-upload necessaire.
+          </p>
+        </div>
+      } @else if (phase() === 'done') {
         <div class="yam-card p-10 text-center">
           <div class="text-6xl mb-4">🚀</div>
           <h2 class="text-2xl font-bold mb-2">Piste en ligne !</h2>
@@ -47,7 +96,7 @@ const MAX_COVER_MB = 5;
           </p>
           <div class="flex flex-col sm:flex-row gap-3 justify-center">
             <button (click)="reset()" class="yam-btn-primary">Publier une autre piste</button>
-            <a routerLink="/" class="yam-btn-secondary">Voir ma piste sur l'accueil</a>
+            <a [routerLink]="['/track', uploadedId() || '']" class="yam-btn-secondary">Voir ma piste</a>
           </div>
         </div>
       } @else {
@@ -70,15 +119,15 @@ const MAX_COVER_MB = 5;
               </select>
             </div>
             <div>
-              <label class="text-sm text-white/60 mb-1 block">Tonalite</label>
+              <label class="text-sm text-white/60 mb-1 block">Tonalite <span class="text-white/30">(auto si vide)</span></label>
               <select [(ngModel)]="musicalKey" class="yam-input">
-                <option value="">-- Inconnue --</option>
+                <option value="">-- Detection auto --</option>
                 @for (k of keys; track k) { <option [value]="k">{{ k }}</option> }
               </select>
             </div>
             <div>
-              <label class="text-sm text-white/60 mb-1 block">BPM</label>
-              <input type="number" [(ngModel)]="bpm" placeholder="Ex : 105" class="yam-input" min="30" max="250">
+              <label class="text-sm text-white/60 mb-1 block">BPM <span class="text-white/30">(auto si vide)</span></label>
+              <input type="number" [(ngModel)]="bpm" placeholder="Detecte automatiquement" class="yam-input" min="30" max="250">
             </div>
           </div>
 
@@ -130,7 +179,7 @@ const MAX_COVER_MB = 5;
           <button (click)="submit()" [disabled]="loading() || !audioFile() || !title.trim()"
                   class="yam-btn-primary w-full !py-3.5 text-lg">
             @if (loading()) {
-              <span class="animate-pulse">Publication en cours... ne quitte pas la page</span>
+              <span class="animate-pulse">Envoi du fichier...</span>
             } @else {
               🚀 Publier ma piste
             }
@@ -146,9 +195,10 @@ const MAX_COVER_MB = 5;
     input[type="number"] { -moz-appearance: textfield; }
   `]
 })
-export class UploadComponent {
+export class UploadComponent implements OnDestroy {
   private auth = inject(AuthService);
   private trackService = inject(TrackService);
+  private analytics = inject(AnalyticsService);
 
   genres = GENRES;
   countries = COUNTRIES;
@@ -166,8 +216,17 @@ export class UploadComponent {
 
   loading = signal(false);
   error = signal<string | null>(null);
-  done = signal(false);
+
+  /** Phase du pipeline : form -> processing -> done | failed. */
+  phase = signal<'form' | 'processing' | 'done' | 'failed'>('form');
   uploadedTitle = signal('');
+  uploadedId = signal<string | null>(null);
+  processingError = signal<string | null>(null);
+  retrying = signal(false);
+  elapsed = signal(0);
+
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private elapsedTimer: ReturnType<typeof setInterval> | null = null;
 
   canUpload(): boolean {
     const role = this.auth.role();
@@ -250,12 +309,26 @@ export class UploadComponent {
     form.append('audio', this.audioFile()!);
     if (this.coverFile()) form.append('cover', this.coverFile()!);
 
+    this.analytics.track('upload_started');
     this.loading.set(true);
     this.trackService.upload(form).subscribe({
-      next: () => {
+      next: (track: Track) => {
         this.loading.set(false);
         this.uploadedTitle.set(this.title.trim());
-        this.done.set(true);
+        this.uploadedId.set(track.id);
+        this.analytics.track('upload_completed');
+        if (track.status === 'FAILED') {
+          this.phase.set('failed');
+          this.processingError.set(track.processingError || null);
+        } else if (track.status === 'APPROVED') {
+          // Deja traite (cache/reponse rapide) : direct en ligne
+          this.phase.set('done');
+          this.analytics.track('track_published');
+        } else {
+          // PROCESSING / PENDING : suivi en direct du job FFmpeg
+          this.phase.set('processing');
+          this.startPolling(track.id);
+        }
       },
       error: err => {
         this.loading.set(false);
@@ -264,7 +337,70 @@ export class UploadComponent {
     });
   }
 
+  /** Relance le traitement sans re-uploader le fichier. */
+  retry(): void {
+    const id = this.uploadedId();
+    if (!id || this.retrying()) return;
+    this.retrying.set(true);
+    this.trackService.retryProcessing(id).subscribe({
+      next: (track: Track) => {
+        this.retrying.set(false);
+        if (track.status === 'APPROVED') {
+          this.phase.set('done');
+        } else if (track.status === 'FAILED') {
+          this.phase.set('failed');
+          this.processingError.set(track.processingError || null);
+        } else {
+          this.phase.set('processing');
+          this.startPolling(track.id);
+        }
+      },
+      error: err => {
+        this.retrying.set(false);
+        this.phase.set('failed');
+        this.processingError.set(err?.error?.message || 'Relance impossible. Reessaie plus tard.');
+      }
+    });
+  }
+
+  /** Suivi du statut toutes les 4 s (le traitement peut prendre 30-90 s). */
+  private startPolling(trackId: string): void {
+    this.stopPolling();
+    this.elapsed.set(0);
+    this.elapsedTimer = setInterval(() => this.elapsed.set(this.elapsed() + 1), 1000);
+    this.pollTimer = setInterval(() => {
+      this.trackService.getById(trackId).subscribe({
+        next: track => {
+          if (track.status === 'APPROVED') {
+            this.stopPolling();
+            this.phase.set('done');
+            this.analytics.track('track_published');
+          } else if (track.status === 'FAILED') {
+            this.stopPolling();
+            this.phase.set('failed');
+            this.processingError.set(track.processingError || null);
+          }
+          // PROCESSING / PENDING : on continue de suivre
+        },
+        error: () => {
+          // Reseau instable : on laisse le polling continuer, la notification
+          // de publication arrivera de toute facon.
+        }
+      });
+    }, 4000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+    if (this.elapsedTimer) { clearInterval(this.elapsedTimer); this.elapsedTimer = null; }
+  }
+
+  ngOnDestroy(): void {
+    this.stopPolling();
+  }
+
   reset(): void {
+    this.stopPolling();
     this.title = '';
     this.genre = 'Afrobeats';
     this.country = 'Burkina Faso';
@@ -272,8 +408,11 @@ export class UploadComponent {
     this.bpm = null;
     this.removeCover();
     this.audioFile.set(null);
-    this.done.set(false);
+    this.phase.set('form');
     this.error.set(null);
+    this.processingError.set(null);
+    this.uploadedId.set(null);
+    this.retrying.set(false);
   }
 
   private fmtSize(bytes: number): string {

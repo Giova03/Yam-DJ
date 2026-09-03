@@ -63,6 +63,14 @@ export class AuthService {
   }
 
   logout(): void {
+    // LOGOUT REEL (securite P0) : le JWT est revoque cote serveur (liste
+    // noire) avant d'etre supprime localement — un token vole cesse de
+    // fonctionner des le logout.
+    const token = this.token();
+    if (token) {
+      this.http.post<{ message: string }>(`${this.apiUrl}/api/auth/logout`, {})
+        .subscribe({ error: () => {} }); // fire-and-forget : jamais bloquant
+    }
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this.userSubject.next(null);

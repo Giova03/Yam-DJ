@@ -30,7 +30,8 @@ export interface Track {
   country?: string;
   playCount: number;
   likeCount: number;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  /** Pipeline asynchrone V1.1 : PROCESSING (job FFmpeg) | FAILED (retry possible). */
+  status: 'PENDING' | 'PROCESSING' | 'APPROVED' | 'REJECTED' | 'FAILED';
   dataLiteReady: boolean;
   /** Identifiant YouTube : lecture via le player integre si present. */
   youtubeId?: string;
@@ -40,6 +41,10 @@ export interface Track {
   sourceArtist?: string;
   /** URL source (page YouTube d'origine). */
   sourceUrl?: string;
+  /** Slug SEO public : /track/{slug}. */
+  slug?: string;
+  /** Erreur du dernier traitement (statut FAILED). */
+  processingError?: string;
   createdAt: string;
 }
 

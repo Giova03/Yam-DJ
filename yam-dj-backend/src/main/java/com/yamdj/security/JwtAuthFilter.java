@@ -25,13 +25,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
     private final UserRepository userRepository;
+    private final TokenBlacklistService tokenBlacklist;
 
     public JwtAuthFilter(JwtService jwtService,
                          UserDetailsServiceImpl userDetailsService,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         TokenBlacklistService tokenBlacklist) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
         this.userRepository = userRepository;
+        this.tokenBlacklist = tokenBlacklist;
     }
 
     @Override
@@ -50,6 +53,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
+
+        // LOGOUT REEL : un token revoque est rejete meme s'il est signe et valide
+        if (tokenBlacklist.isRevoked(jwt)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             email = jwtService.extractEmail(jwt);
         } catch (Exception e) {

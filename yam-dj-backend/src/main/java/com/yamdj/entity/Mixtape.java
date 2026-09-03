@@ -35,9 +35,9 @@ public class Mixtape {
     @Builder.Default
     private int durationSec = 0;
 
-    /** Ordre des pistes : "id1,id2,id3" (trie par l'Auto-Mix IA). */
-    @Column(name = "track_ids")
-    private String trackIds;
+    // NB V1.1 : l'ordre des pistes est desormais dans mixtape_track
+    // (une ligne par piste, avec position). L'ancienne colonne track_ids
+    // (CSV) n'est plus utilisee par le code.
 
     /** Duree du crossfade en secondes. */
     @Column(name = "crossfade_sec", nullable = false)

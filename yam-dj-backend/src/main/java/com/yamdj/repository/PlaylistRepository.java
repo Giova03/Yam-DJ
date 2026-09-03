@@ -16,7 +16,4 @@ public interface PlaylistRepository extends JpaRepository<Playlist, UUID> {
     Optional<Playlist> findByIdAndUserId(UUID id, UUID userId);
 
     List<Playlist> findTop20ByIsPublicTrueOrderByCreatedAtDesc();
-
-    /** Playlists referencant une piste (colonne CSV track_ids : id1,id2). */
-    List<Playlist> findByTrackIdsContaining(String trackId);
 }

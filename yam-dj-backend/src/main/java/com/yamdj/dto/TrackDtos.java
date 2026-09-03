@@ -36,6 +36,8 @@ public final class TrackDtos {
             String source,
             String sourceArtist,
             String sourceUrl,
+            String slug,
+            String processingError,
             LocalDateTime createdAt
     ) {}
 
@@ -58,7 +60,8 @@ public final class TrackDtos {
                 t.getDurationSec(), t.getBpm(), t.getMusicalKey(), t.getCamelot(),
                 t.getGenre(), t.getCountry(), t.getPlayCount(), t.getLikeCount(),
                 t.getStatus(), t.isDataLiteReady(),
-                t.getYoutubeId(), t.getSource(), t.getSourceArtist(), t.getSourceUrl(), t.getCreatedAt()
+                t.getYoutubeId(), t.getSource(), t.getSourceArtist(), t.getSourceUrl(),
+                t.getSlug(), t.getProcessingError(), t.getCreatedAt()
         );
     }
 }
