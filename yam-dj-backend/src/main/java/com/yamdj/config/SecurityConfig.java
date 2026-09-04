@@ -71,6 +71,7 @@ public class SecurityConfig {
                     "/api/tracks/trending",
                     "/api/tracks/{id}/**",
                     "/api/tracks/feed",
+                    "/api/genres",
                     "/api/search/**",
                     "/api/artists/{id}",
                     "/api/artists/{id}/tracks",

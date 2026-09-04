@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ContentService } from '../../services/content.service';
 import { PlayerService } from '../../services/player.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
@@ -118,6 +119,7 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
 export class SearchComponent {
   private contentService = inject(ContentService);
   private player = inject(PlayerService);
+  private route = inject(ActivatedRoute);
 
   genres = GENRES;
   countries = COUNTRIES;
@@ -143,6 +145,14 @@ export class SearchComponent {
   private recognition: any = null;
 
   constructor() {
+    // Lien depuis la page /genres : ?genre=Afrobeats presselectionne
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+      const g = params.get('genre');
+      if (g) {
+        this.genre.set(g);
+        this.applyFilters();
+      }
+    });
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     this.voiceSupported.set(!!SR);
     if (SR) {

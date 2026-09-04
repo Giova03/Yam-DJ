@@ -5,11 +5,12 @@ import { PlayerService } from '../../services/player.service';
 import { OfflineService } from '../../services/offline.service';
 import { ThemeService } from '../../services/theme.service';
 import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'yam-navbar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, NotificationsBellComponent],
+  imports: [RouterLink, RouterLinkActive, NotificationsBellComponent, IconComponent],
   template: `
     <nav class="fixed top-0 left-0 right-0 z-40 bg-yam-dark/90 backdrop-blur-md border-b border-white/5">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -19,45 +20,53 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
         </a>
 
         <a routerLink="/search" class="flex-1 max-w-md hidden md:block">
-          <div class="bg-yam-surface border border-white/10 rounded-full px-4 py-2 text-white/40 text-sm hover:border-yam-orange/50 transition">
-            🔎 Rechercher titres, artistes, DJs...
+          <div class="bg-yam-surface border border-white/10 rounded-full px-4 py-2 text-white/40 text-sm hover:border-yam-orange/50 transition flex items-center gap-2">
+            <yam-icon name="search" [size]="15" class="text-white/50"/>
+            <span>Rechercher titres, artistes, DJs...</span>
           </div>
         </a>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
           @if (!offline.online()) {
-            <span class="yam-badge text-yam-green border border-yam-green/40" title="Mode hors ligne — tes telechargements fonctionnent">📴 Hors ligne</span>
+            <span class="yam-badge text-yam-green border border-yam-green/40" title="Mode hors ligne — tes telechargements fonctionnent">
+              <yam-icon name="wifi-off" [size]="13"/> Hors ligne
+            </span>
           }
           @if (player.dataLite()) {
             <span class="yam-badge text-yam-gold border border-yam-gold/30 hidden sm:inline" title="Mode economie de donnees actif">
-              📱 Data-Lite
+              <yam-icon name="smartphone" [size]="13"/> Data-Lite
             </span>
           }
           @if (player.nightMode()) {
-            <span class="yam-badge text-yam-orange border border-yam-orange/30 hidden sm:inline">🪩 Nightclub</span>
+            <span class="yam-badge text-yam-orange border border-yam-orange/30 hidden sm:inline">
+              <yam-icon name="discoball" [size]="13"/> Nightclub
+            </span>
           }
 
           <!-- Acces direct YouTube : recherche + import + musiques libres -->
           <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium flex items-center gap-1" title="Rechercher sur YouTube et importer sur YAM DJ">
-            <span class="text-red-600">▶</span><span class="hidden sm:inline">YouTube</span>
+            <yam-icon name="play" [size]="13" class="fill-current text-red-600"/><span class="hidden sm:inline">YouTube</span>
           </a>
 
           <!-- Toggle theme clair / sombre -->
           <button (click)="theme.toggle()" class="yam-badge cursor-pointer hover:bg-white/20 w-8 h-8 !px-0 justify-center"
                   [title]="theme.isLight() ? 'Passer en mode sombre' : 'Passer en mode clair'">
-            {{ theme.isLight() ? '🌙' : '☀️' }}
+            <yam-icon [name]="theme.isLight() ? 'moon' : 'sun'" [size]="15"/>
           </button>
 
           @if (auth.isLoggedIn()) {
             @if (isPremium()) {
-              <span class="yam-badge text-yam-gold border border-yam-gold/40" title="Premium Fan actif">⭐</span>
+              <span class="yam-badge text-yam-gold border border-yam-gold/40" title="Premium Fan actif"><yam-icon name="star" [size]="13"/></span>
             } @else {
-              <a routerLink="/premium" class="yam-badge text-yam-gold border border-yam-gold/40 hover:bg-yam-gold/10 transition hidden sm:inline" title="Passer Premium">⭐ Premium</a>
+              <a routerLink="/premium" class="yam-badge text-yam-gold border border-yam-gold/40 hover:bg-yam-gold/10 transition hidden sm:inline" title="Passer Premium"><yam-icon name="star" [size]="13"/> Premium</a>
             }
 
-            <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">📊 Charts</a>
-            <a routerLink="/stats" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden lg:inline" title="Ton annee en sons">🎧 Mes stats</a>
-            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline" title="Mes telechargements hors ligne">📥{{ offline.count() > 0 ? ' ' + offline.count() : '' }}</a>
+            <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5"><yam-icon name="bar-chart" [size]="14"/> Charts</a>
+            <a routerLink="/genres" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5"><yam-icon name="music-4" [size]="14"/> Genres</a>
+            <a routerLink="/stats" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden lg:inline flex items-center gap-1.5" title="Ton annee en sons"><yam-icon name="headphones" [size]="14"/> Mes stats</a>
+            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5" title="Mes telechargements hors ligne">
+              <yam-icon name="download" [size]="14"/><span>{{ offline.count() > 0 ? offline.count() : '' }}</span>
+            </a>
             <a routerLink="/local" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Ma Musique</a>
             @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
               <a routerLink="/upload" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium">Upload</a>
@@ -80,11 +89,14 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
               <button (click)="logout()" class="text-white/50 hover:text-white text-sm transition">Quitter</button>
             </div>
           } @else {
-            <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">📊 Charts</a>
-            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline" title="Mes telechargements hors ligne">📥{{ offline.count() > 0 ? ' ' + offline.count() : '' }}</a>
+            <a routerLink="/charts" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5"><yam-icon name="bar-chart" [size]="14"/> Charts</a>
+            <a routerLink="/genres" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5"><yam-icon name="music-4" [size]="14"/> Genres</a>
+            <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5" title="Mes telechargements hors ligne">
+              <yam-icon name="download" [size]="14"/><span>{{ offline.count() > 0 ? offline.count() : '' }}</span>
+            </a>
             <a routerLink="/local" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Ma Musique</a>
-            <a routerLink="/features" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline">Guide</a>
-            <a routerLink="/premium" routerLinkActive="text-yam-orange" class="yam-badge text-yam-gold border border-yam-gold/40 hover:bg-yam-gold/10 transition">⭐ Premium</a>
+            <a routerLink="/features" routerLinkActive="text-yam-orange" class="hover:text-yam-orange transition text-sm font-medium hidden sm:inline flex items-center gap-1.5"><yam-icon name="book-open" [size]="14"/> Guide</a>
+            <a routerLink="/premium" routerLinkActive="text-yam-orange" class="yam-badge text-yam-gold border border-yam-gold/40 hover:bg-yam-gold/10 transition"><yam-icon name="star" [size]="13"/> Premium</a>
             <a routerLink="/login" class="yam-btn-secondary !py-1.5 !px-5 text-sm">Connexion</a>
             <a routerLink="/register" class="yam-btn-primary !py-1.5 !px-5 text-sm">S'inscrire</a>
           }
@@ -92,12 +104,13 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       </div>
       <!-- Bandeau secondaire : navigation decouverte (mobile inclus) -->
       <div class="max-w-7xl mx-auto px-4 h-10 flex items-center gap-3 overflow-x-auto scrollbar-hide border-t border-white/5 sm:hidden">
-        <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="text-red-600 hover:text-red-500 text-sm whitespace-nowrap font-semibold transition">▶ YouTube</a>
-        <a routerLink="/charts" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📊 Charts</a>
-        <a routerLink="/stats" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">🎧 Stats</a>
-        <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">📥 Telechargements</a>
-        <a routerLink="/local" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Ma Musique</a>
-        <a routerLink="/features" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition">Guide</a>
+        <a routerLink="/youtube" routerLinkActive="text-yam-orange" class="text-red-600 hover:text-red-500 text-sm whitespace-nowrap font-semibold transition flex items-center gap-1"><yam-icon name="play" [size]="11" class="fill-current"/> YouTube</a>
+        <a routerLink="/charts" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="bar-chart" [size]="13"/> Charts</a>
+        <a routerLink="/genres" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="music-4" [size]="13"/> Genres</a>
+        <a routerLink="/stats" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="headphones" [size]="13"/> Stats</a>
+        <a routerLink="/downloads" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="download" [size]="13"/> Telechargements</a>
+        <a routerLink="/local" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="folder" [size]="13"/> Ma Musique</a>
+        <a routerLink="/features" routerLinkActive="text-yam-orange" class="text-white/60 hover:text-white text-sm whitespace-nowrap transition flex items-center gap-1"><yam-icon name="book-open" [size]="13"/> Guide</a>
       </div>
     </nav>
     <div class="h-[104px] sm:h-16"></div>

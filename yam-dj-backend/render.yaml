@@ -52,3 +52,8 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: YAMDJ_MODERATION_AUTO_APPROVE
+        # true = publication immediate des uploads (recommande en lancement).
+        # false = moderation stricte : les pistes passent en PENDING et
+        # attendent la validation admin (page /admin, file de moderation).
+        value: "true"

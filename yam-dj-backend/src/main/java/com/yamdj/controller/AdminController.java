@@ -42,6 +42,7 @@ public class AdminController {
     private final UserFollowRepository followRepository;
     private final RoyaltyService royaltyService;
     private final com.yamdj.service.AnalyticsService analyticsService;
+    private final com.yamdj.service.TrackProcessingService trackProcessingService;
 
     public AdminController(TrackRepository trackRepository,
                            TrackService trackService,
@@ -51,7 +52,8 @@ public class AdminController {
                            NotificationService notificationService,
                            UserFollowRepository followRepository,
                            RoyaltyService royaltyService,
-                           com.yamdj.service.AnalyticsService analyticsService) {
+                           com.yamdj.service.AnalyticsService analyticsService,
+                           com.yamdj.service.TrackProcessingService trackProcessingService) {
         this.trackRepository = trackRepository;
         this.trackService = trackService;
         this.emailService = emailService;
@@ -61,6 +63,19 @@ public class AdminController {
         this.followRepository = followRepository;
         this.royaltyService = royaltyService;
         this.analyticsService = analyticsService;
+        this.trackProcessingService = trackProcessingService;
+    }
+
+    /**
+     * Mode de moderation actif : autoApprove=true (publication immediate,
+     * recommande en lancement) ou strict (PENDING -> validation admin via
+     * /validate-tracks). Bascule : variable YAMDJ_MODERATION_AUTO_APPROVE.
+     */
+    @GetMapping("/moderation-mode")
+    public ResponseEntity<Map<String, Object>> moderationMode() {
+        return ResponseEntity.ok(Map.of(
+                "autoApprove", trackProcessingService.isAutoApprove(),
+                "mode", trackProcessingService.isAutoApprove() ? "AUTO" : "STRICT"));
     }
 
     /** File de moderation : pistes en attente. */

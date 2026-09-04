@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
+import { SeoService } from '../../services/seo.service';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
@@ -10,20 +11,22 @@ import { YoutubeService } from '../../services/youtube.service';
 import { AnalyticsService } from '../../services/analytics.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
+import { IconComponent } from '../../components/icon/icon.component';
 import { Track, Mixtape } from '../../models/models';
 
 @Component({
   selector: 'yam-home',
   standalone: true,
-  imports: [TrackCardComponent, TipModalComponent, RouterLink],
+  imports: [TrackCardComponent, TipModalComponent, RouterLink, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
 
       <!-- Hero -->
       <section class="mb-8 rounded-3xl overflow-hidden relative bg-gradient-to-r from-yam-orange/20 via-yam-surface to-yam-surface border border-white/5 p-8 md:p-10">
         <div class="relative z-10">
+          <img src="assets/favicon.svg" alt="YAM DJ" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl mb-4 shadow-lg shadow-black/30">
           <h1 class="font-display font-extrabold text-3xl md:text-4xl mb-3">
-            Bonjour {{ username() }} 👋 <span class="yam-gradient-text">YAM DJ</span> te mixe l'Afrique
+            Bonjour {{ username() }}, <span class="yam-gradient-text">YAM DJ</span> te mixe l'Afrique
           </h1>
           <p class="text-white/60 max-w-xl mb-6">
             Des coups de coeur selectionnes pour toi, des mixtapes de DJs de Ouaga a Abidjan,
@@ -32,19 +35,19 @@ import { Track, Mixtape } from '../../models/models';
           <div class="flex flex-wrap gap-3">
             <!-- CTA ARTISTE (directive UX : parcours numero 1 de la plateforme) -->
             @if (auth.role() === 'ARTIST' || auth.role() === 'ADMIN') {
-              <a routerLink="/upload" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange">
-                🎤 Publier ma musique
+              <a routerLink="/upload" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange inline-flex items-center gap-2">
+                <yam-icon name="mic" [size]="20"/> Publier ma musique
               </a>
             } @else {
-              <a routerLink="/register" [queryParams]="{ role: 'ARTIST' }" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange">
-                🎤 Publier ma musique
+              <a routerLink="/register" [queryParams]="{ role: 'ARTIST' }" (click)="artistCta()" class="yam-btn-primary !px-8 !py-3 text-lg !bg-gradient-to-r !from-yam-gold !to-yam-orange inline-flex items-center gap-2">
+                <yam-icon name="mic" [size]="20"/> Publier ma musique
               </a>
             }
-            <button (click)="playFeed()" class="yam-btn-secondary !px-8 !py-3 text-lg">▶ Ecouter Pour Toi</button>
-            <a routerLink="/youtube" class="yam-btn-secondary !px-8 !py-3 text-lg !bg-red-600/90 hover:!bg-red-600">▶ Musiques YouTube</a>
-            <a routerLink="/charts" class="yam-btn-secondary !px-8 !py-3 text-lg">📊 Charts de la semaine</a>
+            <button (click)="playFeed()" class="yam-btn-secondary !px-8 !py-3 text-lg inline-flex items-center gap-2"><yam-icon name="play" [size]="18" class="fill-current"/> Ecouter Pour Toi</button>
+            <a routerLink="/youtube" class="yam-btn-secondary !px-8 !py-3 text-lg !bg-red-600/90 hover:!bg-red-600 inline-flex items-center gap-2"><yam-icon name="play" [size]="18" class="fill-current"/> Musiques YouTube</a>
+            <a routerLink="/charts" class="yam-btn-secondary !px-8 !py-3 text-lg inline-flex items-center gap-2"><yam-icon name="bar-chart" [size]="18"/> Charts de la semaine</a>
             @if (auth.role() === 'DJ' || auth.role() === 'ADMIN') {
-              <a routerLink="/dj-studio" class="yam-btn-secondary !px-8 !py-3 text-lg">🎚️ Ouvrir le Studio DJ</a>
+              <a routerLink="/dj-studio" class="yam-btn-secondary !px-8 !py-3 text-lg inline-flex items-center gap-2"><yam-icon name="sliders" [size]="18"/> Ouvrir le Studio DJ</a>
             }
           </div>
         </div>
@@ -55,22 +58,26 @@ import { Track, Mixtape } from '../../models/models';
       <!-- ============ YAM RADIO : suite infinie par genre / pays ============ -->
       <section class="mb-10">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="yam-title">📡 YAM Radio {{ ' ' }}<span class="text-white/40 text-lg">— la suite continue toute seule</span></h2>
+          <h2 class="yam-title flex items-center gap-2.5 flex-wrap"><yam-icon name="radio" [size]="24" class="text-yam-orange"/> YAM Radio {{ ' ' }}<span class="text-white/40 text-lg font-normal">— la suite continue toute seule</span></h2>
         </div>
         <p class="text-white/40 text-sm -mt-2 mb-4">Choisis une ambiance, YAM DJ enchaine les sons sans fin — parfait avec le mode Data-Lite.</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           @for (r of radios(); track r.label) {
             <button (click)="startRadio(r)" (contextmenu)="$event.preventDefault()"
                     class="yam-card p-4 text-left hover:border-yam-orange/50 transition group">
-              <div class="text-3xl mb-2">{{ r.emoji }}</div>
+              <div class="mb-2 text-yam-orange"><yam-icon [name]="r.icon" [size]="28"/></div>
               <p class="font-bold text-sm group-hover:text-yam-orange transition">{{ r.label }}</p>
               <p class="text-white/40 text-xs">{{ r.hint }}</p>
             </button>
           }
         </div>
         @if (player.radioMode(); as radio) {
-          <div class="yam-card p-3 mt-4 border-yam-orange/40 bg-yam-orange/5 flex items-center justify-between">
-            <p class="text-sm text-yam-orange font-semibold">📡 Radio en cours : {{ radio.genre || radio.country || 'Decouverte' }} — consulte la file d'attente 📋</p>
+          <div class="yam-card p-3 mt-4 border-yam-orange/40 bg-yam-orange/5 flex items-center justify-between gap-3">
+            <p class="text-sm text-yam-orange font-semibold flex items-center gap-1.5 min-w-0">
+              <yam-icon name="radio" [size]="14" class="shrink-0"/>
+              <span class="truncate">Radio en cours : {{ radio.genre || radio.country || 'Decouverte' }} — consulte la file d'attente</span>
+              <yam-icon name="list-music" [size]="13" class="shrink-0"/>
+            </p>
             <button (click)="player.stopRadio()" class="text-xs text-white/50 hover:text-white underline shrink-0">Stop</button>
           </div>
         }
@@ -78,7 +85,7 @@ import { Track, Mixtape } from '../../models/models';
 
       <section class="mb-10">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="yam-title">✨ Pour Toi</h2>
+          <h2 class="yam-title flex items-center gap-2.5"><yam-icon name="sparkles" [size]="24" class="text-yam-orange"/> Pour Toi</h2>
           @if (player.dataLite()) {
             <span class="yam-badge text-yam-gold border border-yam-gold/40">Mode Data-Lite actif (48 kbps)</span>
           }
@@ -98,8 +105,8 @@ import { Track, Mixtape } from '../../models/models';
       @if (latest().length) {
         <section class="mb-10">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="yam-title">📰 File d'actualite {{ ' ' }}<span class="text-white/40 text-lg">— nouveautes & imports YouTube</span></h2>
-            <a routerLink="/youtube" class="yam-badge text-red-500 border border-red-500/40 hover:bg-red-500/10 transition shrink-0">▶ Importer depuis YouTube</a>
+            <h2 class="yam-title flex items-center gap-2.5 flex-wrap"><yam-icon name="newspaper" [size]="24" class="text-yam-orange"/> File d'actualite {{ ' ' }}<span class="text-white/40 text-lg font-normal">— nouveautes & imports YouTube</span></h2>
+            <a routerLink="/youtube" class="yam-badge text-red-500 border border-red-500/40 hover:bg-red-500/10 transition shrink-0"><yam-icon name="play" [size]="11" class="fill-current"/> Importer depuis YouTube</a>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             @for (track of latest(); track track) {
@@ -113,7 +120,7 @@ import { Track, Mixtape } from '../../models/models';
       @if (libre().length) {
         <section class="mb-10">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="yam-title">🆓 Hymnes & musiques libres {{ ' ' }}<span class="text-white/40 text-lg">— ecoute gratuite</span></h2>
+            <h2 class="yam-title flex items-center gap-2.5 flex-wrap"><yam-icon name="gift" [size]="24" class="text-yam-orange"/> Hymnes & musiques libres {{ ' ' }}<span class="text-white/40 text-lg font-normal">— ecoute gratuite</span></h2>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             @for (track of libre(); track track) {
@@ -126,7 +133,7 @@ import { Track, Mixtape } from '../../models/models';
       <!-- Abonnements (artistes suivis) -->
       @if (followFeedTracks().length) {
         <section class="mb-10">
-          <h2 class="yam-title mb-4">❤️ Abonnements {{ ' ' }}<span class="text-white/40 text-lg">— les nouveautes de tes artistes</span></h2>
+          <h2 class="yam-title mb-4 flex items-center gap-2.5 flex-wrap"><yam-icon name="heart" [size]="24" class="text-yam-orange"/> Abonnements {{ ' ' }}<span class="text-white/40 text-lg font-normal">— les nouveautes de tes artistes</span></h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             @for (track of followFeedTracks(); track track) {
               <yam-track-card [track]="track" (play)="onPlay($event)" (tip)="openTip($event)" />
@@ -138,7 +145,7 @@ import { Track, Mixtape } from '../../models/models';
       <!-- Recemment ecoute -->
       @if (recent().length) {
         <section class="mb-10">
-          <h2 class="yam-title mb-4">⏮️ Recemment ecoute</h2>
+          <h2 class="yam-title mb-4 flex items-center gap-2.5"><yam-icon name="history" [size]="24" class="text-yam-orange"/> Recemment ecoute</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             @for (track of recent(); track track) {
               <yam-track-card [track]="track" (play)="onPlay($event)" (tip)="openTip($event)" />
@@ -149,7 +156,7 @@ import { Track, Mixtape } from '../../models/models';
 
       <!-- Tendances Burkina -->
       <section class="mb-10">
-        <h2 class="yam-title mb-4">🔥 Tendances {{ ' ' }}<span class="text-white/40 text-lg">— les plus ecoutees</span></h2>
+        <h2 class="yam-title mb-4 flex items-center gap-2.5 flex-wrap"><yam-icon name="flame" [size]="24" class="text-yam-orange"/> Tendances {{ ' ' }}<span class="text-white/40 text-lg font-normal">— les plus ecoutees</span></h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           @for (track of trending(); track track) {
             <yam-track-card [track]="track" (play)="onPlay($event)" (tip)="openTip($event)" />
@@ -160,20 +167,20 @@ import { Track, Mixtape } from '../../models/models';
       <!-- Mixtapes DJ -->
       @if (mixtapes().length) {
         <section class="mb-10">
-          <h2 class="yam-title mb-4">🎛️ Mixtapes de la communaute DJ</h2>
+          <h2 class="yam-title mb-4 flex items-center gap-2.5"><yam-icon name="disc" [size]="24" class="text-yam-orange"/> Mixtapes de la communaute DJ</h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @for (mix of mixtapes(); track mix.id) {
               <div class="yam-card p-5 flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-yam-orange/30 to-yam-gold/30 flex items-center justify-center text-2xl shrink-0">🎛️</div>
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-yam-orange/30 to-yam-gold/30 flex items-center justify-center text-yam-orange shrink-0"><yam-icon name="disc" [size]="30"/></div>
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold truncate">{{ mix.title }}</p>
                   <p class="text-white/50 text-sm truncate">par {{ mix.djName }} · {{ mix.playCount }} ecoutes</p>
                   @if (mix.priceXof && mix.priceXof > 0) {
                     <p class="text-xs mt-0.5">
                       @if (mix.purchased) {
-                        <span class="text-yam-green font-semibold">✅ Achetee — tienne a vie</span>
+                        <span class="text-yam-green font-semibold inline-flex items-center gap-1"><yam-icon name="check" [size]="13"/> Achetee — tienne a vie</span>
                       } @else {
-                        <span class="text-yam-gold font-semibold">💰 {{ formatPrice(mix.priceXof) }} — 70 % au DJ</span>
+                        <span class="text-yam-gold font-semibold inline-flex items-center gap-1"><yam-icon name="wallet" [size]="13"/> {{ formatPrice(mix.priceXof) }} — 70 % au DJ</span>
                       }
                     </p>
                   }
@@ -184,7 +191,7 @@ import { Track, Mixtape } from '../../models/models';
                     {{ buyingId() === mix.id ? '...' : 'Acheter' }}
                   </button>
                 } @else {
-                  <button (click)="playMixtape(mix)" class="w-10 h-10 rounded-full bg-yam-orange text-white flex items-center justify-center hover:scale-105 transition shrink-0">▶</button>
+                  <button (click)="playMixtape(mix)" class="w-10 h-10 rounded-full bg-yam-orange text-white flex items-center justify-center hover:scale-105 active:scale-95 transition shrink-0"><yam-icon name="play" [size]="18" class="fill-current translate-x-[1px]"/></button>
                 }
               </div>
             }
@@ -201,6 +208,7 @@ export class HomeComponent implements OnInit {
   auth = inject(AuthService);
   player = inject(PlayerService);
   private trackService = inject(TrackService);
+  private seo = inject(SeoService);
   private djService = inject(DjService);
   private content = inject(ContentService);
   private youtube = inject(YoutubeService);
@@ -222,13 +230,13 @@ export class HomeComponent implements OnInit {
   mixtapes = signal<Mixtape[]>([]);
 
   /** Radios disponibles (suite infinie par genre / pays). */
-  radios = signal<Array<{ label: string; emoji: string; hint: string; genre?: string; country?: string }>>([
-    { label: 'Tout YAM', emoji: '🎛️', hint: 'Decouverte sans fin' },
-    { label: 'Afrobeats', emoji: '🔥', hint: 'Le son qui bouge', genre: 'Afrobeats' },
-    { label: 'Coupé-Décalé', emoji: '💃', hint: 'Abidjan vibes', genre: 'Coupe-Decale' },
-    { label: 'Rap', emoji: '🎤', hint: 'Flow ouest-africain', genre: 'Rap' },
-    { label: 'Burkina', emoji: '🇧🇫', hint: 'Les sons du Faso', country: 'Burkina Faso' },
-    { label: 'Côte d\'Ivoire', emoji: '🇨🇮', hint: 'Le groove ivoirien', country: 'Cote d\'Ivoire' }
+  radios = signal<Array<{ label: string; icon: string; hint: string; genre?: string; country?: string }>>([
+    { label: 'Tout YAM', icon: 'disc', hint: 'Decouverte sans fin' },
+    { label: 'Afrobeats', icon: 'flame', hint: 'Le son qui bouge', genre: 'Afrobeats' },
+    { label: 'Coupé-Décalé', icon: 'music-4', hint: 'Abidjan vibes', genre: 'Coupe-Decale' },
+    { label: 'Rap', icon: 'mic', hint: 'Flow ouest-africain', genre: 'Rap' },
+    { label: 'Burkina', icon: 'map-pin', hint: 'Les sons du Faso', country: 'Burkina Faso' },
+    { label: 'Côte d\'Ivoire', icon: 'map-pin', hint: 'Le groove ivoirien', country: 'Cote d\'Ivoire' }
   ]);
 
   /** Lance une radio infinie (bouton d'accueil). */
@@ -247,10 +255,11 @@ export class HomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // SEO : title + description (les meta OG statiques sont dans index.html)
+    // SEO : title + description + donnees structurees (les meta OG statiques sont dans index.html)
     this.title.setTitle('YAM DJ — La musique africaine qui vibre | Streaming, charts et studio DJ');
     this.meta.updateTag({ name: 'description',
       content: 'Ecoute les sons d\'Afrique de l\'Ouest, suis les charts hebdomadaires, mixe dans le studio DJ et soutiens les artistes via mobile money.' });
+    this.seo.webSite();
 
     // Funnel analytics : vue de la landing (1 fois par session)
     this.analytics.track('landing_view', undefined, true);

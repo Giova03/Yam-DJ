@@ -14,7 +14,23 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
   template: `
     <div class="max-w-5xl mx-auto px-4 pt-6">
       <h1 class="yam-title mb-2">🛡️ Moderation YAM DJ</h1>
-      <p class="text-white/50 text-sm mb-8">{{ pending() }} piste(s) en attente de validation.</p>
+      <p class="text-white/50 text-sm mb-2">{{ pending() }} piste(s) en attente de validation.</p>
+      @if (moderationMode()) {
+        <p class="inline-flex items-center gap-2 text-xs rounded-full px-3 py-1.5 mb-8"
+           [class]="moderationMode() === 'STRICT'
+             ? 'bg-yam-orange/10 text-yam-orange border border-yam-orange/30'
+             : 'bg-yam-green/10 text-yam-green border border-yam-green/30'">
+          @if (moderationMode() === 'STRICT') {
+            <span class="w-2 h-2 rounded-full bg-yam-orange animate-pulse"></span>
+            Mode STRICT — chaque upload attend ta validation avant d'être visible
+          } @else {
+            <span class="w-2 h-2 rounded-full bg-yam-green"></span>
+            Mode AUTO — les uploads sont publiés immédiatement (bascule : variable YAMDJ_MODERATION_AUTO_APPROVE=false)
+          }
+        </p>
+      } @else {
+        <p class="mb-8"></p>
+      }
 
       <!-- Toast de confirmation -->
       @if (toast(); as t) {
@@ -179,6 +195,7 @@ export class AdminComponent implements OnInit {
 
   tracks = signal<Track[]>([]);
   pending = signal<number>(0);
+  moderationMode = signal<string | null>(null);
 
   // ===== Redevances d'ecoute (Phase 3.3) =====
   royaltyPools = signal<RoyaltyPool[]>([]);
@@ -248,6 +265,11 @@ export class AdminComponent implements OnInit {
         this.pending.set(res.tracks?.length || 0);
       },
       error: () => {}
+    });
+    // Mode de moderation actif (AUTO ou STRICT) — indicateur admin
+    this.http.get<{ mode: string }>(`${environment.apiUrl}/api/admin/moderation-mode`).subscribe({
+      next: res => this.moderationMode.set(res.mode),
+      error: () => this.moderationMode.set(null)
     });
   }
 

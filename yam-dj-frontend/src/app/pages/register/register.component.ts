@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { AnalyticsService } from '../../services/analytics.service';
 import { GoogleButtonComponent } from '../../components/google-button/google-button.component';
+import { IconComponent } from '../../components/icon/icon.component';
 
 const COUNTRIES = [
   'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'Guinee', 'Benin', 'Togo',
@@ -13,17 +14,17 @@ const COUNTRIES = [
 @Component({
   selector: 'yam-register',
   standalone: true,
-  imports: [FormsModule, RouterLink, GoogleButtonComponent],
+  imports: [FormsModule, RouterLink, GoogleButtonComponent, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-yam-dark to-black">
       <div class="w-full max-w-md">
         <a routerLink="/" class="flex items-center justify-center gap-3 mb-8">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-yam-orange to-yam-gold flex items-center justify-center text-2xl font-black">Y</div>
+          <img src="assets/favicon.svg" alt="YAM DJ" class="w-14 h-14 rounded-2xl">
           <span class="font-display font-extrabold text-3xl yam-gradient-text">YAM DJ</span>
         </a>
 
         <div class="yam-card p-8">
-          <h1 class="text-2xl font-bold mb-1">Rejoins le mouvement 🌍</h1>
+          <h1 class="text-2xl font-bold mb-1 flex items-center gap-2"><yam-icon name="globe" [size]="22" class="text-yam-orange"/> Rejoins le mouvement</h1>
           <p class="text-white/50 text-sm mb-6">Fan, artiste ou DJ — choisis ton role.</p>
 
           <!-- Choix du role -->
@@ -34,7 +35,7 @@ const COUNTRIES = [
                       [class]="role() === r.value
                         ? 'bg-yam-orange/20 border-yam-orange text-yam-orange'
                         : 'bg-yam-surface border-white/10 text-white/60 hover:border-white/30'">
-                <div class="text-2xl mb-1">{{ r.icon }}</div>
+                <div class="mb-1"><yam-icon [name]="r.icon" [size]="24"/></div>
                 <div class="text-xs font-semibold">{{ r.label }}</div>
               </button>
             }
@@ -99,7 +100,7 @@ const COUNTRIES = [
           } @else {
             <div class="space-y-4">
               <div class="bg-yam-orange/10 border border-yam-orange/30 rounded-xl p-4 text-center">
-                <div class="text-4xl mb-2">📧</div>
+                <div class="mb-2 flex items-center justify-center text-yam-orange"><yam-icon name="mail" [size]="34"/></div>
                 <p class="text-sm">Un code de verification vient d'etre envoye a<br><b class="text-white">{{ email }}</b></p>
               </div>
               <input type="text" maxlength="12" inputmode="numeric" autocomplete="one-time-code"
@@ -145,9 +146,9 @@ export class RegisterComponent implements OnInit {
 
   countries = COUNTRIES;
   roles = [
-    { value: 'USER', label: 'Auditeur', icon: '🎧' },
-    { value: 'ARTIST', label: 'Artiste', icon: '🎤' },
-    { value: 'DJ', label: 'DJ', icon: '🎚️' }
+    { value: 'USER', label: 'Auditeur', icon: 'headphones' },
+    { value: 'ARTIST', label: 'Artiste', icon: 'mic' },
+    { value: 'DJ', label: 'DJ', icon: 'sliders' }
   ];
 
   role = signal<string>('USER');

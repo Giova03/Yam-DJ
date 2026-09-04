@@ -242,3 +242,30 @@ input[type="range"]::-webkit-slider-thumb {
   margin-top: -6px;
 }
 html.light input[type="range"]::-webkit-slider-thumb { background: #C2410C; }
+
+/* ============ TASK 24-a — REFINEMENTS DESIGN (additif uniquement) ============
+   Hover subtil des cartes (levee -2px + ombre chaude, 200 ms) et focus
+   visible orange sur les boutons. Aucune classe existante n'est modifiee :
+   ces regles s'ajoutent a la suite (cascade) du design system. */
+.yam-card {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+}
+.yam-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .55), 0 4px 14px -8px rgba(255, 107, 53, .25);
+}
+html.light .yam-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px -14px rgba(74, 52, 24, .30), 0 4px 12px -8px rgba(230, 122, 60, .30);
+}
+
+/* Focus visible : anneau or/orange clair, coherent sur toute la plateforme */
+.yam-btn-primary:focus-visible,
+.yam-btn-secondary:focus-visible {
+  outline: 2px solid #FFD166;
+  outline-offset: 2px;
+}
+.yam-badge:focus-visible {
+  outline: 2px solid rgba(255, 209, 102, .8);
+  outline-offset: 2px;
+}

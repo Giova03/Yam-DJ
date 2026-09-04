@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { PlayerService } from '../../services/player.service';
 import { AmbienceService } from '../../services/ambience.service';
 import { Track } from '../../models/models';
+import { IconComponent } from '../icon/icon.component';
 
 /**
  * BARRE DE LECTURE GLOBALE (bas d'ecran, style Spotify adapte mobile).
@@ -22,7 +23,7 @@ import { Track } from '../../models/models';
 @Component({
   selector: 'yam-audio-player',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <!-- ================= HOTE YOUTUBE PERSISTANT =================
          Toujours dans le DOM (jamais detruit par un @if) : c'est la cle du
@@ -36,12 +37,12 @@ import { Track } from '../../models/models';
            [attr.aria-label]="'Lecteur video YouTube'"></div>
       @if (showVideo()) {
         <div class="flex items-center justify-between mt-1.5 px-1">
-          <span class="text-[10px] font-bold text-red-500/90">▶ YouTube</span>
+          <span class="text-[10px] font-bold text-red-500/90 flex items-center gap-1"><yam-icon name="play" [size]="10" class="fill-current"/> YouTube</span>
           <div class="flex gap-2">
             <a [href]="ytWatchUrl()" target="_blank" rel="noopener"
-               class="text-[10px] font-semibold text-white/50 hover:text-white">Ouvrir ↗</a>
+               class="text-[10px] font-semibold text-white/50 hover:text-white inline-flex items-center gap-1">Ouvrir <yam-icon name="external-link" [size]="10"/></a>
             <button (click)="player.toggleYoutubeAudioOnly()"
-                    class="text-[10px] font-semibold text-yam-orange hover:underline">Mode audio 🎧</button>
+                    class="text-[10px] font-semibold text-yam-orange hover:underline inline-flex items-center gap-1">Mode audio <yam-icon name="headphones" [size]="11"/></button>
           </div>
         </div>
       }
@@ -54,10 +55,10 @@ import { Track } from '../../models/models';
         <!-- Banniere publicite non intrusive (jamais pour les Premium) -->
         @if (player.adPlaying()) {
           <div class="bg-yam-gold/15 border-b border-yam-gold/30 px-4 py-1.5 flex items-center justify-between gap-3 text-xs">
-            <span class="text-yam-gold truncate">📣 {{ player.adText() }}</span>
+            <span class="text-yam-gold truncate inline-flex items-center gap-1.5"><yam-icon name="megaphone" [size]="14" class="shrink-0"/> {{ player.adText() }}</span>
             <div class="flex items-center gap-3 shrink-0">
               <a routerLink="/premium" class="text-yam-gold font-semibold hover:underline">Passe Premium</a>
-              <button (click)="player.skipAd()" class="text-white/60 hover:text-white font-semibold">Passer ⏭</button>
+              <button (click)="player.skipAd()" class="text-white/60 hover:text-white font-semibold inline-flex items-center gap-1">Passer <yam-icon name="skip-next" [size]="12"/></button>
             </div>
           </div>
         }
@@ -67,18 +68,19 @@ import { Track } from '../../models/models';
           <div class="max-h-[45vh] overflow-y-auto border-b border-white/10 bg-yam-dark/98">
             <div class="max-w-7xl mx-auto px-4 py-3">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="font-bold text-sm">
-                  📋 File d'attente
+                <h3 class="font-bold text-sm flex items-center gap-2 flex-wrap">
+                  <yam-icon name="list-music" [size]="16" class="text-yam-orange"/>
+                  File d'attente
                   <span class="text-white/40 font-normal">{{ player.queue().length }} pistes</span>
                   @if (player.radioMode(); as radio) {
-                    <span class="ml-2 yam-badge !bg-yam-orange/20 !text-yam-orange">📡 Radio {{ radioLabel(radio) }}</span>
+                    <span class="yam-badge !bg-yam-orange/20 !text-yam-orange"><yam-icon name="radio" [size]="11"/> Radio {{ radioLabel(radio) }}</span>
                   }
                 </h3>
                 <div class="flex items-center gap-3">
                   @if (player.radioMode()) {
                     <button (click)="player.stopRadio()" class="text-xs text-white/50 hover:text-white">Stop radio</button>
                   }
-                  <button (click)="player.queueOpen.set(false)" class="text-white/50 hover:text-white text-lg leading-none" aria-label="Fermer la file">✕</button>
+                  <button (click)="player.queueOpen.set(false)" class="text-white/50 hover:text-white leading-none" aria-label="Fermer la file"><yam-icon name="x" [size]="18"/></button>
                 </div>
               </div>
               <div class="space-y-1">
@@ -89,7 +91,7 @@ import { Track } from '../../models/models';
                       @if (q.coverUrl) {
                         <img [src]="q.coverUrl" [alt]="q.title" class="w-full h-full object-cover">
                       } @else {
-                        <span class="text-sm">🎵</span>
+                        <yam-icon name="music-note" [size]="16"/>
                       }
                     </button>
                     <button (click)="playFromQueue(i)" class="min-w-0 flex-1 text-left">
@@ -99,12 +101,12 @@ import { Track } from '../../models/models';
                     <span class="text-[10px] text-white/30 shrink-0 hidden sm:inline">{{ labelFor(q) }}</span>
                     <div class="flex flex-col shrink-0">
                       <button (click)="moveUp(i)" [disabled]="i === 0"
-                              class="text-white/30 hover:text-white text-[10px] leading-none py-0.5 disabled:opacity-20" aria-label="Monter">▲</button>
+                              class="text-white/30 hover:text-white leading-none py-0.5 disabled:opacity-20" aria-label="Monter"><yam-icon name="chevron-up" [size]="12"/></button>
                       <button (click)="moveDown(i)" [disabled]="i === player.queue().length - 1"
-                              class="text-white/30 hover:text-white text-[10px] leading-none py-0.5 disabled:opacity-20" aria-label="Descendre">▼</button>
+                              class="text-white/30 hover:text-white leading-none py-0.5 disabled:opacity-20" aria-label="Descendre"><yam-icon name="chevron-down" [size]="12"/></button>
                     </div>
                     <button (click)="player.removeFromQueue(q.id)" [disabled]="q.id === track.id"
-                            class="text-white/30 hover:text-red-400 text-xs shrink-0 px-1 disabled:opacity-20" aria-label="Retirer">✕</button>
+                            class="text-white/30 hover:text-red-400 shrink-0 px-1 disabled:opacity-20" aria-label="Retirer"><yam-icon name="x" [size]="13"/></button>
                   </div>
                 }
               </div>
@@ -116,8 +118,8 @@ import { Track } from '../../models/models';
         @if (menuOpen()) {
           <div class="absolute bottom-full right-2 mb-2 w-[300px] max-w-[92vw] yam-card p-4 shadow-2xl max-h-[70vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-sm">⚙️ Options de lecture</h3>
-              <button (click)="menuOpen.set(false)" class="text-white/40 hover:text-white" aria-label="Fermer">✕</button>
+              <h3 class="font-bold text-sm flex items-center gap-2"><yam-icon name="settings" [size]="16" class="text-yam-orange"/> Options de lecture</h3>
+              <button (click)="menuOpen.set(false)" class="text-white/40 hover:text-white leading-none" aria-label="Fermer"><yam-icon name="x" [size]="18"/></button>
             </div>
 
             <!-- Vitesse -->
@@ -136,7 +138,7 @@ import { Track } from '../../models/models';
             <p class="text-xs text-white/40 mb-1.5">Dodo musique (minuterie sommeil)</p>
             @if (player.sleepRemaining() != null) {
               <div class="flex items-center justify-between mb-4">
-                <span class="text-sm text-yam-gold font-semibold">🌙 {{ sleepLabel() }}</span>
+                <span class="text-sm text-yam-gold font-semibold inline-flex items-center gap-1.5"><yam-icon name="moon" [size]="14"/> {{ sleepLabel() }}</span>
                 <button (click)="player.clearSleepTimer()" class="text-xs text-white/50 hover:text-white underline">Annuler</button>
               </div>
             } @else {
@@ -155,9 +157,9 @@ import { Track } from '../../models/models';
             <div class="flex gap-1.5 mb-4 flex-wrap">
               @for (a of ambienceOpts; track a.id) {
                 <button (click)="ambience.toggle(a.id)"
-                        class="text-xs font-semibold px-3 py-1.5 rounded-full transition"
+                        class="text-xs font-semibold px-3 py-1.5 rounded-full transition inline-flex items-center gap-1.5"
                         [class]="ambience.active() === a.id ? 'bg-yam-green text-white' : 'bg-white/10 text-white/60 hover:bg-white/20'">
-                  {{ a.icon }} {{ a.label }}
+                  <yam-icon [name]="a.icon" [size]="12"/> {{ a.label }}
                 </button>
               }
             </div>
@@ -187,7 +189,7 @@ import { Track } from '../../models/models';
 
             <!-- Compteur data -->
             <div class="text-xs text-white/40 border-t border-white/10 pt-3 flex items-center justify-between">
-              <span>📱 Ta data, ta maniere</span>
+              <span class="inline-flex items-center gap-1.5"><yam-icon name="smartphone" [size]="13"/> Ta data, ta maniere</span>
               <span class="text-white/60 font-semibold">{{ dataLabel() }}</span>
             </div>
           </div>
@@ -202,10 +204,10 @@ import { Track } from '../../models/models';
               @if (track.coverUrl) {
                 <img [src]="track.coverUrl" [alt]="track.title" class="w-full h-full object-cover">
               } @else {
-                <span class="text-xl">🎵</span>
+                <yam-icon name="music-note" [size]="20"/>
               }
               @if (player.isYouTube() && player.youtubeAudioOnly()) {
-                <span class="absolute bottom-0.5 right-0.5 text-[9px] font-bold text-red-500/90 bg-black/60 rounded px-1">▶</span>
+                <span class="absolute bottom-0.5 right-0.5 text-red-500/90 bg-black/60 rounded p-0.5 flex"><yam-icon name="play" [size]="9" class="fill-current"/></span>
               }
             </div>
             <div class="min-w-0">
@@ -221,20 +223,20 @@ import { Track } from '../../models/models';
           <div class="hidden sm:flex flex-1 flex-col items-center gap-1">
             <div class="flex items-center gap-3 sm:gap-4">
               <button (click)="player.toggleShuffle()" [class.text-yam-orange]="player.shuffle()"
-                      class="text-white/50 hover:text-white text-sm transition" title="Lecture aleatoire">🔀</button>
-              <button (click)="player.previous()" class="text-white/60 hover:text-white text-lg transition" title="Precedent">⏮</button>
+                      class="text-white/50 hover:text-white transition" title="Lecture aleatoire"><yam-icon name="shuffle" [size]="16"/></button>
+              <button (click)="player.previous()" class="text-white/60 hover:text-white transition" title="Precedent"><yam-icon name="skip-previous" [size]="18"/></button>
               <button (click)="player.toggle()"
-                      class="w-11 h-11 rounded-full bg-white text-yam-dark flex items-center justify-center text-xl font-bold hover:scale-105 active:scale-95 transition"
+                      class="w-11 h-11 rounded-full bg-white text-yam-dark flex items-center justify-center hover:scale-105 active:scale-95 transition"
                       [disabled]="player.loading()">
-                @if (player.loading()) { <span class="animate-spin">◌</span> }
-                @else if (player.isPlaying()) { <span>⏸</span> }
-                @else { <span>▶</span> }
+                @if (player.loading()) { <yam-icon name="loader" [size]="20" class="animate-spin"/> }
+                @else if (player.isPlaying()) { <yam-icon name="pause" [size]="20"/> }
+                @else { <yam-icon name="play" [size]="20" class="fill-current translate-x-[1px]"/> }
               </button>
-              <button (click)="player.next()" class="text-white/60 hover:text-white text-lg transition" title="Suivant">⏭</button>
+              <button (click)="player.next()" class="text-white/60 hover:text-white transition" title="Suivant"><yam-icon name="skip-next" [size]="18"/></button>
               <button (click)="player.cycleRepeat()" [class.text-yam-orange]="player.repeat() !== 'off'"
-                      class="text-white/50 hover:text-white text-sm transition relative"
+                      class="text-white/50 hover:text-white transition relative"
                       title="Repetition">
-                🔁
+                <yam-icon name="repeat" [size]="16"/>
                 @if (player.repeat() === 'one') {
                   <span class="absolute -top-1 -right-1 text-[9px] bg-yam-orange text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">1</span>
                 }
@@ -256,28 +258,28 @@ import { Track } from '../../models/models';
                       class="yam-badge cursor-pointer hover:bg-white/20 hidden md:inline-flex"
                       [class]="player.dataLite() ? '!bg-yam-gold/20 !text-yam-gold border border-yam-gold/40' : ''"
                       title="Mode Data-Lite : 48 kbps, 3x moins de data">
-                📱
+                <yam-icon name="smartphone" [size]="14"/>
               </button>
               <button (click)="player.toggleNightMode()"
                       class="yam-badge cursor-pointer hover:bg-white/20 hidden md:inline-flex"
                       [class]="player.nightMode() ? '!bg-yam-orange/20 !text-yam-orange border border-yam-orange/40' : ''"
                       title="Mode Nightclub : bass boost + reverb club">
-                🪩
+                <yam-icon name="discoball" [size]="14"/>
               </button>
             } @else {
               <button (click)="player.toggleYoutubeAudioOnly()"
                       class="yam-badge cursor-pointer hover:bg-white/20 hidden md:inline-flex"
                       [class]="player.youtubeAudioOnly() ? '!bg-yam-green/20 !text-yam-green border border-yam-green/40' : ''"
                       title="Mode audio : video repliee, son uniquement (economie batterie)">
-                🎧
+                <yam-icon name="headphones" [size]="14"/>
               </button>
             }
 
             <!-- File d'attente -->
             <button (click)="player.queueOpen.set(!player.queueOpen())"
-                    class="text-white/50 hover:text-white text-base transition relative"
+                    class="text-white/50 hover:text-white transition relative"
                     title="File d'attente" aria-label="File d'attente">
-              📋
+              <yam-icon name="list-music" [size]="16"/>
               @if (player.radioMode()) {
                 <span class="absolute -top-1 -right-1 w-2 h-2 bg-yam-orange rounded-full animate-pulse"></span>
               }
@@ -285,11 +287,11 @@ import { Track } from '../../models/models';
 
             <!-- Menu options -->
             <button (click)="menuOpen.set(!menuOpen())"
-                    class="text-white/50 hover:text-white text-base transition"
-                    title="Options (EQ, vitesse, dodo)" aria-label="Options">⚙️</button>
+                    class="text-white/50 hover:text-white transition"
+                    title="Options (EQ, vitesse, dodo)" aria-label="Options"><yam-icon name="settings" [size]="16"/></button>
 
             <div class="hidden lg:flex items-center gap-2">
-              <span class="text-white/50">🔊</span>
+              <span class="text-white/50"><yam-icon name="volume" [size]="16"/></span>
               <input type="range" min="0" max="1" step="0.05" [value]="player.volume()"
                      (input)="onVolume($event)"
                      class="w-20 h-1 accent-yam-orange cursor-pointer">
@@ -297,8 +299,8 @@ import { Track } from '../../models/models';
 
             <!-- FERMER la barre de lecture (arret complet) -->
             <button (click)="player.stop()"
-                    class="text-white/40 hover:text-red-400 transition text-base font-bold px-1.5"
-                    title="Fermer le lecteur" aria-label="Fermer le lecteur">✕</button>
+                    class="text-white/40 hover:text-red-400 transition px-1.5"
+                    title="Fermer le lecteur" aria-label="Fermer le lecteur"><yam-icon name="x" [size]="16"/></button>
           </div>
         </div>
 
@@ -311,19 +313,19 @@ import { Track } from '../../models/models';
                    class="flex-1 h-1.5 accent-yam-orange cursor-pointer">
             <span class="tabular-nums w-8">{{ player.formatTime(player.duration() || track.durationSec) }}</span>
             <button (click)="player.toggle()"
-                    class="w-9 h-9 rounded-full bg-white text-yam-dark flex items-center justify-center text-lg font-bold shrink-0 -mt-1"
+                    class="w-9 h-9 rounded-full bg-white text-yam-dark flex items-center justify-center shrink-0 -mt-1"
                     [disabled]="player.loading()">
-              @if (player.loading()) { <span class="animate-spin text-sm">◌</span> }
-              @else if (player.isPlaying()) { ⏸ } @else { ▶ }
+              @if (player.loading()) { <yam-icon name="loader" [size]="16" class="animate-spin"/> }
+              @else if (player.isPlaying()) { <yam-icon name="pause" [size]="16"/> } @else { <yam-icon name="play" [size]="16" class="fill-current translate-x-[1px]"/> }
             </button>
           </div>
           <div class="flex items-center justify-center gap-4 mt-1">
             <button (click)="player.toggleShuffle()" [class.text-yam-orange]="player.shuffle()"
-                    class="text-white/40 text-xs">🔀</button>
-            <button (click)="player.previous()" class="text-white/60 text-sm">⏮</button>
-            <button (click)="player.next()" class="text-white/60 text-sm">⏭</button>
+                    class="text-white/40"><yam-icon name="shuffle" [size]="14"/></button>
+            <button (click)="player.previous()" class="text-white/60"><yam-icon name="skip-previous" [size]="16"/></button>
+            <button (click)="player.next()" class="text-white/60"><yam-icon name="skip-next" [size]="16"/></button>
             <button (click)="player.cycleRepeat()" [class.text-yam-orange]="player.repeat() !== 'off'"
-                    class="text-white/40 text-xs">🔁</button>
+                    class="text-white/40"><yam-icon name="repeat" [size]="14"/></button>
           </div>
         </div>
       </div>
@@ -340,9 +342,9 @@ export class AudioPlayerComponent implements AfterViewInit {
   menuOpen = signal(false);
 
   readonly ambienceOpts = [
-    { id: 'rain' as const, label: 'Pluie', icon: '🌧' },
-    { id: 'ocean' as const, label: 'Ocean', icon: '🌊' },
-    { id: 'wind' as const, label: 'Vent', icon: '🍃' }
+    { id: 'rain' as const, label: 'Pluie', icon: 'cloud-rain' },
+    { id: 'ocean' as const, label: 'Ocean', icon: 'waves' },
+    { id: 'wind' as const, label: 'Vent', icon: 'wind' }
   ];
 
   readonly eqPresetNames = Object.keys(this.player.EQ_PRESETS);
@@ -387,8 +389,8 @@ export class AudioPlayerComponent implements AfterViewInit {
   }
 
   labelFor(t: Track): string {
-    if (t.id.startsWith('local:')) return '📱 local';
-    if (t.youtubeId) return '▶ YouTube';
+    if (t.id.startsWith('local:')) return 'Local';
+    if (t.youtubeId) return 'YouTube';
     return t.genre || '';
   }
 

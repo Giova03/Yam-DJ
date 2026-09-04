@@ -5,12 +5,14 @@ import com.yamdj.dto.CommonDtos.DjPublicResponse;
 import com.yamdj.dto.CommonDtos.PlaylistRequest;
 import com.yamdj.dto.CommonDtos.PlaylistResponse;
 import com.yamdj.dto.TrackDtos.TrackResponse;
+import com.yamdj.repository.TrackRepository;
 import com.yamdj.service.SearchService;
 import com.yamdj.service.PlaylistService;
 import com.yamdj.service.DjService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,13 +27,33 @@ public class PublicContentController {
     private final SearchService searchService;
     private final PlaylistService playlistService;
     private final DjService djService;
+    private final TrackRepository trackRepository;
 
     public PublicContentController(SearchService searchService,
                                    PlaylistService playlistService,
-                                   DjService djService) {
+                                   DjService djService,
+                                   TrackRepository trackRepository) {
         this.searchService = searchService;
         this.playlistService = playlistService;
         this.djService = djService;
+        this.trackRepository = trackRepository;
+    }
+
+    /**
+     * Genres disponibles avec leur nombre de pistes approuvees (page /genres,
+     * SEO + decouverte) : [{"genre":"Afrobeats","count":12}, ...].
+     */
+    @GetMapping("/api/genres")
+    public ResponseEntity<List<Map<String, Object>>> genres() {
+        List<Map<String, Object>> result = trackRepository.countByGenre().stream()
+                .map(row -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("genre", String.valueOf(row[0]));
+                    m.put("count", ((Number) row[1]).longValue());
+                    return m;
+                })
+                .toList();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/api/artists/{id}")

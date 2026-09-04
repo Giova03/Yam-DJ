@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { SeoService } from '../../services/seo.service';
 import { ChartsService } from '../../services/charts.service';
 import { PlayerService } from '../../services/player.service';
 import { ChartEntry, Track } from '../../models/models';
@@ -130,6 +131,7 @@ import { ChartEntry, Track } from '../../models/models';
 export class ChartsComponent implements OnInit {
   private chartsService = inject(ChartsService);
   private player = inject(PlayerService);
+  private seo = inject(SeoService);
 
   entries = signal<ChartEntry[]>([]);
   countries = signal<string[]>([]);
@@ -144,6 +146,10 @@ export class ChartsComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.seo.page(
+      'Charts hebdomadaires — le top des sons d\'Afrique de l\'Ouest | YAM DJ',
+      'Le classement des pistes les plus écoutées de la semaine sur YAM DJ : Afrobeats, Coupé-Décalé, Rap et plus, pays par pays.',
+      'https://yam-dj-frontend.vercel.app/charts');
     // Charge le top 10 global (signal partage) pour les badges "Top 10" sur les cartes de pistes
     this.chartsService.ensureTop10Loaded();
     this.chartsService.getChartCountries().subscribe({

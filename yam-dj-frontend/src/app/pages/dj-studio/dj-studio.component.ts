@@ -929,6 +929,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     panel.loading.set(true);
     panel.error.set(null);
     panel.pct.set(0);
+    panel.pitch.set(0); // anti pitch fantôme : le deck est reset, l'affichage aussi
     panel.detail.set('Connexion...');
 
     const fallbackUrl = this.quality() === 'hq'
@@ -1286,6 +1287,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     panel.loading.set(true);
     panel.error.set(null);
     panel.pct.set(0);
+    panel.pitch.set(0); // anti pitch fantôme : le deck est reset, l'affichage aussi
     panel.detail.set('Lecture du fichier...');
     item.loading = true;
     this.localFiles.set([...this.localFiles()]);

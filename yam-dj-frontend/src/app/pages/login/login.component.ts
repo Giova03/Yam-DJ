@@ -3,21 +3,22 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { GoogleButtonComponent } from '../../components/google-button/google-button.component';
+import { IconComponent } from '../../components/icon/icon.component';
 
 @Component({
   selector: 'yam-login',
   standalone: true,
-  imports: [FormsModule, RouterLink, GoogleButtonComponent],
+  imports: [FormsModule, RouterLink, GoogleButtonComponent, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-yam-dark to-black">
       <div class="w-full max-w-md">
         <a routerLink="/" class="flex items-center justify-center gap-3 mb-8">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-yam-orange to-yam-gold flex items-center justify-center text-2xl font-black">Y</div>
+          <img src="assets/favicon.svg" alt="YAM DJ" class="w-14 h-14 rounded-2xl">
           <span class="font-display font-extrabold text-3xl yam-gradient-text">YAM DJ</span>
         </a>
 
         <div class="yam-card p-8">
-          <h1 class="text-2xl font-bold mb-1">Bon retour ! 🎧</h1>
+          <h1 class="text-2xl font-bold mb-1 flex items-center gap-2"><yam-icon name="headphones" [size]="22" class="text-yam-orange"/> Bon retour !</h1>
           <p class="text-white/50 text-sm mb-6">La musique africaine t'attend.</p>
 
           @if (needsVerification()) {

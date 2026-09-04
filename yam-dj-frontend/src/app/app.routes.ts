@@ -24,6 +24,7 @@ export const routes: Routes = [
   { path: 'local', loadComponent: () => import('./pages/local/local.component').then(m => m.LocalComponent) },
   { path: 'downloads', loadComponent: () => import('./pages/downloads/downloads.component').then(m => m.DownloadsComponent) },
   { path: 'charts', loadComponent: () => import('./pages/charts/charts.component').then(m => m.ChartsComponent) },
+  { path: 'genres', loadComponent: () => import('./pages/genres/genres.component').then(m => m.GenresComponent) },
   { path: 'features', loadComponent: () => import('./pages/features/features.component').then(m => m.FeaturesComponent) },
   { path: 'premium', loadComponent: () => import('./pages/premium/premium.component').then(m => m.PremiumComponent) },
   { path: 'premium/success', loadComponent: () => import('./pages/premium-success/premium-success.component').then(m => m.PremiumSuccessComponent) },

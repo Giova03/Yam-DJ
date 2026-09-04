@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { IconComponent } from '../../components/icon/icon.component';
 
 /**
  * RETOUR GOOGLE : le backend redirige ici apres l'echange du code OAuth,
@@ -10,23 +11,23 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'yam-oauth-callback',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-yam-dark to-black">
       <div class="w-full max-w-md text-center">
         <a routerLink="/" class="flex items-center justify-center gap-3 mb-8">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-yam-orange to-yam-gold flex items-center justify-center text-2xl font-black">Y</div>
+          <img src="assets/favicon.svg" alt="YAM DJ" class="w-14 h-14 rounded-2xl">
           <span class="font-display font-extrabold text-3xl yam-gradient-text">YAM DJ</span>
         </a>
 
         <div class="yam-card p-8">
           @if (error()) {
-            <div class="text-5xl mb-3">😕</div>
+            <div class="mb-3 flex items-center justify-center text-white/50"><yam-icon name="alert-circle" [size]="44"/></div>
             <h1 class="text-xl font-bold mb-2">Connexion Google impossible</h1>
             <p class="text-white/50 text-sm mb-6">{{ error() }}</p>
             <a routerLink="/login" class="yam-btn-primary w-full inline-block">Reessayer</a>
           } @else {
-            <div class="text-5xl mb-3 animate-pulse">🎧</div>
+            <div class="mb-3 flex items-center justify-center text-yam-orange"><yam-icon name="headphones" [size]="44" class="animate-pulse"/></div>
             <h1 class="text-xl font-bold mb-2">Connexion en cours...</h1>
             <p class="text-white/50 text-sm">Finalisation de ta session Google.</p>
             <div class="mt-6 h-1.5 rounded-full bg-white/10 overflow-hidden">

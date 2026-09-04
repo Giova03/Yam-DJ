@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
+import { SeoService } from '../../services/seo.service';
 import { ContentService } from '../../services/content.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
@@ -101,6 +102,7 @@ export class TrackComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private content = inject(ContentService);
   private titleService = inject(Title);
+  private seo = inject(SeoService);
   private metaService = inject(Meta);
   player = inject(PlayerService);
   auth = inject(AuthService);
@@ -137,6 +139,16 @@ export class TrackComponent implements OnInit {
     this.titleService.setTitle(`${t.title} — YAM DJ`);
     const desc = `Ecoute ${t.title} de ${t.artistName || t.artistPseudo} sur YAM DJ${t.genre ? ' — ' + t.genre : ''}${t.country ? ' (' + t.country + ')' : ''}.`;
     this.metaService.updateTag({ name: 'description', content: desc });
+    // Donnees structurees Google (rich result audio)
+    this.seo.musicRecording({
+      title: t.title,
+      artistName: t.artistName || t.artistPseudo,
+      durationSec: t.durationSec,
+      coverUrl: t.coverUrl,
+      playCount: t.playCount,
+      slug: t.slug,
+      id: t.id
+    });
     // Open Graph pour les apercus WhatsApp / Facebook / X
     this.metaService.updateTag({ property: 'og:title', content: `${t.title} — YAM DJ` });
     this.metaService.updateTag({ property: 'og:description', content: desc });

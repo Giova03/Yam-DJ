@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { SeoService } from '../../services/seo.service';
 import { AuthService } from '../../services/auth.service';
 import { PaymentService } from '../../services/payment.service';
 
@@ -104,6 +105,7 @@ import { PaymentService } from '../../services/payment.service';
 export class PremiumComponent implements OnInit {
   auth = inject(AuthService);
   private payment = inject(PaymentService);
+  private seo = inject(SeoService);
 
   premium = signal(false);
   premiumUntil = signal<string | null>(null);
@@ -115,6 +117,10 @@ export class PremiumComponent implements OnInit {
   readonly PRICE_XOF = 500;
 
   ngOnInit(): void {
+    this.seo.page(
+      'Premium Fan — 500 F/mois : hors ligne, qualité max, badge d\'or | YAM DJ',
+      'Passe en Premium Fan sur YAM DJ : téléchargements hors ligne illimités, qualité audio maximale, badge doré et soutiens directs des artistes d\'Afrique de l\'Ouest.',
+      'https://yam-dj-frontend.vercel.app/premium');
     if (this.auth.isLoggedIn()) {
       this.auth.me().subscribe({
         next: me => {

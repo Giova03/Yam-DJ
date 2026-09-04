@@ -69,6 +69,14 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
     @Query("SELECT t FROM Track t WHERE t.status = 'APPROVED' AND t.bpm IS NOT NULL AND t.id IN :ids")
     List<Track> findAllByIdWithAudio(@Param("ids") List<UUID> ids);
 
+    /** Genres disponibles avec nombre de pistes approuvees (page /genres).
+     *  Genres techniques (Hymne, YouTube) exclus : la page est musicale. */
+    @Query("SELECT t.genre AS genre, COUNT(t) AS cnt FROM Track t "
+            + "WHERE t.status = 'APPROVED' AND t.genre IS NOT NULL AND t.genre <> '' "
+            + "AND t.genre NOT IN ('Hymne', 'YouTube') "
+            + "GROUP BY t.genre ORDER BY cnt DESC")
+    List<Object[]> countByGenre();
+
     /**
      * YAM RADIO : tirage aleatoire de pistes approuvees, filtre optionnel
      * genre/pays. Requete native PostgreSQL (random() natif + LIMIT).

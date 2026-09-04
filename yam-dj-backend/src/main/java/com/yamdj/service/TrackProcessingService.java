@@ -42,6 +42,11 @@ public class TrackProcessingService {
     @Value("${yamdj.moderation.auto-approve:true}")
     private boolean autoApprove;
 
+    /** Mode de moderation actif (expose a l'admin pour l'UI). */
+    public boolean isAutoApprove() {
+        return autoApprove;
+    }
+
     public TrackProcessingService(TrackRepository trackRepository,
                                   AudioProcessingService audioProcessor,
                                   NotificationService notificationService,
