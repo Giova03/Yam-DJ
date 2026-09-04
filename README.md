@@ -220,6 +220,12 @@ FedaPay : `https://yam-dj.onrender.com/api/webhook/fedapay` avec les
 
 ### Configuration Google OAuth (connexion en 1 clic)
 
+> ✅ **ACTIF EN PRODUCTION** (vérifié le 2026-09-04) : `GET /api/auth/oauth/google/status`
+> → `{"enabled":true, "redirectUri":"https://yam-dj.onrender.com/api/auth/oauth/google/callback"}`
+> — Google affiche l'écran de consentement « YAM DJ » et le bouton redirige bien
+> vers accounts.google.com. Identifiants stockés uniquement dans les variables
+> Render (jamais dans ce dépôt).
+
 1. [console.cloud.google.com](https://console.cloud.google.com) → créer un projet (ou choisir l'existant)
 2. **APIs & Services → OAuth consent screen** → type *External*, renseigner le nom YAM DJ, ajouter ton email
 3. **Credentials → Create Credentials → OAuth client ID** → type *Web application*
