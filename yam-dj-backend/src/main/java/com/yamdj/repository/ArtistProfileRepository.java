@@ -1,6 +1,7 @@
 package com.yamdj.repository;
 
 import com.yamdj.entity.ArtistProfile;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,4 +25,8 @@ public interface ArtistProfileRepository extends JpaRepository<ArtistProfile, UU
 
     @Query("SELECT a FROM ArtistProfile a WHERE a.stageName ILIKE %:q%")
     List<ArtistProfile> searchByStageName(@Param("q") String q);
+
+    /** Top artistes par ecoutes cumulees (section decouverte + page /artists). */
+    @Query("SELECT a FROM ArtistProfile a JOIN FETCH a.user WHERE a.totalPlays > 0 ORDER BY a.totalPlays DESC")
+    List<ArtistProfile> findTopByTotalPlays(Pageable pageable);
 }

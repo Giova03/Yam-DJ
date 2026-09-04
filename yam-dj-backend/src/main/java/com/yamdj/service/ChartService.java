@@ -117,22 +117,47 @@ public class ChartService {
                         .collect(Collectors.toMap(Track::getId, t -> t));
         Map<UUID, String[]> artistNames = resolveArtistNames(tracks.values());
 
+        // Mouvement vs semaine precedente : rang precedent - rang courant.
+        // Positif = monte, negatif = descend, null = nouvelle entree.
+        Map<UUID, Integer> previousRanks = previousWeekRanks(latest.minusWeeks(1), country);
+
         List<ChartEntryResponse> result = new ArrayList<>();
         int countryRank = 1;
         for (WeeklyChart row : rows) {
             Track t = tracks.get(row.getTrackId());
             if (t == null) continue;
             String[] names = artistNames.getOrDefault(t.getArtistId(), new String[]{"—", "—"});
+            Integer prev = previousRanks.get(row.getTrackId());
+            Integer movement = (prev == null) ? null : (prev - countryRank);
             result.add(new ChartEntryResponse(
                     countryRank++,
                     row.getTrackId(),
                     row.getPlays(),
                     row.getWeekStart(),
                     row.getCountry(),
+                    movement,
                     TrackDtos_from(t, names)));
             if (result.size() >= Math.max(1, Math.min(limit, 100))) break;
         }
         return result;
+    }
+
+    /** Rangs de la semaine precedente, optionnellement filtres par pays. */
+    private Map<UUID, Integer> previousWeekRanks(LocalDate week, String country) {
+        Map<UUID, Integer> ranks = new HashMap<>();
+        if (week == null) return ranks;
+        boolean byCountry = country != null && !country.isBlank() && !"all".equalsIgnoreCase(country);
+        String wanted = byCountry ? country.trim() : null;
+        int filteredRank = 1;
+        for (WeeklyChart row : chartRepository.findTop100ByWeekStartOrderByRankAsc(week)) {
+            if (wanted != null) {
+                if (!wanted.equalsIgnoreCase(row.getCountry())) continue;
+                ranks.put(row.getTrackId(), filteredRank++);
+            } else {
+                ranks.put(row.getTrackId(), row.getRank());
+            }
+        }
+        return ranks;
     }
 
     /** Pays representes dans le chart courant. */

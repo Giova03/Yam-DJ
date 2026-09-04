@@ -4,6 +4,7 @@ import { YoutubeService } from '../../services/youtube.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
+import { IconComponent } from '../../components/icon/icon.component';
 import { Track, YoutubeVideo } from '../../models/models';
 import { firstValueFrom } from 'rxjs';
 
@@ -17,13 +18,13 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   selector: 'yam-youtube-page',
   standalone: true,
-  imports: [RouterLink, TrackCardComponent],
+  imports: [RouterLink, TrackCardComponent, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 py-8">
 
       <!-- En-tete -->
       <div class="flex items-center gap-3 mb-2">
-        <span class="w-11 h-11 rounded-2xl bg-red-600 flex items-center justify-center text-white text-xl font-black shrink-0">▶</span>
+        <span class="w-11 h-11 rounded-2xl bg-red-600 flex items-center justify-center text-white shrink-0"><yam-icon name="play" [size]="20" class="fill-current"/></span>
         <div>
           <h1 class="yam-title">YouTube sur YAM DJ</h1>
           <p class="text-white/50 text-sm mt-0.5">
@@ -39,7 +40,7 @@ import { firstValueFrom } from 'rxjs';
                class="yam-input flex-1" autocomplete="off">
         <button type="submit" class="yam-btn-primary shrink-0" [disabled]="loading()">
           @if (loading()) { <span class="animate-spin">◌</span> Recherche... }
-          @else { 🔎 Rechercher }
+          @else { Rechercher }
         </button>
       </form>
 
@@ -81,7 +82,7 @@ import { firstValueFrom } from 'rxjs';
                 <div class="mt-auto flex items-center gap-2 pt-2">
                   <button (click)="listen(v)" class="yam-btn-primary !py-1.5 !px-4 text-xs shrink-0" [disabled]="importing() === v.videoId">
                     @if (importing() === v.videoId) { <span class="animate-spin">◌</span> }
-                    @else if (v.alreadyImported) { ▶ Ecouter }
+                    @else if (v.alreadyImported) { Ecouter }
                     @else { ⬇ Importer & Ecouter }
                   </button>
                   <a [href]="v.watchUrl" target="_blank" rel="noopener"

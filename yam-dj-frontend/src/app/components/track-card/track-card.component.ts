@@ -1,176 +1,84 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { PlayerService } from '../../services/player.service';
-import { AuthService } from '../../services/auth.service';
 import { ChartsService } from '../../services/charts.service';
-import { OfflineService } from '../../services/offline.service';
-import { AddToPlaylistComponent } from '../add-to-playlist/add-to-playlist.component';
-import { ShareModalComponent } from '../share-modal/share-modal.component';
-import { CommentsComponent } from '../comments/comments.component';
+import { TrackMenuComponent } from '../track-variants/track-menu.component';
 import { IconComponent } from '../icon/icon.component';
 import { Track } from '../../models/models';
 
-/** Carte d'une piste : lecture, ajout file, playlist, partage, commentaires, tip. */
+/**
+ * CARTE D'UNE PISTE (V2 §07 — bruit reduit).
+ * Visible : pochette, play, titre, artiste, UNE information utile.
+ * Tout le reste (file, playlist, partage, commentaires, tip, telechargement,
+ * YouTube) vit dans le menu ••• (yam-track-menu).
+ */
 @Component({
   selector: 'yam-track-card',
   standalone: true,
-  imports: [AddToPlaylistComponent, ShareModalComponent, CommentsComponent, IconComponent],
+  imports: [TrackMenuComponent, IconComponent],
   template: `
-    <div class="yam-card p-4 group cursor-pointer" (click)="play.emit(track())" (dblclick)="player.play(track())">
-      <div class="relative mb-3 aspect-square rounded-xl bg-gradient-to-br from-yam-card to-yam-surface overflow-hidden flex items-center justify-center">
+    <div class="yam-card p-3.5 group cursor-pointer" (click)="play.emit(track())" (dblclick)="player.play(track())"
+         (keydown.enter)="play.emit(track())" tabindex="0"
+         [attr.aria-label]="'Ecouter ' + track().title + ' de ' + artistName()">
+      <div class="relative mb-3 aspect-square rounded-2xl bg-gradient-to-br from-yam-card to-yam-surface overflow-hidden flex items-center justify-center">
         @if (track().coverUrl) {
-          <img [src]="track().coverUrl" [alt]="track().title" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <img [src]="track().coverUrl" [alt]="track().title" loading="lazy" decoding="async"
+               class="w-full h-full object-cover group-hover:scale-105 transition duration-700">
         } @else {
-          <yam-icon name="music-note" [size]="34" class="opacity-40"/>
+          <yam-icon name="music-note" [size]="34" class="opacity-30"/>
         }
         @if (track().youtubeId) {
           <span class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold shadow flex items-center gap-1" title="Lecture via le player YouTube integre"><yam-icon name="play" [size]="9" class="fill-current"/> YouTube</span>
         }
         @if (chartRank(); as rank) {
-          <span class="absolute top-3 left-3 yam-badge bg-yam-gold/90 text-yam-dark border-none font-bold" title="Top 10 chart hebdo">
+          <span class="absolute top-3 left-3 yam-badge bg-yam-gold/90 text-yam-ink border-none font-bold !text-yam-dark" title="Top 10 chart hebdo">
             <yam-icon name="trophy" [size]="12"/> #{{ rank }}
           </span>
-        } @else {
-          @if (isPlaying()) {
-            <div class="absolute top-3 left-3 flex items-end gap-0.5 h-4">
-              <span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span>
-            </div>
-          }
+        } @else if (isPlaying()) {
+          <div class="absolute top-3 left-3 flex items-end gap-0.5 h-4" aria-hidden="true">
+            <span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span>
+          </div>
         }
         <button (click)="player.play(track()); $event.stopPropagation()"
-                class="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-yam-orange text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                class="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-yam-orange text-yam-ink flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                aria-label="Lire">
           <yam-icon name="play" [size]="18" class="fill-current translate-x-[1px]"/>
         </button>
       </div>
-      <p class="font-semibold truncate group-hover:text-yam-orange transition">{{ track().title }}</p>
-      <p class="text-white/50 text-sm truncate">{{ track().sourceArtist || track().artistName }}</p>
-      <div class="flex items-center justify-between mt-2">
-        <div class="flex gap-1.5 flex-wrap">
-          @if (track().genre) { <span class="yam-badge">{{ track().genre }}</span> }
-          @if (track().bpm) { <span class="yam-badge">{{ track().bpm }} BPM</span> }
+      <div class="flex items-start justify-between gap-1.5">
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold truncate group-hover:text-yam-orange transition">{{ track().title }}</p>
+          <p class="text-white/50 text-sm truncate">{{ artistName() }}</p>
         </div>
-        <div class="flex items-center gap-2 text-white/40 text-xs">
-          <button (click)="player.addToQueue(track()); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a la file"><yam-icon name="plus" [size]="14"/></button>
-          <button (click)="openPlaylist(); $event.stopPropagation()" class="hover:text-white transition" title="Ajouter a une playlist"><yam-icon name="folder" [size]="14"/></button>
-          <button (click)="openShare(); $event.stopPropagation()" class="hover:text-white transition" title="Partager la piste"><yam-icon name="share" [size]="14"/></button>
-          <button (click)="openComments(); $event.stopPropagation()" class="hover:text-yam-orange transition" title="Commentaires"><yam-icon name="message-circle" [size]="14"/></button>
-          <button (click)="tip.emit(track()); $event.stopPropagation()" class="hover:text-yam-gold transition" title="Soutenir l'artiste"><yam-icon name="gift" [size]="14"/></button>
-          @if (!track().youtubeId) {
-            <button (click)="toggleDownload(); $event.stopPropagation()"
-                    class="transition"
-                    [class]="downloadState() === 'done' ? 'text-yam-green' : (downloadState() === 'loading' ? 'text-yam-gold' : 'hover:text-white')"
-                    [title]="downloadTitle()">
-              <yam-icon [name]="downloadIcon()" [size]="14" [class.animate-pulse]="downloadState() === 'loading'"/>
-            </button>
-          }
-          @if (track().youtubeId) {
-            <a [href]="track().sourceUrl || ('https://www.youtube.com/watch?v=' + track().youtubeId)" target="_blank" rel="noopener"
-               (click)="$event.stopPropagation()" class="hover:text-red-500 transition" title="Ouvrir sur YouTube"><yam-icon name="external-link" [size]="14"/></a>
-          }
-          <span class="flex items-center gap-1"><yam-icon name="play" [size]="10" class="fill-current"/> {{ formatPlays(track().playCount) }}</span>
+        <div class="shrink-0 -mt-1 -mr-1.5" (click)="$event.stopPropagation()">
+          <yam-track-menu [track]="track()" (tip)="tip.emit($event)"/>
         </div>
       </div>
+      <p class="text-white/40 text-xs yam-num mt-1.5 flex items-center gap-1.5">
+        @if (track().genre) { <span class="yam-badge !text-[10px] !px-2 !py-0.5">{{ track().genre }}</span> }
+        @else if (track().bpm) { <span>{{ track().bpm }} BPM</span> }
+        <span class="flex items-center gap-1"><yam-icon name="play" [size]="10" class="fill-current"/>{{ formatPlays(track().playCount) }}</span>
+      </p>
     </div>
-    @if (downloadError(); as err) {
-      <p class="text-yam-gold text-xs mt-1">{{ err }}</p>
-    }
-    <yam-add-to-playlist [visible]="playlistOpen()" [track]="track()" (close)="playlistOpen.set(false)" />
-    <yam-share-modal [visible]="shareOpen()" [track]="track()" (close)="shareOpen.set(false)" />
-
-    <!-- Modale commentaires (meme pattern que add-to-playlist / share) -->
-    @if (commentsOpen()) {
-      <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-           (click)="commentsOpen.set(false)">
-        <div class="bg-yam-card rounded-3xl p-6 w-full max-w-lg border border-white/10 max-h-[85vh] overflow-y-auto"
-             (click)="$event.stopPropagation()">
-          <div class="flex items-start justify-between mb-4">
-            <div class="min-w-0">
-              <h2 class="yam-title flex items-center gap-2.5"><yam-icon name="message-circle" [size]="22" class="text-yam-orange"/> Commentaires</h2>
-              <p class="text-white/50 text-sm mt-1 truncate">
-                <b class="text-white">{{ track().title }}</b> — {{ track().artistName }}
-              </p>
-            </div>
-            <button (click)="commentsOpen.set(false)" class="text-white/40 hover:text-white leading-none" aria-label="Fermer"><yam-icon name="x" [size]="22"/></button>
-          </div>
-          <yam-comments [trackId]="track().id" />
-        </div>
-      </div>
-    }
   `
 })
 export class TrackCardComponent {
   track = input.required<Track>();
   player = inject(PlayerService);
-  auth = inject(AuthService);
   charts = inject(ChartsService);
-  offline = inject(OfflineService);
   play = output<Track>();
   tip = output<Track>();
-  playlistOpen = signal<boolean>(false);
-  shareOpen = signal<boolean>(false);
-  commentsOpen = signal<boolean>(false);
-  downloadError = signal<string | null>(null);
 
   constructor() {
-    // Charge le top 10 hebdo une seule fois (badge des cartes, partage entre instances)
     this.charts.ensureTop10Loaded();
   }
 
-  // ============ TELECHARGEMENT HORS LIGNE ============
-
-  downloadState(): 'none' | 'loading' | 'done' {
-    if (this.offline.isDownloaded(this.track().id)) return 'done';
-    if (this.offline.isDownloading(this.track().id)) return 'loading';
-    return 'none';
-  }
-
-  /** Nom d'icone yam-icon selon l'etat du telechargement hors ligne. */
-  downloadIcon(): string {
-    const s = this.downloadState();
-    return s === 'done' ? 'check' : 'download';
-  }
-
-  downloadTitle(): string {
-    const s = this.downloadState();
-    if (s === 'done') return 'Telechargee hors ligne — clic pour supprimer';
-    if (s === 'loading') return 'Telechargement Data-Lite en cours...';
-    return 'Telecharger pour ecoute hors ligne (Data-Lite)';
-  }
-
-  async toggleDownload(): Promise<void> {
-    const t = this.track();
-    if (this.downloadState() === 'done') {
-      await this.offline.removeDownload(t.id);
-      return;
-    }
-    if (this.downloadState() === 'loading') return;
-    if (!navigator.onLine) {
-      this.downloadError.set('Connecte-toi a Internet pour telecharger — ensuite la piste restera disponible hors ligne.');
-      setTimeout(() => this.downloadError.set(null), 4000);
-      return;
-    }
-    const premium = !!this.auth.currentUser()?.premium;
-    const res = await this.offline.downloadTrack(t, premium);
-    if (!res.ok && res.error && res.error !== 'deja telecharge') {
-      this.downloadError.set(res.error);
-      setTimeout(() => this.downloadError.set(null), 4000);
-    }
+  artistName(): string {
+    return this.track().sourceArtist || this.track().artistName || 'YAM DJ';
   }
 
   /** Rang Top 10 de la semaine (null si hors chart). */
   chartRank(): number | null {
     return this.charts.rankOf(this.track());
-  }
-
-  openPlaylist(): void {
-    this.playlistOpen.set(true);
-  }
-
-  openShare(): void {
-    this.shareOpen.set(true);
-  }
-
-  openComments(): void {
-    this.commentsOpen.set(true);
   }
 
   isPlaying(): boolean {

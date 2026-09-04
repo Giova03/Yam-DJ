@@ -3,125 +3,131 @@ import { RouterLink } from '@angular/router';
 import { SeoService } from '../../services/seo.service';
 import { ChartsService } from '../../services/charts.service';
 import { PlayerService } from '../../services/player.service';
+import { IconComponent } from '../../components/icon/icon.component';
+import { ChartTrackComponent } from '../../components/track-variants/chart-track.component';
+import { RevealDirective } from '../../directives/reveal.directive';
 import { ChartEntry, Track } from '../../models/models';
 
 /**
- * CHARTS HEBDOMADAIRES — top des pistes les plus ecoutees de la semaine.
- * Onglets par pays (ou Afrique de l'Ouest = tous pays confondus),
- * podium Top 3 avec medailles + classement detaille 4..20.
- * ensureTop10Loaded() alimente le signal partage pour les badges "Top 10"
- * sur les cartes de pistes (integration CTO).
+ * PAGE CHARTS V2 (§08) — sensation magazine musical + compétition + culture.
+ * Le #1 est traité différemment (grande pochette, numéro, variation, écoutes),
+ * les positions suivantes restent compactes. Filtres pays, semaine affichée.
  */
 @Component({
   selector: 'yam-charts-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent, ChartTrackComponent, RevealDirective],
   template: `
-    <div class="max-w-7xl mx-auto px-4 pt-6 pb-12">
+    <div class="max-w-editorial mx-auto px-4 pt-6 pb-12">
 
-      <!-- En-tete -->
-      <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 class="yam-title mb-1">📊 Charts de la semaine</h1>
-          @if (weekLabel()) {
-            <p class="text-white/50 text-sm">Semaine du {{ weekLabel() }}</p>
+      <!-- En-tete editorial -->
+      <header class="mb-8">
+        <p class="yam-kicker mb-2">Classement hebdomadaire</p>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 class="yam-display text-4xl sm:text-5xl">YAM CHARTS</h1>
+            @if (weekLabel()) {
+              <p class="text-white/50 text-sm mt-2">Semaine du {{ weekLabel() }} — recompté chaque heure</p>
+            }
+          </div>
+          @if (chartTracks().length) {
+            <button (click)="playAll()" class="yam-btn-primary !px-6 !py-3 inline-flex items-center gap-2">
+              <yam-icon name="play" [size]="17" class="fill-current"/> Tout écouter
+            </button>
           }
         </div>
-        @if (chartTracks().length) {
-          <button (click)="playAll()" class="yam-btn-primary">▶ Tout ecouter</button>
-        }
-      </div>
+      </header>
 
-      <!-- Onglets pays -->
-      <div class="flex flex-wrap gap-2 mb-8" role="tablist" aria-label="Filtrer le chart par pays">
-        <button (click)="load('all')" [class]="tabClass('all')" role="tab"
-                [attr.aria-selected]="selectedCountry() === 'all'">🌍 Afrique de l'Ouest</button>
+      <!-- Filtres pays -->
+      <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-1 mb-6" role="tablist" aria-label="Filtrer le chart par pays">
+        <button (click)="load('all')" [attr.aria-selected]="selectedCountry() === 'all'" role="tab"
+                class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition"
+                [class]="selectedCountry() === 'all' ? 'bg-yam-orange text-yam-ink border-yam-orange' : 'text-white/60 border-white/15 hover:text-white hover:border-white/30'">
+          Afrique de l'Ouest
+        </button>
         @for (c of countries(); track c) {
-          <button (click)="load(c)" [class]="tabClass(c)" role="tab"
-                  [attr.aria-selected]="selectedCountry() === c">{{ countryFlag(c) }} {{ c }}</button>
+          <button (click)="load(c)" [attr.aria-selected]="selectedCountry() === c" role="tab"
+                  class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition"
+                  [class]="selectedCountry() === c ? 'bg-yam-orange text-yam-ink border-yam-orange' : 'text-white/60 border-white/15 hover:text-white hover:border-white/30'">
+            {{ countryFlag(c) }} {{ c }}
+          </button>
         }
       </div>
 
       @if (loading()) {
-        <!-- Skeletons -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" aria-hidden="true">
-          @for (s of [1, 2, 3]; track s) {
-            <div class="yam-card p-6 animate-pulse">
-              <div class="w-24 h-24 rounded-xl bg-white/10 mx-auto mb-4"></div>
-              <div class="h-4 bg-white/10 rounded w-3/4 mx-auto mb-2"></div>
-              <div class="h-3 bg-white/10 rounded w-1/2 mx-auto"></div>
-            </div>
-          }
+        <div class="yam-card !rounded-3xl p-5 sm:p-7 mb-3 grid sm:grid-cols-[190px_1fr] gap-6 animate-pulse" aria-hidden="true">
+          <div class="w-full aspect-square rounded-2xl bg-white/5 max-w-[190px]"></div>
+          <div class="space-y-3"><div class="h-12 w-24 bg-white/5 rounded"></div><div class="h-6 w-2/3 bg-white/5 rounded"></div><div class="h-4 w-1/3 bg-white/5 rounded"></div></div>
         </div>
-        <div class="space-y-2">
-          @for (s of [4, 5, 6, 7, 8]; track s) {
-            <div class="yam-card p-3 animate-pulse flex items-center gap-3">
-              <div class="w-8 h-4 bg-white/10 rounded"></div>
-              <div class="w-12 h-12 rounded-full bg-white/10 shrink-0"></div>
-              <div class="h-4 bg-white/10 rounded w-1/2 flex-1"></div>
-            </div>
+        <div class="yam-card !rounded-3xl p-5 space-y-4 animate-pulse" aria-hidden="true">
+          @for (s of [1,2,3,4,5,6]; track s) {
+            <div class="flex items-center gap-4"><div class="w-12 h-8 bg-white/5 rounded"></div><div class="w-14 h-14 rounded-xl bg-white/5"></div><div class="flex-1 h-4 bg-white/5 rounded w-1/2"></div></div>
           }
         </div>
       } @else {
         @if (entries().length) {
 
-          <!-- Podium Top 3 -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            @for (e of podium(); track e.rank) {
-              <div [class]="podiumCardClass(e.rank)">
-                <div class="text-3xl mb-2" aria-hidden="true">{{ medal(e.rank) }}</div>
-                @if (e.track?.coverUrl) {
-                  <img [src]="e.track?.coverUrl" [alt]="'Pochette de ' + (e.track?.title || '')" [class]="coverClass(e.rank)">
+          <!-- ===== LE NUMERO 1 ===== -->
+          @if (entries()[0]; as top) {
+            <div class="yam-card !rounded-3xl !border-yam-orange/30 p-5 sm:p-8 mb-3 grid grid-cols-1 sm:grid-cols-[minmax(0,230px)_minmax(0,1fr)] gap-6 sm:gap-8 items-center cursor-pointer group yam-grain relative overflow-hidden"
+                 (click)="playEntry(top)" yamReveal>
+              <div class="yam-glow w-[20rem] h-[20rem] -top-24 -right-10 opacity-50"></div>
+              <div class="relative w-full aspect-square rounded-[1.5rem] overflow-hidden max-w-[230px] shadow-2xl bg-gradient-to-br from-yam-orange/30 to-yam-gold/20">
+                @if (top.track?.coverUrl) {
+                  <img [src]="top.track?.coverUrl" [alt]="'Pochette de ' + (top.track?.title || '')" class="w-full h-full object-cover group-hover:scale-[1.04] transition duration-700">
                 } @else {
-                  <div [class]="coverFallbackClass(e.rank)" aria-hidden="true">🎵</div>
+                  <span class="w-full h-full flex items-center justify-center text-yam-orange"><yam-icon name="trophy" [size]="64"/></span>
                 }
-                <a [routerLink]="['/track', e.trackId]" class="block font-bold truncate hover:text-yam-orange hover:underline mb-1">
-                  {{ e.track?.title || 'Titre indisponible' }}
-                </a>
-                <p class="text-white/50 text-sm truncate mb-2">{{ e.track?.artistName || 'Artiste inconnu' }}</p>
-                <p class="text-xs text-yam-gold">🔥 {{ formatNumber(e.plays) }} ecoutes cette semaine</p>
+                <span class="absolute bottom-4 right-4 w-14 h-14 rounded-full bg-yam-orange text-yam-ink flex items-center justify-center shadow-2xl">
+                  <yam-icon name="play" [size]="24" class="fill-current translate-x-[1px]"/>
+                </span>
               </div>
+              <div class="relative">
+                <div class="flex items-center gap-4 flex-wrap mb-3">
+                  <span class="yam-display text-7xl sm:text-8xl text-yam-orange leading-none">{{ top.rank }}</span>
+                  <div class="flex flex-col gap-1">
+                    <span class="yam-kicker !text-[10px]">Numéro 1 de la semaine</span>
+                    @if (top.movement == null) {
+                      <span class="text-yam-gold text-sm font-bold yam-num flex items-center gap-1"><yam-icon name="sparkles" [size]="14"/> ENTRÉE</span>
+                    } @else if (top.movement! > 0) {
+                      <span class="text-yam-green text-sm font-bold yam-num flex items-center gap-1"><yam-icon name="trending-up" [size]="14"/> +{{ top.movement }}</span>
+                    } @else if (top.movement! < 0) {
+                      <span class="text-red-400/90 text-sm font-bold yam-num flex items-center gap-1"><yam-icon name="trending-down" [size]="14"/> {{ top.movement }}</span>
+                    } @else {
+                      <span class="text-white/40 text-sm yam-num">position stable</span>
+                    }
+                  </div>
+                </div>
+                <h2 class="font-display font-bold text-2xl sm:text-3xl leading-tight group-hover:text-yam-orange transition">{{ top.track?.title }}</h2>
+                <a [routerLink]="top.track?.artistId ? ['/artist', top.track?.artistId] : ['/search']" (click)="$event.stopPropagation()"
+                   class="text-white/60 mt-1.5 inline-block hover:text-yam-orange transition">{{ top.track?.sourceArtist || top.track?.artistName }}</a>
+                <p class="yam-num text-yam-orange text-2xl mt-4">{{ formatNumber(top.plays) }} <span class="text-white/40 text-xs">écoutes cette semaine</span></p>
+                <div class="flex flex-wrap gap-2 mt-4">
+                  @if (top.track?.genre) { <span class="yam-badge">{{ top.track?.genre }}</span> }
+                  @if (top.track?.country) { <span class="yam-badge">{{ countryFlag(top.track?.country || '') }} {{ top.track?.country }}</span> }
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- ===== POSITIONS SUIVANTES (compactes) ===== -->
+          <div class="yam-card !rounded-3xl p-3 sm:p-5" yamReveal>
+            @for (e of rest(); track e.trackId) {
+              <yam-chart-track [entry]="e" (play)="playChartTrack($event)"/>
             }
           </div>
 
-          <!-- Classement 4..20 -->
-          @if (rest().length) {
-            <h2 class="text-lg font-bold mb-3 text-white/70">Classement complet</h2>
-            <div class="space-y-2">
-              @for (e of rest(); track e.rank) {
-                <div class="yam-card p-3 flex items-center gap-3">
-                  <span class="w-8 text-center font-extrabold text-yam-orange shrink-0">{{ e.rank }}</span>
-                  @if (e.track?.coverUrl) {
-                    <img [src]="e.track?.coverUrl" [alt]="'Pochette de ' + (e.track?.title || '')"
-                         class="w-12 h-12 rounded-full object-cover shrink-0">
-                  } @else {
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center shrink-0" aria-hidden="true">🎵</div>
-                  }
-                  <div class="min-w-0 flex-1">
-                    <a [routerLink]="['/track', e.trackId]" class="font-medium truncate block hover:text-yam-orange">
-                      {{ e.track?.title || 'Titre indisponible' }}
-                    </a>
-                    <p class="text-white/40 text-xs truncate">{{ e.track?.artistName || 'Artiste inconnu' }}</p>
-                  </div>
-                  <span class="text-xs text-white/40 hidden sm:block shrink-0">{{ formatNumber(e.plays) }} ecoutes</span>
-                  @if (e.track) {
-                    <button (click)="playEntry(e)"
-                            class="w-9 h-9 rounded-full bg-white/10 hover:bg-yam-orange flex items-center justify-center shrink-0 transition"
-                            [attr.aria-label]="'Ecouter ' + (e.track?.title || '')">▶</button>
-                  }
-                </div>
-              }
-            </div>
-          }
         } @else {
           <!-- Etat vide -->
-          <div class="yam-card p-10 text-center max-w-lg mx-auto">
-            <div class="text-5xl mb-4" aria-hidden="true">📈</div>
-            <h2 class="text-xl font-bold mb-2">Pas encore d'ecoutes comptabilisees cette semaine</h2>
+          <div class="yam-card p-10 text-center max-w-lg mx-auto" yamReveal>
+            <div class="text-white/20 mb-4 flex justify-center"><yam-icon name="bar-chart" [size]="44"/></div>
+            <h2 class="text-xl font-bold mb-2">Pas encore d'écoutes comptabilisées cette semaine</h2>
             <p class="text-white/50 text-sm mb-6">
-              Reviens plus tard ou lance la lecture : chaque ecoute compte pour le prochain classement.
+              Reviens plus tard ou lance la lecture : chaque écoute compte pour le prochain classement.
             </p>
-            <a routerLink="/" class="yam-btn-secondary">🎧 Explorer la musique</a>
+            <a routerLink="/" class="yam-btn-secondary inline-flex items-center gap-2">
+              <yam-icon name="headphones" [size]="16"/> Explorer la musique
+            </a>
           </div>
         }
       }
@@ -135,22 +141,20 @@ export class ChartsComponent implements OnInit {
 
   entries = signal<ChartEntry[]>([]);
   countries = signal<string[]>([]);
-  selectedCountry = signal('all'); // 'all' = Afrique de l'Ouest
+  selectedCountry = signal('all');
   loading = signal(true);
   weekLabel = signal('');
 
-  podium = computed<ChartEntry[]>(() => this.entries().slice(0, 3));
-  rest = computed<ChartEntry[]>(() => this.entries().slice(3, 20));
+  rest = computed<ChartEntry[]>(() => this.entries().slice(1, 20));
   chartTracks = computed<Track[]>(() =>
     this.entries().filter(e => !!e.track).map(e => e.track as Track)
   );
 
   ngOnInit(): void {
     this.seo.page(
-      'Charts hebdomadaires — le top des sons d\'Afrique de l\'Ouest | YAM DJ',
+      'YAM CHARTS — le classement des sons d\'Afrique de l\'Ouest cette semaine | YAM DJ',
       'Le classement des pistes les plus écoutées de la semaine sur YAM DJ : Afrobeats, Coupé-Décalé, Rap et plus, pays par pays.',
       'https://yam-dj-frontend.vercel.app/charts');
-    // Charge le top 10 global (signal partage) pour les badges "Top 10" sur les cartes de pistes
     this.chartsService.ensureTop10Loaded();
     this.chartsService.getChartCountries().subscribe({
       next: list => this.countries.set(list || []),
@@ -176,7 +180,6 @@ export class ChartsComponent implements OnInit {
     });
   }
 
-  /** "Tout ecouter" : file d'attente = chart complet. */
   playAll(): void {
     const tracks = this.chartTracks();
     if (tracks.length) this.player.play(tracks[0], tracks);
@@ -185,6 +188,10 @@ export class ChartsComponent implements OnInit {
   playEntry(entry: ChartEntry): void {
     if (!entry.track) return;
     this.player.play(entry.track, this.chartTracks());
+  }
+
+  playChartTrack(track: Track): void {
+    this.player.play(track, this.chartTracks());
   }
 
   formatWeekStart(weekStart: string | null): string {
@@ -200,10 +207,6 @@ export class ChartsComponent implements OnInit {
 
   formatNumber(n: number): string {
     try { return n.toLocaleString('fr-FR'); } catch { return String(n); }
-  }
-
-  medal(rank: number): string {
-    return rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
   }
 
   countryFlag(c: string): string {
@@ -224,26 +227,5 @@ export class ChartsComponent implements OnInit {
     if (s.includes('mauritanie') || s.includes('mauritania')) return '🇲🇷';
     if (s.includes('cap-vert') || s.includes('verde')) return '🇨🇻';
     return '🌍';
-  }
-
-  tabClass(c: string): string {
-    const active = this.selectedCountry() === c;
-    const base = 'yam-badge cursor-pointer px-4 py-1.5 text-sm transition ';
-    return base + (active ? 'bg-yam-orange text-white' : 'text-white/60 hover:bg-white/20');
-  }
-
-  podiumCardClass(rank: number): string {
-    const base = 'yam-card p-5 text-center ';
-    return base + (rank === 1 ? 'border-yam-gold/40 bg-yam-gold/5 sm:p-7 sm:scale-105' : '');
-  }
-
-  coverClass(rank: number): string {
-    const base = 'mx-auto rounded-xl object-cover border border-white/10 mb-3 ';
-    return base + (rank === 1 ? 'w-28 h-28 sm:w-36 sm:h-36' : 'w-24 h-24 sm:w-28 sm:h-28');
-  }
-
-  coverFallbackClass(rank: number): string {
-    const base = 'mx-auto rounded-xl bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center text-3xl mb-3 border border-white/5 ';
-    return base + (rank === 1 ? 'w-28 h-28 sm:w-36 sm:h-36' : 'w-24 h-24 sm:w-28 sm:h-28');
   }
 }

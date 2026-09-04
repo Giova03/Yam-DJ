@@ -1,4 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -10,7 +11,7 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'yam-reset-password',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-yam-dark">
       <div class="w-full max-w-md">
@@ -23,7 +24,7 @@ import { AuthService } from '../../services/auth.service';
         <div class="yam-card p-6">
           @if (done()) {
             <div class="text-center py-4">
-              <div class="text-5xl mb-4">🎉</div>
+              <div class="text-5xl mb-4"></div>
               <p class="font-semibold mb-2">Mot de passe modifie !</p>
               <p class="text-white/50 text-sm mb-6">Connecte-toi maintenant avec ton nouveau mot de passe.</p>
               <a routerLink="/login" class="yam-btn-primary w-full inline-block">Se connecter</a>
@@ -48,7 +49,7 @@ import { AuthService } from '../../services/auth.service';
             @if (password.length > 0) {
               <p class="text-xs mb-4" [class]="password.length >= 8 ? 'text-yam-green' : 'text-red-400'">
                 @if (password.length < 8) { 8 caracteres minimum ({{ password.length }}/8) }
-                @else if (password === confirm) { Mots de passe identiques ✔ }
+                @else if (password === confirm) { Mots de passe identiques }
                 @else { Les mots de passe ne correspondent pas }
               </p>
             }

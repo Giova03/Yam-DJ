@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -10,10 +11,10 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
 @Component({
   selector: 'yam-admin',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 pt-6">
-      <h1 class="yam-title mb-2">🛡️ Moderation YAM DJ</h1>
+      <h1 class="yam-title mb-2"> Moderation YAM DJ</h1>
       <p class="text-white/50 text-sm mb-2">{{ pending() }} piste(s) en attente de validation.</p>
       @if (moderationMode()) {
         <p class="inline-flex items-center gap-2 text-xs rounded-full px-3 py-1.5 mb-8"
@@ -36,7 +37,7 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
       @if (toast(); as t) {
         <div class="yam-card p-3 mb-6 flex items-center gap-2"
              [class]="t.kind === 'ok' ? 'border-yam-green/40 bg-yam-green/10' : 'border-red-400/40 bg-red-400/10'">
-          <span>{{ t.kind === 'ok' ? '✔' : '✖' }}</span>
+          <span>{{ t.kind === 'ok' ? '' : '' }}</span>
           <p class="text-sm font-medium" [class]="t.kind === 'ok' ? 'text-yam-green' : 'text-red-400'">{{ t.msg }}</p>
         </div>
       }
@@ -45,7 +46,7 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
         <div class="space-y-3">
           @for (track of tracks(); track track) {
             <div class="yam-card p-5 flex items-center gap-4">
-              <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center text-xl shrink-0">🎵</div>
+              <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center text-xl shrink-0"><yam-icon name="music-note" [size]="28"/></div>
               <div class="min-w-0 flex-1">
                 <p class="font-semibold truncate">{{ track.title }}</p>
                 <p class="text-white/40 text-sm">{{ track.genre }} · {{ track.country }} ·
@@ -53,23 +54,23 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
                 </p>
               </div>
               <div class="flex gap-2 shrink-0">
-                <button (click)="approve(track)" class="yam-btn-primary !px-4 !py-2 text-sm bg-yam-green hover:bg-green-600">✔ Valider</button>
-                <button (click)="reject(track)" class="yam-btn-secondary !px-4 !py-2 text-sm !bg-red-500/20 hover:!bg-red-500/30">✖ Rejeter</button>
+                <button (click)="approve(track)" class="yam-btn-primary !px-4 !py-2 text-sm bg-yam-green hover:bg-green-600"> Valider</button>
+                <button (click)="reject(track)" class="yam-btn-secondary !px-4 !py-2 text-sm !bg-red-500/20 hover:!bg-red-500/30"> Rejeter</button>
               </div>
             </div>
           }
         </div>
       } @else {
         <div class="yam-card p-16 text-center">
-          <div class="text-5xl mb-3">✨</div>
+          <div class="text-5xl mb-3"><yam-icon name="sparkles" [size]="28"/></div>
           <p class="text-white/50">File de moderation vide. Tout est propre !</p>
         </div>
       }
 
-      <!-- 💸 Demandes de retrait -->
+      <!-- Demandes de retrait -->
       <section class="mt-12">
         <div class="flex items-center justify-between flex-wrap gap-3 mb-1">
-          <h2 class="text-xl font-bold">💸 Demandes de retrait</h2>
+          <h2 class="text-xl font-bold"> Demandes de retrait</h2>
           <button (click)="loadWithdrawals()" title="Rafraichir la file"
                   class="text-sm text-yam-orange hover:text-yam-gold transition font-medium">⟳ Rafraichir</button>
         </div>
@@ -82,9 +83,9 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
           <button (click)="setWithdrawFilter('PENDING')" class="yam-badge cursor-pointer transition"
                   [class]="filterActive('PENDING') ? '!bg-yam-orange/30 !text-yam-orange' : '!bg-white/5 !text-white/50 hover:!bg-white/10'">⏳ En attente</button>
           <button (click)="setWithdrawFilter('APPROVED')" class="yam-badge cursor-pointer transition"
-                  [class]="filterActive('APPROVED') ? '!bg-yam-green/30 !text-yam-green' : '!bg-white/5 !text-white/50 hover:!bg-white/10'">✔ Payes</button>
+                  [class]="filterActive('APPROVED') ? '!bg-yam-green/30 !text-yam-green' : '!bg-white/5 !text-white/50 hover:!bg-white/10'"> Payes</button>
           <button (click)="setWithdrawFilter('REJECTED')" class="yam-badge cursor-pointer transition"
-                  [class]="filterActive('REJECTED') ? '!bg-red-400/30 !text-red-400' : '!bg-white/5 !text-white/50 hover:!bg-white/10'">✖ Refuses</button>
+                  [class]="filterActive('REJECTED') ? '!bg-red-400/30 !text-red-400' : '!bg-white/5 !text-white/50 hover:!bg-white/10'"> Refuses</button>
         </div>
 
         @if (filteredWithdrawals().length) {
@@ -111,12 +112,12 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
                       } @else if (confirmWithdrawId() === w.id) {
                         Confirmer ?
                       } @else {
-                        ✅ Valider
+                        Valider
                       }
                     </button>
                     @if (rejectingId() !== w.id) {
                       <button (click)="startReject(w)" [disabled]="processingId() === w.id"
-                              class="text-sm font-semibold px-4 py-2 rounded-full bg-red-400/10 text-red-400 hover:bg-red-400/20 transition">❌ Rejeter</button>
+                              class="text-sm font-semibold px-4 py-2 rounded-full bg-red-400/10 text-red-400 hover:bg-red-400/20 transition"> Rejeter</button>
                     }
                   </div>
 
@@ -147,15 +148,15 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
         }
       </section>
 
-      <!-- 🎵 Redevances d'ecoute (Phase 3.3) : cagnottes mensuelles -->
+      <!-- Redevances d'ecoute (Phase 3.3) : cagnottes mensuelles -->
       <section class="mt-12">
-        <h2 class="text-xl font-bold mb-4">🎵 Redevances d'ecoute
+        <h2 class="text-xl font-bold mb-4"> Redevances d'ecoute
           <span class="text-white/40 text-sm">— cagnotte repartie au prorata des ecoutes</span>
         </h2>
         <div class="yam-card p-4 mb-4 flex items-center gap-3 flex-wrap">
           <button (click)="runRoyalties()" [disabled]="royaltiesBusy()"
                   class="yam-btn-primary !py-2 text-sm">
-            {{ royaltiesBusy() ? 'Repartition en cours...' : '▶ Repartir la cagnotte du mois precedent' }}
+            {{ royaltiesBusy() ? 'Repartition en cours...' : ' Repartir la cagnotte du mois precedent' }}
           </button>
           @if (royaltiesMessage(); as msg) {
             <p class="text-sm" [class]="royaltiesOk() ? 'text-yam-green' : 'text-red-400'">{{ msg }}</p>
@@ -165,7 +166,7 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
           <div class="space-y-2">
             @for (pool of royaltyPools(); track pool.id) {
               <div class="yam-card p-4 flex items-center gap-3 flex-wrap">
-                <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0">🎵</div>
+                <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0"><yam-icon name="music-note" [size]="28"/></div>
                 <div class="min-w-0 flex-1">
                   <p class="font-medium">{{ pool.periodMonth }} — {{ formatXof(pool.poolAmountXof) }} F repartis</p>
                   <p class="text-white/40 text-sm">
@@ -179,7 +180,7 @@ import { RoyaltyPool, Track, WithdrawalRequest } from '../../models/models';
           </div>
         } @else {
           <div class="yam-card p-8 text-center text-white/40">
-            <div class="text-4xl mb-2">🎵</div>
+            <div class="text-4xl mb-2"><yam-icon name="music-note" [size]="28"/></div>
             Aucune repartition encore effectuee. Lance la premiere pour crediter les artistes.
           </div>
         }
@@ -368,8 +369,8 @@ export class AdminComponent implements OnInit {
 
   withdrawLabel(status: string): string {
     if (status === 'PENDING') return '⏳ En attente';
-    if (status === 'APPROVED') return '✔ Paye';
-    return '✖ Refuse';
+    if (status === 'APPROVED') return ' Paye';
+    return ' Refuse';
   }
 
   withdrawBadgeClass(status: string): string {

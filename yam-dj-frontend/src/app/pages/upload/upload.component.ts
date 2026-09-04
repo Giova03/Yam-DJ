@@ -1,6 +1,7 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { IconComponent } from '../../components/icon/icon.component';
 import { AuthService } from '../../services/auth.service';
 import { TrackService } from '../../services/track.service';
 import { AnalyticsService } from '../../services/analytics.service';
@@ -24,10 +25,10 @@ const MAX_COVER_MB = 5;
 @Component({
   selector: 'yam-upload',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <div class="max-w-3xl mx-auto px-4 pt-6 pb-16">
-      <h1 class="yam-title mb-2">🎵 Publier une piste</h1>
+      <h1 class="yam-title mb-2"> Publier une piste</h1>
       <p class="text-white/50 text-sm mb-6">
         Titre, fichier, pochette — c'est tout. Duree, BPM et qualite sont detectes
         automatiquement pendant le traitement.
@@ -35,7 +36,7 @@ const MAX_COVER_MB = 5;
 
       @if (!canUpload()) {
         <div class="yam-card p-8 text-center">
-          <div class="text-5xl mb-4">🎤</div>
+          <div class="text-5xl mb-4"><yam-icon name="mic" [size]="28"/></div>
           <h2 class="text-xl font-bold mb-2">Espace reserve aux artistes</h2>
           <p class="text-white/50 text-sm mb-6">
             Seuls les comptes artistes peuvent publier des pistes sur YAM DJ.
@@ -45,7 +46,7 @@ const MAX_COVER_MB = 5;
         </div>
       } @else if (phase() === 'processing') {
         <div class="yam-card p-10 text-center">
-          <div class="text-6xl mb-4">⚙️</div>
+          <div class="text-6xl mb-4"></div>
           <h2 class="text-2xl font-bold mb-2">Traitement en cours...</h2>
           <p class="text-white/50 text-sm mb-1">
             <b class="text-white">{{ uploadedTitle() }}</b> est en cours de preparation :
@@ -62,7 +63,7 @@ const MAX_COVER_MB = 5;
         </div>
       } @else if (phase() === 'failed') {
         <div class="yam-card p-10 text-center">
-          <div class="text-6xl mb-4">⚠️</div>
+          <div class="text-6xl mb-4"></div>
           <h2 class="text-2xl font-bold mb-2">Traitement impossible</h2>
           <p class="text-white/50 text-sm mb-2">
             <b class="text-white">{{ uploadedTitle() }}</b> n'a pas pu etre traitee.
@@ -75,7 +76,7 @@ const MAX_COVER_MB = 5;
           <div class="flex flex-col sm:flex-row gap-3 justify-center">
             <button (click)="retry()" [disabled]="retrying()" class="yam-btn-primary">
               @if (retrying()) { <span class="animate-pulse">Relance...</span> }
-              @else { 🔄 Relancer le traitement }
+              @else { Relancer le traitement }
             </button>
             <button (click)="reset()" class="yam-btn-secondary">Reessayer avec un autre fichier</button>
           </div>
@@ -85,7 +86,7 @@ const MAX_COVER_MB = 5;
         </div>
       } @else if (phase() === 'done') {
         <div class="yam-card p-10 text-center">
-          <div class="text-6xl mb-4">🚀</div>
+          <div class="text-6xl mb-4"><yam-icon name="arrow-right" [size]="28"/></div>
           <h2 class="text-2xl font-bold mb-2">Piste en ligne !</h2>
           <p class="text-white/50 text-sm mb-1">
             <b class="text-white">{{ uploadedTitle() }}</b> est publiee et visible par toute la communaute.
@@ -138,11 +139,11 @@ const MAX_COVER_MB = 5;
                    class="block border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all hover:border-yam-orange/60 hover:bg-yam-orange/5"
                    [class]="audioFile() ? 'border-yam-orange/60 bg-yam-orange/10' : 'border-white/15'">
               @if (audioFile()) {
-                <div class="text-3xl mb-2">🎧</div>
+                <div class="text-3xl mb-2"><yam-icon name="headphones" [size]="28"/></div>
                 <p class="font-semibold truncate">{{ audioFile()!.name }}</p>
                 <p class="text-white/40 text-xs mt-1">{{ audioSizeLabel() }} — clique pour changer</p>
               } @else {
-                <div class="text-3xl mb-2">⬆️</div>
+                <div class="text-3xl mb-2">⬆</div>
                 <p class="text-white/60 text-sm">Depose ton fichier audio ou clique ici</p>
                 <p class="text-white/30 text-xs mt-1">MP3, WAV, FLAC, AAC — 100 Mo max</p>
               }
@@ -159,7 +160,7 @@ const MAX_COVER_MB = 5;
               @if (coverUrl()) {
                 <img [src]="coverUrl()" alt="Pochette" class="w-16 h-16 rounded-xl object-cover border border-white/15">
               } @else {
-                <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center text-2xl">🖼️</div>
+                <div class="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center text-2xl"></div>
               }
               <label class="yam-badge cursor-pointer hover:bg-white/20">
                 {{ coverFile() ? 'Changer la pochette' : 'Choisir une pochette' }}
@@ -181,7 +182,7 @@ const MAX_COVER_MB = 5;
             @if (loading()) {
               <span class="animate-pulse">Envoi du fichier...</span>
             } @else {
-              🚀 Publier ma piste
+              Publier ma piste
             }
           </button>
           <p class="text-white/30 text-xs text-center mt-3">

@@ -113,9 +113,10 @@ export class CommentsComponent {
 
   constructor() {
     // Recharge la liste a chaque changement de piste ciblee
+    // (deferre : load() ecrit des signaux -> interdit dans un effect, NG0600)
     effect(() => {
       const id = this.trackId();
-      if (id) this.load();
+      if (id) window.setTimeout(() => this.load(), 0);
     });
     // Id de l'utilisateur connecte (bouton Supprimer de ses commentaires)
     this.commentsService.currentUserId().subscribe(id => this.myId.set(id));

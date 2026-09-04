@@ -1,4 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ContentService } from '../../services/content.service';
@@ -14,7 +15,7 @@ import { Playlist, Track } from '../../models/models';
 @Component({
   selector: 'yam-playlist-detail',
   standalone: true,
-  imports: [TrackCardComponent, TipModalComponent, RouterLink],
+  imports: [TrackCardComponent, TipModalComponent, RouterLink, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
 
@@ -22,14 +23,14 @@ import { Playlist, Track } from '../../models/models';
         <div class="text-center py-20 text-white/40 animate-pulse">Chargement de la playlist...</div>
       } @else if (!playlist()) {
         <div class="yam-card p-10 text-center">
-          <div class="text-5xl mb-3">🎧</div>
+          <div class="text-5xl mb-3"><yam-icon name="headphones" [size]="28"/></div>
           <p class="text-white/60 mb-4">Cette playlist est introuvable ou privee.</p>
           <a routerLink="/playlists" class="yam-btn-primary">Mes playlists</a>
         </div>
       } @else {
         <section class="mb-8 rounded-3xl overflow-hidden relative bg-gradient-to-r from-yam-orange/20 via-yam-surface to-yam-surface border border-white/5 p-8">
           <div class="flex items-center gap-4">
-            <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-yam-orange/40 to-yam-surface flex items-center justify-center text-4xl shrink-0">🎧</div>
+            <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-yam-orange/40 to-yam-surface flex items-center justify-center text-4xl shrink-0"><yam-icon name="headphones" [size]="28"/></div>
             <div class="min-w-0">
               <p class="text-white/40 text-sm mb-1 uppercase tracking-wide">Playlist {{ playlist()!.isPublic ? 'publique' : 'privee' }}</p>
               <h1 class="font-display font-extrabold text-3xl md:text-4xl truncate">{{ playlist()!.name }}</h1>
@@ -38,10 +39,10 @@ import { Playlist, Track } from '../../models/models';
           </div>
           <div class="flex flex-wrap gap-3 mt-6">
             <button (click)="playAll()" [disabled]="tracks().length === 0" class="yam-btn-primary !px-8 !py-3">
-              ▶ Tout ecouter
+              Tout ecouter
             </button>
             <button (click)="playShuffled()" [disabled]="tracks().length === 0" class="yam-btn-secondary !px-6 !py-3">
-              🔀 Lecture aleatoire
+              Lecture aleatoire
             </button>
             @if (tracks().length > 0) {
               <a routerLink="/search" class="yam-btn-secondary !px-6 !py-3">+ Ajouter des sons</a>
@@ -52,9 +53,9 @@ import { Playlist, Track } from '../../models/models';
         <section>
           @if (tracks().length === 0) {
             <div class="yam-card p-10 text-center">
-              <div class="text-5xl mb-3">🎵</div>
+              <div class="text-5xl mb-3"><yam-icon name="music-note" [size]="28"/></div>
               <p class="text-white/60">Cette playlist est vide.<br>
-              Ajoute des sons depuis la recherche ou les cartes de pistes (bouton 🗂).</p>
+              Ajoute des sons depuis la recherche ou les cartes de pistes (bouton).</p>
               <a routerLink="/search" class="yam-btn-primary inline-block mt-4">Explorer les sons</a>
             </div>
           } @else {

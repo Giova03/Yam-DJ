@@ -3,74 +3,101 @@ import { FormsModule } from '@angular/forms';
 import { Track } from '../../models/models';
 import { TrackService } from '../../services/track.service';
 import { AuthService } from '../../services/auth.service';
+import { IconComponent } from '../icon/icon.component';
 
 /** Domaine public du frontend — cible des liens de partage profonds. */
 const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
 
 /**
- * MODALE DE PARTAGE SOCIAL d'une piste : lien profond copiable +
- * partage WhatsApp / Facebook / X. Utilisee depuis les cartes de pistes
- * (home, profil, artiste...) et la page publique /track/:id.
+ * MODALE DE PARTAGE (V2 §13 P1) — piste complete OU EXTRAIT 30 s.
+ * Reseaux priorises : WhatsApp, Instagram, TikTok, Facebook, X +
+ * Web Share API (mobile) + copie de lien + envoi in-app a un ami.
+ * Instagram/TikTok n'ont pas d'intent web de partage : le lien est copie
+ * puis l'app s'ouvre — le colleur fait le reste (comportement standard).
  */
 @Component({
   selector: 'yam-share-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     @if (visible() && track()) {
       <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" (click)="close.emit()">
-        <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10" (click)="$event.stopPropagation()">
+        <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10 max-h-[88vh] overflow-y-auto" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Partager">
 
           <div class="flex items-start justify-between mb-4">
-            <div>
-              <h2 class="yam-title">🔗 Partager la piste</h2>
-              <p class="text-white/50 text-sm mt-1 truncate">
-                <b class="text-white">{{ track()?.title }}</b> — {{ track()?.artistName }}
+            <div class="min-w-0">
+              <p class="yam-kicker mb-1">{{ clip() ? 'Extrait 30 s' : 'Partage' }}</p>
+              <h2 class="font-display font-bold text-xl leading-tight truncate">{{ track()?.title }}</h2>
+              <p class="text-white/50 text-sm mt-0.5 truncate">— {{ track()?.artistName }}</p>
+            </div>
+            <button (click)="close.emit()" class="text-white/40 hover:text-white w-9 h-9 rounded-full flex items-center justify-center" aria-label="Fermer"><yam-icon name="x" [size]="20"/></button>
+          </div>
+
+          @if (clip()) {
+            <div class="rounded-2xl border border-yam-orange/30 bg-yam-orange/5 p-4 mb-4 flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl bg-yam-orange/15 text-yam-orange flex items-center justify-center shrink-0"><yam-icon name="scissors" [size]="18"/></span>
+              <p class="text-sm text-white/70">
+                Lien vers l'extrait <b class="yam-num text-yam-orange">{{ sec(clip()!.start) }} – {{ sec(clip()!.end) }}</b> :
+                il démarre et s'arrête tout seul à l'ouverture.
               </p>
             </div>
-            <button (click)="close.emit()" class="text-white/40 hover:text-white text-2xl leading-none">×</button>
-          </div>
+          }
 
           <!-- Lien profond copiable -->
           <div class="bg-yam-surface rounded-2xl p-4 border border-white/10 mb-4">
             <div class="flex gap-2">
               <input #linkInput [value]="shareUrl()" readonly (click)="linkInput.select()"
-                     class="yam-input !py-2.5 text-sm flex-1 truncate" aria-label="Lien de la piste">
-              <button (click)="copyLink()" class="yam-btn-primary !px-4 !py-2.5 text-sm shrink-0">
-                @if (copied()) { ✓ } @else { 📋 Copier }
+                     class="yam-input !py-2.5 text-sm flex-1 truncate" aria-label="Lien de partage">
+              <button (click)="copyLink()" class="yam-btn-primary !px-4 !py-2.5 text-sm shrink-0 inline-flex items-center gap-1.5">
+                @if (copied()) { <yam-icon name="check" [size]="14"/> } @else { <yam-icon name="share" [size]="14"/> }
+                {{ copied() ? 'Copie' : 'Copier' }}
               </button>
             </div>
-            @if (copied()) {
-              <p class="text-yam-gold text-xs mt-2">✅ Lien copie ! Colle-le ou tu veux.</p>
-            } @else {
-              <p class="text-white/40 text-xs mt-2">Ce lien ouvre la page publique de la piste, meme sans compte.</p>
-            }
+            <p class="text-white/40 text-xs mt-2">
+              @if (copied()) { Lien copié — colle-le où tu veux. }
+              @else { Ce lien ouvre la page du son, même sans compte. }
+            </p>
           </div>
 
-          <!-- Reseaux sociaux -->
-          <div class="grid grid-cols-4 gap-2 mb-4">
-            <button (click)="shareWhatsApp()"
-                    class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#25D366]/20">
-              <span class="text-xl">💬</span> WhatsApp
+          <!-- Web Share API (mobile) -->
+          @if (canNativeShare()) {
+            <button (click)="nativeShare()"
+                    class="yam-btn-primary w-full !py-3 mb-4 inline-flex items-center justify-center gap-2">
+              <yam-icon name="share" [size]="16"/> Partager depuis le téléphone
             </button>
-            <button (click)="shareTelegram()"
-                    class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#229ED9]/20">
-              <span class="text-xl">✈️</span> Telegram
+          }
+
+          <!-- Reseaux : priorite WhatsApp / Instagram / TikTok / Facebook / X -->
+          <div class="grid grid-cols-5 gap-2 mb-4">
+            <button (click)="shareWhatsApp()" class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/8 hover:bg-[#25D366]/15 hover:border-[#25D366]/40 transition">
+              <span class="w-9 h-9 rounded-full bg-[#25D366]/20 text-[#25D366] font-extrabold text-xs flex items-center justify-center">WA</span>
+              <span class="text-[10px] font-semibold text-white/60">WhatsApp</span>
             </button>
-            <button (click)="shareFacebook()"
-                    class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-[#1877F2]/20">
-              <span class="text-xl">📘</span> Facebook
+            <button (click)="shareInstagram()" class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/8 hover:bg-[#E1306C]/15 hover:border-[#E1306C]/40 transition">
+              <span class="w-9 h-9 rounded-full bg-[#E1306C]/20 text-[#E1306C] font-extrabold text-xs flex items-center justify-center">IG</span>
+              <span class="text-[10px] font-semibold text-white/60">Instagram</span>
             </button>
-            <button (click)="shareX()"
-                    class="yam-btn-secondary !px-2 !py-3 text-sm flex flex-col items-center gap-1 hover:!bg-white/20">
-              <span class="text-xl">✖️</span> X
+            <button (click)="shareTikTok()" class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/8 hover:bg-white/10 transition">
+              <span class="w-9 h-9 rounded-full bg-white/10 text-white font-extrabold text-xs flex items-center justify-center">TT</span>
+              <span class="text-[10px] font-semibold text-white/60">TikTok</span>
+            </button>
+            <button (click)="shareFacebook()" class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/8 hover:bg-[#1877F2]/15 hover:border-[#1877F2]/40 transition">
+              <span class="w-9 h-9 rounded-full bg-[#1877F2]/20 text-[#4A9DFF] font-extrabold text-sm flex items-center justify-center">f</span>
+              <span class="text-[10px] font-semibold text-white/60">Facebook</span>
+            </button>
+            <button (click)="shareX()" class="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/8 hover:bg-white/10 transition">
+              <span class="w-9 h-9 rounded-full bg-white/10 text-white font-extrabold text-sm flex items-center justify-center">X</span>
+              <span class="text-[10px] font-semibold text-white/60">X</span>
             </button>
           </div>
+          @if (clip()) {
+            <p class="text-white/35 text-xs mb-4 -mt-2">Instagram et TikTok : le lien est copié, colle-le dans ta story ou ta vidéo.</p>
+          }
 
           <!-- Envoi IN-APP a un ami YAM DJ -->
           @if (auth.isLoggedIn()) {
-            <div class="bg-yam-surface rounded-2xl p-4 border border-white/10 mb-4">
-              <p class="text-sm font-semibold mb-2">🎵 Envoyer a un ami YAM DJ</p>
+            <div class="bg-yam-surface rounded-2xl p-4 border border-white/10">
+              <p class="text-sm font-semibold mb-2 flex items-center gap-1.5"><yam-icon name="users" [size]="14" class="text-yam-orange"/> Envoyer a un ami YAM DJ</p>
               @if (sendState() === 'done') {
                 <p class="text-yam-green text-sm">{{ sendMessage() }}</p>
               } @else {
@@ -92,8 +119,6 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
               }
             </div>
           }
-
-          <p class="text-white/30 text-xs text-center">{{ shareText() }}</p>
         </div>
       </div>
     }
@@ -102,6 +127,8 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
 export class ShareModalComponent {
   visible = input.required<boolean>();
   track = input<Track | null>(null);
+  /** V2 P1 : extrait de 30 s {start, end} en secondes. */
+  clip = input<{ start: number; end: number } | null>(null);
   close = output<void>();
   shared = output<string>();
 
@@ -118,15 +145,40 @@ export class ShareModalComponent {
 
   shareUrl = computed<string>(() => {
     const t = this.track();
-    return t ? `${SHARE_BASE_URL}${t.id}` : '';
+    if (!t) return '';
+    const base = `${SHARE_BASE_URL}${t.slug || t.id}`;
+    const c = this.clip();
+    return c ? `${base}?clipStart=${c.start}&clipEnd=${c.end}` : base;
   });
 
-  /** Texte de partage : "Ecoute {titre} de {artiste} sur YAM DJ 🎧 {url}" */
   shareText = computed<string>(() => {
     const t = this.track();
     if (!t) return '';
-    return `Ecoute ${t.title} de ${t.artistName} sur YAM DJ 🎧 ${this.shareUrl()}`;
+    const c = this.clip();
+    if (c) return `Ecoute l'extrait de 30 s de ${t.title} de ${t.artistName} sur YAM DJ ${this.shareUrl()}`;
+    return `Ecoute ${t.title} de ${t.artistName} sur YAM DJ ${this.shareUrl()}`;
   });
+
+  sec(s: number): string {
+    const m = Math.floor(s / 60);
+    const r = Math.floor(s % 60);
+    return `${m}:${r < 10 ? '0' : ''}${r}`;
+  }
+
+  canNativeShare(): boolean {
+    return typeof navigator !== 'undefined' && !!navigator.share;
+  }
+
+  nativeShare(): void {
+    const t = this.track();
+    if (!t || !navigator.share) return;
+    navigator.share({
+      title: t.title,
+      text: this.shareText(),
+      url: this.shareUrl()
+    }).catch(() => { /* annule par l'utilisateur */ });
+    this.shared.emit('native');
+  }
 
   copyLink(): void {
     const url = this.shareUrl();
@@ -160,9 +212,18 @@ export class ShareModalComponent {
     this.shared.emit('x');
   }
 
-  shareTelegram(): void {
-    this.openWindow(`https://t.me/share/url?url=${encodeURIComponent(this.shareUrl())}&text=${encodeURIComponent(this.shareText())}`);
-    this.shared.emit('telegram');
+  /** Instagram : pas d'intent web -> copie + ouverture de l'app. */
+  shareInstagram(): void {
+    this.copyLink();
+    this.openWindow('https://www.instagram.com/');
+    this.shared.emit('instagram');
+  }
+
+  /** TikTok : pas d'intent web -> copie + ouverture de l'app. */
+  shareTikTok(): void {
+    this.copyLink();
+    this.openWindow('https://www.tiktok.com/upload');
+    this.shared.emit('tiktok');
   }
 
   /** Envoi in-app : le destinataire recoit une notification. */

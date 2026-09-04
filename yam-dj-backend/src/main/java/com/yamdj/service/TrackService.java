@@ -259,6 +259,36 @@ public class TrackService {
         return TrackDtos.from(track, stageName, pseudoOf(artistId));
     }
 
+    /** Paroles synchronisees (LRC) d'une piste — lecture publique. */
+    @Transactional(readOnly = true)
+    public LyricResponse lyrics(UUID trackId) {
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
+        return new LyricResponse(track.getLyrics());
+    }
+
+    /**
+     * Enregistre les paroles LRC d'une piste (proprietaire ou admin).
+     * Format LRC : "[00:12.34] Premiere ligne" — les timestamps permettent
+     * la synchronisation cote lecteur (mode karaoke).
+     */
+    @Transactional
+    public LyricResponse updateLyrics(UUID trackId, String lyrics) {
+        User user = currentUser();
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Piste introuvable : " + trackId));
+        if (!track.getArtistId().equals(user.getId()) && user.getRole() != UserRole.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "Seul l'artiste proprietaire peut modifier les paroles");
+        }
+        if (lyrics != null && lyrics.length() > 200_000) {
+            throw new IllegalArgumentException("Paroles trop longues (200 000 caracteres maximum)");
+        }
+        track.setLyrics((lyrics == null || lyrics.isBlank()) ? null : lyrics.trim());
+        trackRepository.save(track);
+        return new LyricResponse(track.getLyrics());
+    }
+
     /** Slug SEO unique et stable : titre-normalise + suffixe court. */
     private String uniqueSlug(String title, String trackId) {
         String base = slugify(title);

@@ -1,4 +1,5 @@
 import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { IconComponent } from '../icon/icon.component';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
@@ -13,6 +14,7 @@ import { AppNotification } from '../../models/models';
 @Component({
   selector: 'yam-notifications-bell',
   standalone: true,
+  imports: [IconComponent],
   template: `
     @if (auth.isLoggedIn()) {
       <div class="relative">
@@ -20,7 +22,7 @@ import { AppNotification } from '../../models/models';
         <button (click)="toggle($event)" title="Notifications"
                 aria-label="Notifications"
                 class="relative w-9 h-9 rounded-full hover:bg-white/10 transition flex items-center justify-center text-lg">
-          <span [class]="open() ? 'text-yam-orange' : 'text-white/70'">🔔</span>
+          <span [class]="open() ? 'text-yam-orange' : 'text-white/70'"><yam-icon name="bell" [size]="17"/></span>
           @if (unreadCount() > 0) {
             <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-yam-dark">
               {{ unreadCount() > 9 ? '9+' : unreadCount() }}
@@ -49,7 +51,7 @@ import { AppNotification } from '../../models/models';
                 <p class="text-xs text-white/60 mb-2">Reste au courant : nouveaux sons, tips, retraits</p>
                 <button (click)="activatePush()" [disabled]="pushBusy()"
                         class="yam-btn-primary !py-1.5 !px-4 text-xs w-full">
-                  @if (pushBusy()) { <span class="animate-pulse">Activation...</span> } @else { 🔔 Activer les push }
+                  @if (pushBusy()) { <span class="animate-pulse">Activation...</span> } @else { Activer les push }
                 </button>
               </div>
             } @else {
@@ -208,7 +210,7 @@ export class NotificationsBellComponent implements OnInit, OnDestroy {
       case 'WITHDRAWAL_APPROVED': return '💸';
       case 'WITHDRAWAL_REJECTED': return '❌';
       case 'PREMIUM_ACTIVATED': return '⭐';
-      default: return '🔔';
+      default: return '';
     }
   }
 

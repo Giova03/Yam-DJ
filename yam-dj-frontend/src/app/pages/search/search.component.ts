@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ContentService } from '../../services/content.service';
 import { PlayerService } from '../../services/player.service';
 import { TrackCardComponent } from '../../components/track-card/track-card.component';
+import { IconComponent } from '../../components/icon/icon.component';
 import { TipModalComponent } from '../../components/tip-modal/tip-modal.component';
 import { ArtistPublic, Track } from '../../models/models';
 
@@ -14,25 +15,25 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
 @Component({
   selector: 'yam-search',
   standalone: true,
-  imports: [FormsModule, TrackCardComponent, TipModalComponent, RouterLink],
+  imports: [FormsModule, TrackCardComponent, TipModalComponent, RouterLink, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
-      <h1 class="yam-title mb-6">🔎 Explorer la musique</h1>
+      <h1 class="yam-title mb-6 flex items-center gap-2.5"><yam-icon name="search" [size]="26" class="text-yam-orange"/> Explorer la musique</h1>
 
       <!-- Barre de recherche -->
       <div class="relative mb-6 flex gap-2">
         <div class="relative flex-1">
           <input type="text" [ngModel]="query()" (ngModelChange)="onQueryChange($event)"
-                 placeholder="Titre, artiste, DJ... ou parle 🎙"
+                 placeholder="Titre, artiste, DJ... ou parle (recherche vocale)"
                  class="yam-input !py-4 text-lg pl-12">
-          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-white/30">🎵</span>
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"><yam-icon name="music-note" [size]="18"/></span>
         </div>
         @if (voiceSupported()) {
           <button (click)="toggleVoice()" [disabled]="searching()"
                   class="w-14 shrink-0 rounded-2xl flex items-center justify-center text-2xl transition border"
                   [class]="listening() ? 'bg-red-500 text-white border-red-400 animate-pulse shadow-lg shadow-red-500/30' : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'"
                   [title]="listening() ? 'Arrêter l\u2019écoute' : 'Recherche vocale — dis le nom d\u2019un artiste ou d\u2019une chanson'">
-            {{ listening() ? '⏹' : '🎙' }}
+            {{ listening() ? 'Stop' : 'Voix' }}
           </button>
         }
       </div>
@@ -57,7 +58,7 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
           <button (click)="country.set(c); applyFilters()"
                   class="yam-badge cursor-pointer hover:bg-white/20 !bg-white/5"
                   [class]="country() === c ? '!bg-yam-gold/20 !text-yam-gold border border-yam-gold/40' : ''">
-            🌍 {{ c === 'all' ? 'Tous pays' : c }}
+            {{ c === 'all' ? 'Tous pays' : c }}
           </button>
         }
       </div>
@@ -74,11 +75,11 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
 
       <!-- Resultats artistes -->
       @if (artists().length) {
-        <h2 class="text-xl font-bold mb-4">🎤 Artistes</h2>
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><yam-icon name="mic" [size]="20" class="text-yam-orange"/> Artistes</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
           @for (artist of artists(); track artist.userId) {
             <a [routerLink]="['/artist', artist.userId]" class="yam-card p-5 flex items-center gap-4">
-              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-yam-orange/30 to-yam-gold/30 flex items-center justify-center text-xl shrink-0">🎤</div>
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-yam-orange/30 to-yam-gold/30 flex items-center justify-center text-xl shrink-0"><yam-icon name="mic" [size]="26" class="text-yam-orange"/></div>
               <div class="min-w-0">
                 <p class="font-semibold truncate">{{ artist.stageName }}</p>
                 <p class="text-white/50 text-sm">{{ artist.tracksCount }} pistes · {{ artist.totalPlays }} ecoutes</p>
@@ -90,11 +91,11 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
 
       <!-- Resultats DJs -->
       @if (djs().length) {
-        <h2 class="text-xl font-bold mb-4">🎚️ DJs</h2>
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><yam-icon name="sliders" [size]="20" class="text-yam-orange"/> DJs</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
           @for (dj of djs(); track dj.userId) {
             <div class="yam-card p-5 flex items-center gap-4">
-              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-yam-gold/30 to-yam-orange/30 flex items-center justify-center text-xl shrink-0">🎧</div>
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-yam-gold/30 to-yam-orange/30 flex items-center justify-center text-xl shrink-0"><yam-icon name="headphones" [size="26" class="text-yam-orange"/></div>
               <div class="min-w-0">
                 <p class="font-semibold truncate">{{ dj.djName }}</p>
                 <p class="text-white/50 text-sm">{{ dj.mixtapeCount }} mixtapes</p>
@@ -106,7 +107,7 @@ const COUNTRIES = ['all', 'Burkina Faso', "Cote d'Ivoire", 'Mali', 'Senegal', 'G
 
       @if (!tracks().length && !artists().length && !djs().length && !searching()) {
         <div class="text-center py-20 text-white/30">
-          <div class="text-6xl mb-4">🎼</div>
+          <div class="text-white/20 mb-4 flex justify-center"><yam-icon name="music-4" [size]="48"/></div>
           <p class="text-lg">Aucun resultat. Reessaie avec un autre mot-cle.</p>
         </div>
       }
@@ -164,7 +165,7 @@ export class SearchComponent {
         const text = e.results?.[0]?.[0]?.transcript || '';
         this.listening.set(false);
         if (text.trim()) {
-          this.voiceMessage.set('🎙 « ' + text + ' »');
+          this.voiceMessage.set('\u00ab ' + text + ' \u00bb');
           this.query.set(text.trim());
           this.applyFilters();
         } else {
@@ -190,7 +191,7 @@ export class SearchComponent {
       this.listening.set(false);
       return;
     }
-    this.voiceMessage.set('🎙 Parle maintenant — dis un nom d\u2019artiste ou de chanson...');
+    this.voiceMessage.set('Parle maintenant — dis un nom d\u2019artiste ou de chanson...');
     this.listening.set(true);
     try { this.recognition.start(); } catch {
       this.listening.set(false);

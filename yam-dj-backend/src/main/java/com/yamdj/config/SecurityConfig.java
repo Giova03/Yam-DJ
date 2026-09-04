@@ -59,6 +59,10 @@ public class SecurityConfig {
                 // Relance du traitement (pipeline asynchrone) : proprietaire
                 // uniquement — JWT obligatoire, avant le permitAll general.
                 .requestMatchers(HttpMethod.POST, "/api/tracks/*/retry").authenticated()
+                // Paroles LRC : lecture publique via le permitAll general
+                // "/api/tracks/{id}/**", mais l'ecriture exige un JWT
+                // (proprietaire verifie cote service).
+                .requestMatchers(HttpMethod.PUT, "/api/tracks/*/lyrics").authenticated()
                 // Commentaires : lecture publique, ecriture/suppression JWT.
                 // Place AVANT le permitAll general : premiere regle gagnante,
                 // GET /api/comments/** doit rester ouvert, POST/DELETE non.
@@ -88,6 +92,8 @@ public class SecurityConfig {
                 // Charts hebdo + sitemap : publics (SEO, partage)
                 .requestMatchers(HttpMethod.GET, "/api/charts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/seo/**").permitAll()
+                // Top artistes (decouverte + page /artists) : public
+                .requestMatchers(HttpMethod.GET, "/api/artists").permitAll()
                 // YouTube : recherche et catalogue libre publics,
                 // import d'une video -> JWT exigé (anyRequest authenticated)
                 .requestMatchers(HttpMethod.GET, "/api/youtube/search").permitAll()

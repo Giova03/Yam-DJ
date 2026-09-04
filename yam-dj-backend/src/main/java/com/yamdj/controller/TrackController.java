@@ -104,6 +104,19 @@ public class TrackController {
         return ResponseEntity.ok(trackService.retryProcessing(id));
     }
 
+    /** Paroles synchronisees (format LRC) — lecture publique (lecteur karaoke). */
+    @GetMapping("/{id}/lyrics")
+    public ResponseEntity<LyricResponse> lyrics(@PathVariable UUID id) {
+        return ResponseEntity.ok(trackService.lyrics(id));
+    }
+
+    /** Enregistre les paroles LRC : artiste proprietaire ou admin uniquement. */
+    @PutMapping("/{id}/lyrics")
+    public ResponseEntity<LyricResponse> updateLyrics(@PathVariable UUID id,
+                                                       @RequestBody(required = false) LyricRequest body) {
+        return ResponseEntity.ok(trackService.updateLyrics(id, body != null ? body.lyrics() : null));
+    }
+
     @GetMapping("/artist/{artistId}")
     public ResponseEntity<List<TrackResponse>> byArtist(@PathVariable UUID artistId) {
         return ResponseEntity.ok(trackService.byArtist(artistId));

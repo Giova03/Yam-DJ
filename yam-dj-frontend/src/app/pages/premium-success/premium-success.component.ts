@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PaymentService } from '../../services/payment.service';
 
@@ -10,21 +11,21 @@ import { PaymentService } from '../../services/payment.service';
 @Component({
   selector: 'yam-premium-success-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4">
       <div class="yam-card p-10 text-center max-w-md w-full">
 
         @if (verifying()) {
-          <div class="text-6xl mb-4 animate-pulse">🔎</div>
+          <div class="text-6xl mb-4 animate-pulse"><yam-icon name="search" [size]="28"/></div>
           <h1 class="text-2xl font-bold mb-2">Verification du paiement...</h1>
           <p class="text-white/60 mb-6">Patiente un instant.</p>
 
         } @else if (status() === 'COMPLETED') {
-          <div class="text-6xl mb-4 animate-bounce-eq">🎉</div>
+          <div class="text-6xl mb-4 animate-bounce-eq"></div>
           <h1 class="text-2xl font-bold text-yam-gold mb-2">Premium active !</h1>
-          <p class="text-white/60 mb-6">Merci pour ton soutien ⭐</p>
-          <span class="yam-badge !bg-yam-gold/20 !text-yam-gold mb-6">⭐ Membre Premium 30 jours</span>
+          <p class="text-white/60 mb-6">Merci pour ton soutien</p>
+          <span class="yam-badge !bg-yam-gold/20 !text-yam-gold mb-6"> Membre Premium 30 jours</span>
 
         } @else if (status() === 'PENDING') {
           <div class="text-6xl mb-4 animate-pulse">⏳</div>
@@ -34,7 +35,7 @@ import { PaymentService } from '../../services/payment.service';
           <p class="text-white/30 text-xs mb-6">Verification automatique toutes les 5 s.</p>
 
         } @else {
-          <div class="text-6xl mb-4">❌</div>
+          <div class="text-6xl mb-4"><yam-icon name="x" [size]="28"/></div>
           <h1 class="text-2xl font-bold mb-2">Paiement introuvable</h1>
           <p class="text-white/60 mb-6">Le lien a expire ou le paiement n'a pas abouti. Tu peux reessayer depuis la page Premium.</p>
           <a routerLink="/premium" class="yam-btn-primary inline-block mb-6">Reessayer</a>

@@ -18,6 +18,11 @@ export class ContentService {
     return this.http.get<ArtistPublic>(`${this.apiUrl}/api/artists/${id}`);
   }
 
+  /** Top artistes par ecoutes cumulees (section decouverte + page /artists, V2). */
+  topArtists(limit = 12): Observable<ArtistPublic[]> {
+    return this.http.get<ArtistPublic[]>(`${this.apiUrl}/api/artists?limit=${limit}`);
+  }
+
   artistTracks(id: string): Observable<Track[]> {
     return this.http.get<Track[]>(`${this.apiUrl}/api/artists/${id}/tracks`);
   }
@@ -76,8 +81,14 @@ export class ContentService {
     return this.http.delete(`${this.apiUrl}/api/playlists/${playlistId}`);
   }
 
-  trackById(id: string): Observable<Track> {
-    return this.http.get<Track>(`${this.apiUrl}/api/tracks/${id}`);
+  /**
+   * Piste par UUID OU par slug SEO (les liens de partage utilisent
+   * /track/{slug} — fix V2 : les slugs resolvent via /api/tracks/slug/{slug}).
+   */
+  trackById(idOrSlug: string): Observable<Track> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+    const path = isUuid ? idOrSlug : `slug/${encodeURIComponent(idOrSlug)}`;
+    return this.http.get<Track>(`${this.apiUrl}/api/tracks/${path}`);
   }
 
   // ============================ ABONNEMENTS ============================

@@ -51,6 +51,12 @@ public final class TrackDtos {
 
     public record PlayRequest(UUID trackId, String quality) {}
 
+    /** Paroles LRC brutes d'une piste (null = pas de paroles). */
+    public record LyricResponse(String lyrics) {}
+
+    /** Enregistrement des paroles LRC (artiste proprietaire ou admin). */
+    public record LyricRequest(String lyrics) {}
+
     public record LikeResponse(long likeCount, boolean liked) {}
 
     public static TrackResponse from(Track t, String artistName, String artistPseudo) {

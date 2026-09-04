@@ -2,8 +2,8 @@ import { Injectable, signal } from '@angular/core';
 
 /**
  * THEME SOMBRE / CLAIR — pilote la classe html.light.
- * - Mode clair actif PAR DEFAUT (demande produit V1.1)
- * - Choix persiste en localStorage ("yam-theme")
+ * - V2 AFROPULSE NIGHT : mode sombre PAR DEFAUT (identite de marque).
+ * - Choix persiste en localStorage ("yam-theme").
  * - Script anti-FOUC dans index.html : la classe est appliquee avant
  *   le demarrage d'Angular (pas de flash blanc/noir au chargement).
  */
@@ -37,10 +37,10 @@ export class ThemeService {
     } else {
       root.classList.remove('light');
     }
-    // couleur de la barre navigateur mobile (PWA) — ivoire chaud en clair
+    // couleur de la barre navigateur mobile (PWA) — nuit AFROPULSE en sombre
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', theme === 'light' ? '#FBF5EC' : '#0A0A0A');
+      meta.setAttribute('content', theme === 'light' ? '#FBF5EC' : '#09090F');
     }
   }
 
@@ -49,6 +49,6 @@ export class ThemeService {
       const saved = localStorage.getItem('yam-theme');
       if (saved === 'dark' || saved === 'light') return saved;
     } catch { /* localStorage indisponible (mode prive) */ }
-    return 'light'; // defaut : mode clair
+    return 'dark'; // defaut V2 : AFROPULSE NIGHT
   }
 }

@@ -1,4 +1,5 @@
 import { Component, OnDestroy, inject, signal, effect } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { PlayerService } from '../../services/player.service';
 import { LocalLibraryService } from '../../services/local-library.service';
@@ -167,26 +168,26 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
 @Component({
   selector: 'yam-local-page',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6 pb-12">
 
-      <h1 class="yam-title mb-2">📂 Ma Musique</h1>
+      <h1 class="yam-title mb-2"> Ma Musique</h1>
       <p class="text-white/50 text-sm mb-6">
         Tes musiques restent sur ton appareil — rien n'est envoye sur internet. Lecture en arriere-plan incluse.
       </p>
 
       @if (message(); as m) {
         <div class="yam-card p-3 mb-6 border-yam-orange/40 bg-yam-orange/10 flex items-center justify-between gap-3" role="alert">
-          <p class="text-sm font-medium text-yam-orange">⚠️ {{ m }}</p>
-          <button (click)="message.set('')" class="text-white/40 hover:text-white transition" aria-label="Fermer">✕</button>
+          <p class="text-sm font-medium text-yam-orange"> {{ m }}</p>
+          <button (click)="message.set('')" class="text-white/40 hover:text-white transition" aria-label="Fermer"></button>
         </div>
       }
 
       <!-- Permission a redemander (handle persiste) -->
       @if (lib.needsPermission()) {
         <div class="yam-card p-5 mb-6 text-center border-yam-gold/40 bg-yam-gold/5">
-          <p class="font-semibold mb-2">🔐 Reautorise l'acces a ton dossier « {{ lib.folderName() }} »</p>
+          <p class="font-semibold mb-2"> Reautorise l'acces a ton dossier « {{ lib.folderName() }} »</p>
           <p class="text-white/50 text-sm mb-4">Ton navigateur demande une confirmation a chaque session (protection de ta musique).</p>
           <button (click)="reauthorize()" class="yam-btn-primary">Reautoriser mes musiques</button>
         </div>
@@ -195,18 +196,18 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
       <!-- Etat vide initial : AUTORISATION en 1 clic -->
       @if (lib.tracks().length === 0) {
         <section class="yam-card p-10 text-center max-w-2xl mx-auto mb-8">
-          <div class="text-6xl mb-4" aria-hidden="true">📂</div>
+          <div class="text-6xl mb-4" aria-hidden="true"><yam-icon name="folder" [size]="28"/></div>
           <h2 class="text-2xl font-extrabold mb-3">Ta musique de telephone, dans YAM DJ</h2>
           <p class="text-white/50 mb-8 max-w-md mx-auto">
             Autorise l'acces a ton dossier Musiques une seule fois — YAM DJ affiche tous tes titres,
             avec pochettes. Tes fichiers ne quittent jamais ton appareil.
           </p>
           @if (lib.fsApiAvailable) {
-            <button (click)="authorize()" class="yam-btn-primary text-lg !px-8 !py-3">🎵 Autoriser mes musiques</button>
+            <button (click)="authorize()" class="yam-btn-primary text-lg !px-8 !py-3"> Autoriser mes musiques</button>
             <p class="text-white/30 text-xs mt-4">ou glisse-depose des fichiers plus bas</p>
           } @else {
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
-              <button (click)="dirInput.click()" class="yam-btn-primary text-lg !px-8 !py-3">🎵 Choisir un dossier</button>
+              <button (click)="dirInput.click()" class="yam-btn-primary text-lg !px-8 !py-3"> Choisir un dossier</button>
               <button (click)="fileInput.click()" class="yam-btn-secondary">Choisir des fichiers</button>
             </div>
           }
@@ -216,15 +217,15 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
       <!-- Zone drag & drop + boutons -->
       <section (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)"
                [class]="dropZoneClass()" aria-label="Zone d'import de fichiers audio">
-        <div class="text-4xl mb-3" aria-hidden="true">📥</div>
+        <div class="text-4xl mb-3" aria-hidden="true"><yam-icon name="download" [size]="28"/></div>
         <p class="font-semibold mb-1">Glisse-depose tes musiques ici</p>
         <p class="text-white/40 text-sm mb-5 max-w-md mx-auto">Elles restent sur ton appareil, sans internet.</p>
         <div class="flex gap-3 justify-center flex-wrap">
           @if (lib.fsApiAvailable) {
-            <button (click)="authorize()" class="yam-btn-secondary">📁 Autre dossier</button>
+            <button (click)="authorize()" class="yam-btn-secondary"> Autre dossier</button>
           }
-          <button (click)="dirInput.click()" class="yam-btn-secondary hidden sm:block">🗂 Dossier (compat.)</button>
-          <button (click)="fileInput.click()" class="yam-btn-secondary">📱 Fichiers</button>
+          <button (click)="dirInput.click()" class="yam-btn-secondary hidden sm:block"> Dossier (compat.)</button>
+          <button (click)="fileInput.click()" class="yam-btn-secondary"> Fichiers</button>
         </div>
         <input #dirInput type="file" webkitdirectory directory multiple class="hidden"
                (change)="onDirSelected($event)" aria-hidden="true" tabindex="-1">
@@ -244,15 +245,15 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
         <section class="mt-8">
           <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 class="text-xl font-bold">
-              🎧 Mes pistes
+              Mes pistes
               <span class="text-white/30 text-sm font-normal">
                 {{ lib.tracks().length }} fichiers
-                @if (lib.folderName()) { · 📁 {{ lib.folderName() }} }
+                @if (lib.folderName()) { · {{ lib.folderName() }} }
               </span>
             </h2>
             <div class="flex gap-2 items-center">
-              <button (click)="playAll()" class="yam-btn-primary !py-2 text-sm">▶ Tout ecouter</button>
-              <button (click)="clearAll()" class="text-sm text-white/40 hover:text-red-400 transition">🗑 Vider</button>
+              <button (click)="playAll()" class="yam-btn-primary !py-2 text-sm"> Tout ecouter</button>
+              <button (click)="clearAll()" class="text-sm text-white/40 hover:text-red-400 transition"> Vider</button>
             </div>
           </div>
 
@@ -266,7 +267,7 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
                 @if (t.coverUrl) {
                   <img [src]="t.coverUrl" [alt]="t.title" class="w-14 h-14 rounded-lg object-cover shrink-0">
                 } @else {
-                  <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center text-2xl shrink-0" aria-hidden="true">🎵</div>
+                  <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center text-2xl shrink-0" aria-hidden="true"><yam-icon name="music-note" [size]="28"/></div>
                 }
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold truncate" [class.text-yam-orange]="currentId() === ('local:' + t.id)">{{ t.title }}</p>
@@ -279,7 +280,7 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
                 }
                 <button (click)="removeTrack(t); $event.stopPropagation()"
                         class="w-8 h-8 rounded-full text-white/30 hover:text-red-400 hover:bg-white/10 flex items-center justify-center shrink-0 transition"
-                        [attr.aria-label]="'Retirer ' + t.title" title="Retirer de la liste">✕</button>
+                        [attr.aria-label]="'Retirer ' + t.title" title="Retirer de la liste"></button>
               </div>
             }
           </div>
@@ -287,7 +288,7 @@ async function parseId3(file: File): Promise<Partial<LocalFileTrack>> {
       }
 
       <p class="text-white/30 text-xs text-center mt-10">
-        🔒 Hors ligne. La lecture continue en arriere-plan, meme ecran verrouille — geree par le lecteur global YAM DJ.
+        Hors ligne. La lecture continue en arriere-plan, meme ecran verrouille — geree par le lecteur global YAM DJ.
       </p>
     </div>
   `
@@ -311,10 +312,13 @@ export class LocalComponent implements OnDestroy {
     // Filtre initial
     this.applyFilter();
     // Parse ID3 en arriere-plan des que la bibliotheque change
+    // (differe : applyFilter/parseMissing ecrivent des signaux -> NG0600 sinon)
     effect(() => {
       const list = this.lib.tracks();
-      this.applyFilter();
-      this.parseMissing(list);
+      window.setTimeout(() => {
+        this.applyFilter();
+        this.parseMissing(list);
+      }, 0);
     });
   }
 

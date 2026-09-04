@@ -61,6 +61,13 @@ public class PublicContentController {
         return ResponseEntity.ok(searchService.artistProfile(id));
     }
 
+    /** Top artistes par ecoutes cumulees (section decouverte + page /artists). */
+    @GetMapping("/api/artists")
+    public ResponseEntity<List<ArtistPublicResponse>> topArtists(
+            @RequestParam(defaultValue = "12") int limit) {
+        return ResponseEntity.ok(searchService.topArtists(limit));
+    }
+
     @GetMapping("/api/artists/{id}/tracks")
     public ResponseEntity<List<TrackResponse>> artistTracks(@PathVariable UUID id) {
         return ResponseEntity.ok(searchService.artistTracks(id));

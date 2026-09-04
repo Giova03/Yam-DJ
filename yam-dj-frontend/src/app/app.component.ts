@@ -3,19 +3,21 @@ import { RouterOutlet } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { AudioPlayerComponent } from './components/audio-player/audio-player.component';
+import { TabbarComponent } from './components/tabbar/tabbar.component';
 import { environment } from '../environments/environment';
 
 @Component({
   selector: 'yam-root',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent, AudioPlayerComponent],
+  imports: [RouterOutlet, NavbarComponent, AudioPlayerComponent, TabbarComponent],
   template: `
     <div class="min-h-screen bg-yam-dark">
       <yam-navbar />
-      <main class="pb-40">
+      <main class="pb-[150px] md:pb-32">
         <router-outlet />
       </main>
       <yam-audio-player />
+      <yam-tabbar />
     </div>
   `
 })

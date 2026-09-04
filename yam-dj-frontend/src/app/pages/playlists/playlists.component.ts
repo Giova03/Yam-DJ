@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IconComponent } from '../../components/icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { ContentService } from '../../services/content.service';
 import { AuthService } from '../../services/auth.service';
@@ -13,13 +14,12 @@ import { Playlist } from '../../models/models';
 @Component({
   selector: 'yam-playlists',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
 
       <section class="mb-8 rounded-3xl overflow-hidden relative bg-gradient-to-r from-yam-orange/20 via-yam-surface to-yam-surface border border-white/5 p-8">
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl mb-3">
-          🗂 <span class="yam-gradient-text">Mes Playlists</span>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl mb-3"><yam-icon name="folder" [size]="28"/><span class="yam-gradient-text">Mes Playlists</span>
         </h1>
         <p class="text-white/60 max-w-xl mb-6">
           Organise tes sons preferes, partage tes selections avec la communaute
@@ -45,9 +45,9 @@ import { Playlist } from '../../models/models';
         <div class="text-center py-16 text-white/40 animate-pulse">Chargement de tes playlists...</div>
       } @else if (mine().length === 0) {
         <div class="yam-card p-10 text-center mb-10">
-          <div class="text-5xl mb-3">🎶</div>
+          <div class="text-5xl mb-3"></div>
           <p class="text-white/60">Aucune playlist pour l'instant. Cree la premiere ci-dessus,<br>
-          puis ajoute des sons depuis n'importe quelle carte de piste (bouton 🗂).</p>
+          puis ajoute des sons depuis n'importe quelle carte de piste (bouton).</p>
         </div>
       } @else {
         <section class="mb-12">
@@ -55,7 +55,7 @@ import { Playlist } from '../../models/models';
             @for (p of mine(); track p.id) {
               <a [routerLink]="['/playlist', p.id]" class="yam-card p-4 group cursor-pointer">
                 <div class="aspect-square rounded-xl mb-3 bg-gradient-to-br from-yam-orange/30 to-yam-surface flex items-center justify-center overflow-hidden">
-                  <span class="text-4xl opacity-60 group-hover:scale-110 transition">🎧</span>
+                  <span class="text-4xl opacity-60 group-hover:scale-110 transition"><yam-icon name="headphones" [size]="28"/></span>
                 </div>
                 <p class="font-semibold truncate group-hover:text-yam-orange transition">{{ p.name }}</p>
                 <p class="text-white/50 text-sm">{{ p.trackIds?.length || 0 }} sons — {{ p.isPublic ? 'Publique' : 'Privee' }}</p>
@@ -66,7 +66,7 @@ import { Playlist } from '../../models/models';
       }
 
       <section>
-        <h2 class="yam-title mb-4">🌍 <span class="text-white/40 text-lg">Playlists de la communaute</span></h2>
+        <h2 class="yam-title mb-4"><yam-icon name="globe" [size]="28"/><span class="text-white/40 text-lg">Playlists de la communaute</span></h2>
         @if (publicLoading()) {
           <div class="text-center py-8 text-white/40 animate-pulse">Chargement...</div>
         } @else if (community().length === 0) {
@@ -76,7 +76,7 @@ import { Playlist } from '../../models/models';
             @for (p of community(); track p.id) {
               <a [routerLink]="['/playlist', p.id]" class="yam-card p-4 group cursor-pointer">
                 <div class="aspect-square rounded-xl mb-3 bg-gradient-to-br from-yam-gold/20 to-yam-surface flex items-center justify-center">
-                  <span class="text-4xl opacity-60 group-hover:scale-110 transition">🎵</span>
+                  <span class="text-4xl opacity-60 group-hover:scale-110 transition"><yam-icon name="music-note" [size]="28"/></span>
                 </div>
                 <p class="font-semibold truncate group-hover:text-yam-gold transition">{{ p.name }}</p>
                 <p class="text-white/50 text-sm">{{ p.trackIds?.length || 0 }} sons</p>

@@ -108,6 +108,27 @@ public class SearchService {
         return batchToResponses(tracks);
     }
 
+    /** Top artistes publics par ecoutes cumulees (section decouverte + /artists). */
+    @Transactional(readOnly = true)
+    public List<ArtistPublicResponse> topArtists(int limit) {
+        List<ArtistProfile> profiles = artistProfileRepository.findTopByTotalPlays(
+                org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 50))));
+        if (profiles.isEmpty()) return List.of();
+        java.util.List<UUID> ids = profiles.stream()
+                .map(p -> p.getUser().getId()).collect(Collectors.toList());
+        java.util.Map<UUID, Long> countsByArtist = ids.isEmpty()
+                ? java.util.Map.of()
+                : trackRepository.countApprovedByArtists(ids).stream()
+                        .collect(Collectors.toMap(
+                                row -> (UUID) row[0], row -> (Long) row[1]));
+        return profiles.stream()
+                .map(p -> new ArtistPublicResponse(
+                        p.getUser().getId(), p.getStageName(), p.getBio(), p.getPhotoUrl(),
+                        p.getUser().getCountry(), p.getTotalPlays(),
+                        countsByArtist.getOrDefault(p.getUser().getId(), 0L)))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Conversion en masse anti-N+1 : 1 requete utilisateurs + 1 requete
      * profils pour TOUTE la liste (cf. toResponses dans TrackService).

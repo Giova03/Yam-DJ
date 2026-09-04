@@ -8,6 +8,8 @@ import { AuthService } from '../../services/auth.service';
 import { TrackService } from '../../services/track.service';
 import { PlayerService } from '../../services/player.service';
 import { WithdrawalService } from '../../services/withdrawal.service';
+import { LyricsService } from '../../services/lyrics.service';
+import { IconComponent } from '../../components/icon/icon.component';
 import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } from '../../models/models';
 
 /**
@@ -19,17 +21,17 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
 @Component({
   selector: 'yam-dashboard',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, IconComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 pt-6">
-      <h1 class="yam-title mb-2">📊 Dashboard Artiste</h1>
+      <h1 class="yam-title mb-2"> Dashboard Artiste</h1>
       <p class="text-white/50 text-sm mb-8">Tes revenus YAM Tips et ta performance.</p>
 
       <!-- Toast de confirmation -->
       @if (toast(); as t) {
         <div class="yam-card p-3 mb-6 flex items-center gap-2"
              [class]="t.kind === 'ok' ? 'border-yam-green/40 bg-yam-green/10' : 'border-red-400/40 bg-red-400/10'">
-          <span>{{ t.kind === 'ok' ? '✔' : '✖' }}</span>
+          <span>{{ t.kind === 'ok' ? '' : '' }}</span>
           <p class="text-sm font-medium" [class]="t.kind === 'ok' ? 'text-yam-green' : 'text-red-400'">{{ t.msg }}</p>
         </div>
       }
@@ -37,20 +39,20 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
       <!-- Stats cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <div class="yam-card p-5">
-          <p class="text-white/50 text-sm mb-1">💰 Solde YAM Tips</p>
+          <p class="text-white/50 text-sm mb-1"> Solde YAM Tips</p>
           <p class="text-3xl font-extrabold text-yam-gold">{{ formatXof(stats()?.balanceXof || 0) }}</p>
           <p class="text-xs text-white/30 mt-1">FCFA disponibles pour retrait</p>
         </div>
         <div class="yam-card p-5">
-          <p class="text-white/50 text-sm mb-1">🎧 Total ecoutes</p>
+          <p class="text-white/50 text-sm mb-1"> Total ecoutes</p>
           <p class="text-3xl font-extrabold">{{ formatNumber(stats()?.totalPlays || 0) }}</p>
         </div>
         <div class="yam-card p-5">
-          <p class="text-white/50 text-sm mb-1">🎵 Pistes en ligne</p>
+          <p class="text-white/50 text-sm mb-1"> Pistes en ligne</p>
           <p class="text-3xl font-extrabold">{{ stats()?.tracksCount || 0 }}</p>
         </div>
         <div class="yam-card p-5">
-          <p class="text-white/50 text-sm mb-1">❤️ Tips recus</p>
+          <p class="text-white/50 text-sm mb-1"> Tips recus</p>
           <p class="text-3xl font-extrabold">{{ stats()?.tipsCount || 0 }}</p>
           <p class="text-xs text-white/30 mt-1">{{ formatXof(stats()?.totalTipsXof || 0) }} FCFA cumules</p>
         </div>
@@ -58,7 +60,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
 
       @if (lastNotification()) {
         <div class="yam-card p-4 mb-6 border-yam-gold/50 bg-yam-gold/10 flex items-center gap-3">
-          <span class="text-2xl">🔔</span>
+          <span class="text-2xl"><yam-icon name="bell" [size]="28"/></span>
           <p class="text-yam-gold font-medium">Nouveau tip recu : {{ formatXof(lastNotification()!.amountXof) }} FCFA !</p>
         </div>
       }
@@ -67,7 +69,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
 
         <!-- Mes pistes -->
         <section>
-          <h2 class="text-xl font-bold mb-4">🎵 Mes pistes</h2>
+          <h2 class="text-xl font-bold mb-4"> Mes pistes</h2>
           @if (tracks().length) {
             <div class="space-y-2">
               @for (track of tracks(); track track.id) {
@@ -77,7 +79,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
                     <img [src]="track.coverUrl" [alt]="track.title"
                          class="w-14 h-14 rounded-lg object-cover shrink-0">
                   } @else {
-                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center text-xl shrink-0">🎵</div>
+                    <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center text-xl shrink-0"><yam-icon name="music-note" [size]="28"/></div>
                   }
 
                   <div class="min-w-0 flex-1">
@@ -86,9 +88,9 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
                       @if (track.genre) { {{ track.genre }} }
                       @if (track.country) { · {{ track.country }} }
                       @if (track.bpm) { · {{ track.bpm }} BPM }
-                      @if (track.camelot || track.musicalKey) { · 🎹 {{ track.camelot || track.musicalKey }} }
+                      @if (track.camelot || track.musicalKey) { · {{ track.camelot || track.musicalKey }} }
                     </p>
-                    <p class="text-white/40 text-xs">🎧 {{ formatNumber(track.playCount) }} ecoutes · ❤️ {{ formatNumber(track.likeCount) }}</p>
+                    <p class="text-white/40 text-xs"> {{ formatNumber(track.playCount) }} ecoutes · {{ formatNumber(track.likeCount) }}</p>
                   </div>
 
                   <!-- Badge de statut de moderation -->
@@ -99,8 +101,14 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
                   <!-- Lecture (pistes en ligne uniquement) -->
                   @if (track.status === 'APPROVED') {
                     <button (click)="playTrack(track)" title="Ecouter"
-                            class="w-9 h-9 rounded-full bg-yam-orange/20 text-yam-orange flex items-center justify-center hover:bg-yam-orange hover:text-white transition shrink-0">▶</button>
+                            class="w-9 h-9 rounded-full bg-yam-orange/20 text-yam-orange flex items-center justify-center hover:bg-yam-orange hover:text-white transition shrink-0"><yam-icon name="play" [size]="28"/></button>
                   }
+
+                  <!-- Paroles synchronisees (LRC, P1 V2) -->
+                  <button (click)="openLyrics(track)" title="Paroles synchronisees (LRC)"
+                          class="shrink-0 text-xs font-semibold px-3 py-2 rounded-full text-white/40 hover:text-yam-orange hover:bg-yam-orange/10 transition inline-flex items-center gap-1.5">
+                    <yam-icon name="text" [size]="13"/> Paroles
+                  </button>
 
                   <!-- Suppression : 1er clic = armement, 2e clic = confirmation -->
                   <button (click)="askDelete(track)" [disabled]="deletingId() === track.id" title="Supprimer la piste"
@@ -122,11 +130,11 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
             <p class="text-white/30 text-xs mt-3">Astuces : "Supprimer" demande un double clic pour eviter les suppressions accidentelles.</p>
           } @else if (loadError()) {
             <div class="yam-card p-6 text-center text-white/40 text-sm">
-              ⚠️ Impossible de charger tes pistes pour le moment. Reviens plus tard.
+              Impossible de charger tes pistes pour le moment. Reviens plus tard.
             </div>
           } @else {
             <div class="yam-card p-10 text-center text-white/40">
-              <div class="text-4xl mb-2">🎙️</div>
+              <div class="text-4xl mb-2"></div>
               <p class="mb-4">Aucune piste pour l'instant</p>
               <a routerLink="/upload" class="yam-btn-primary inline-block">Publier ma premiere piste</a>
             </div>
@@ -135,12 +143,12 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
 
         <!-- Historique tips -->
         <section>
-          <h2 class="text-xl font-bold mb-4">💰 Historique des YAM Tips</h2>
+          <h2 class="text-xl font-bold mb-4"> Historique des YAM Tips</h2>
           @if (tips().length) {
             <div class="space-y-2">
               @for (tip of tips(); track tip.id) {
                 <div class="yam-card p-4 flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-yam-gold/20 flex items-center justify-center text-yam-gold shrink-0">💰</div>
+                  <div class="w-10 h-10 rounded-full bg-yam-gold/20 flex items-center justify-center text-yam-gold shrink-0"><yam-icon name="wallet" [size]="28"/></div>
                   <div class="min-w-0 flex-1">
                     <p class="font-medium">{{ formatXof(tip.amountXof) }} FCFA
                       <span class="text-white/40 font-normal text-sm">de {{ tip.fanPseudo }}</span>
@@ -153,15 +161,15 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
             </div>
           } @else {
             <div class="yam-card p-10 text-center text-white/40">
-              <div class="text-4xl mb-2">💸</div>
+              <div class="text-4xl mb-2"><yam-icon name="banknote" [size]="28"/></div>
               Aucun tip pour l'instant. Partage ton profil artiste !
             </div>
           }
         </section>
 
-        <!-- 🎵 Redevances d'ecoute (Phase 3.3) -->
+        <!-- Redevances d'ecoute (Phase 3.3) -->
         <section>
-          <h2 class="text-xl font-bold mb-4">🎵 Redevances d'ecoute
+          <h2 class="text-xl font-bold mb-4"> Redevances d'ecoute
             <span class="text-white/40 text-sm">— cagnotte repartie au prorata chaque mois</span>
           </h2>
           @if (royalties().lines.length) {
@@ -182,7 +190,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
             <div class="space-y-2">
               @for (line of royalties().lines; track line.periodMonth) {
                 <div class="yam-card p-4 flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0">🎵</div>
+                  <div class="w-10 h-10 rounded-full bg-yam-orange/20 flex items-center justify-center text-yam-orange shrink-0"><yam-icon name="music-note" [size]="28"/></div>
                   <div class="min-w-0 flex-1">
                     <p class="font-medium">{{ line.periodMonth }} — {{ formatXof(line.amountXof) }} F</p>
                     <p class="text-white/40 text-sm">{{ formatNumber(line.plays) }} ecoutes · solde apres : {{ formatXof(line.balanceAfterXof) }} F</p>
@@ -192,7 +200,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
             </div>
           } @else {
             <div class="yam-card p-8 text-center text-white/40">
-              <div class="text-4xl mb-2">🎵</div>
+              <div class="text-4xl mb-2"><yam-icon name="music-note" [size]="28"/></div>
               <p>Aucune redevance creditee pour l'instant.</p>
               <p class="text-sm mt-1">La cagnotte (abonnements Premium + part boutique de mixtapes)
               est repartie chaque mois entre les artistes au prorata de leurs ecoutes.</p>
@@ -201,10 +209,10 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
         </section>
       </div>
 
-      <!-- 💸 Retraits (artiste / admin) -->
+      <!-- Retraits (artiste / admin) -->
       @if (isArtistOrAdmin()) {
         <section class="mt-10">
-          <h2 class="text-xl font-bold mb-4">💸 Retraits</h2>
+          <h2 class="text-xl font-bold mb-4"> Retraits</h2>
 
           <!-- Ligne solde -->
           <div class="yam-card p-5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -219,7 +227,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
             <button (click)="openWithdrawModal()" [disabled]="balance() < minWithdrawXof"
                     [title]="balance() < minWithdrawXof ? 'Minimum 5 000 F' : 'Retirer mes gains'"
                     class="yam-btn-primary shrink-0">
-              💸 Retirer mes gains
+              Retirer mes gains
             </button>
           </div>
 
@@ -255,7 +263,7 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
           <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
             <div class="flex items-start justify-between mb-4">
               <div>
-                <h2 class="yam-title">💸 Retirer mes gains</h2>
+                <h2 class="yam-title"> Retirer mes gains</h2>
                 <p class="text-white/50 text-sm mt-1">Solde disponible : <b class="text-yam-gold">{{ formatXof(balance()) }} F</b></p>
               </div>
               <button (click)="closeWithdrawModal()" class="text-white/40 hover:text-white text-2xl leading-none">×</button>
@@ -300,6 +308,41 @@ import { ArtistRoyalties, ArtistStats, TipHistory, Track, WithdrawalRequest } fr
         </div>
       }
     </div>
+
+    <!-- Modale : paroles synchronisees (LRC, P1 V2) -->
+    @if (showLyricsModal()) {
+      <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" (click)="closeLyricsModal()">
+        <div class="bg-yam-card rounded-3xl p-6 w-full max-w-lg border border-white/10 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-start justify-between mb-4">
+            <div class="min-w-0">
+              <h2 class="yam-title flex items-center gap-2.5"><yam-icon name="text" [size]="22" class="text-yam-orange"/> Paroles synchronis&eacute;es</h2>
+              <p class="text-white/50 text-sm mt-1 truncate"><b class="text-white">{{ lyricsTrack()?.title }}</b> &mdash; format LRC</p>
+            </div>
+            <button (click)="closeLyricsModal()" class="text-white/40 hover:text-white leading-none" aria-label="Fermer"><yam-icon name="x" [size]="22"/></button>
+          </div>
+
+          <p class="text-white/40 text-xs mb-3 leading-relaxed">
+            Une ligne par phrase, avec son horodatage&nbsp;: <span class="yam-num text-yam-orange">[00:12.30] Ta phrase&hellip;</span>
+            Les paroles s'affichent en karaok&eacute; dans le lecteur pendant l'&eacute;coute.
+          </p>
+          <textarea [(ngModel)]="lyricsText" rows="12" class="yam-input font-mono !text-[13px] leading-relaxed"
+                    placeholder="[00:00.00] Intro&#10;[00:12.30] Premiere ligne&#10;[00:18.90] Deuxieme ligne"
+                    aria-label="Paroles au format LRC"></textarea>
+
+          @if (lyricsError()) {
+            <p class="text-red-400 text-sm bg-red-400/10 rounded-xl p-3 mt-3">{{ lyricsError() }}</p>
+          }
+
+          <div class="flex gap-2 mt-4">
+            <button (click)="saveLyrics()" [disabled]="lyricsSaving()"
+                    class="yam-btn-primary flex-1 !py-2.5 text-sm inline-flex items-center justify-center gap-2">
+              @if (lyricsSaving()) { <yam-icon name="loader" [size]="14" class="animate-spin"/> Enregistrement&hellip; } @else { <yam-icon name="check" [size]="14"/> Enregistrer }
+            </button>
+            <button (click)="closeLyricsModal()" class="yam-btn-secondary !py-2.5 text-sm">Annuler</button>
+          </div>
+        </div>
+      </div>
+    }
   `
 })
 export class DashboardComponent implements OnInit {
@@ -316,6 +359,55 @@ export class DashboardComponent implements OnInit {
   /** Relevements mensuels des redevances d'ecoute (Phase 3.3). */
   royalties = signal<ArtistRoyalties>({ totalXof: 0, totalPlays: 0, monthsCount: 0, lines: [] });
   private http = inject(HttpClient);
+  private lyricsService = inject(LyricsService);
+
+  // ===== PAROLES SYNCHRONISEES (P1 V2) =====
+  showLyricsModal = signal(false);
+  lyricsTrack = signal<Track | null>(null);
+  lyricsText = '';
+  lyricsSaving = signal(false);
+  lyricsError = signal<string | null>(null);
+
+  /** Ouvre l'editeur de paroles LRC d'une piste (charge les paroles existantes). */
+  openLyrics(track: Track): void {
+    this.lyricsTrack.set(track);
+    this.lyricsText = '';
+    this.lyricsError.set(null);
+    this.showLyricsModal.set(true);
+    this.lyricsService.lyricsFor(track.id).subscribe(() => {});
+    this.http.get<{ lyrics: string | null }>(`${environment.apiUrl}/api/tracks/${track.id}/lyrics`).subscribe({
+      next: res => { this.lyricsText = (res && res.lyrics) || ''; },
+      error: () => { this.lyricsText = ''; }
+    });
+  }
+
+  closeLyricsModal(): void {
+    if (this.lyricsSaving()) return;
+    this.showLyricsModal.set(false);
+    this.lyricsError.set(null);
+  }
+
+  /** Enregistre les paroles (PUT /api/tracks/{id}/lyrics, proprietaire). */
+  saveLyrics(): void {
+    const t = this.lyricsTrack();
+    if (!t) return;
+    this.lyricsSaving.set(true);
+    this.lyricsError.set(null);
+    this.http.put<{ lyrics: string | null }>(
+      `${environment.apiUrl}/api/tracks/${t.id}/lyrics`, { lyrics: this.lyricsText || null }
+    ).subscribe({
+      next: () => {
+        this.lyricsSaving.set(false);
+        this.lyricsService.invalidate(t.id);
+        this.showLyricsModal.set(false);
+        this.showToast('Paroles enregistrees — karaoké actif pour les fans !', 'ok');
+      },
+      error: err => {
+        this.lyricsSaving.set(false);
+        this.lyricsError.set(err?.error?.message || 'Enregistrement impossible.');
+      }
+    });
+  }
   private apiUrl = environment.apiUrl;
 
   // Gestion de la suppression des pistes (confirmation double clic)
@@ -498,8 +590,8 @@ export class DashboardComponent implements OnInit {
 
   withdrawLabel(status: string): string {
     if (status === 'PENDING') return '⏳ En attente';
-    if (status === 'APPROVED') return '✔ Paye';
-    return '✖ Refuse';
+    if (status === 'APPROVED') return ' Paye';
+    return ' Refuse';
   }
 
   withdrawBadgeClass(status: string): string {
@@ -513,9 +605,9 @@ export class DashboardComponent implements OnInit {
   }
 
   statusLabel(status: string): string {
-    if (status === 'APPROVED') return '✔ En ligne';
+    if (status === 'APPROVED') return ' En ligne';
     if (status === 'PENDING') return '⏳ En moderation';
-    return '✖ Refuse';
+    return ' Refuse';
   }
 
   statusBadgeClass(status: string): string {

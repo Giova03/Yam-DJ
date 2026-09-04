@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IconComponent } from '../../components/icon/icon.component';
 import { OfflineService } from '../../services/offline.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
@@ -13,14 +14,14 @@ import { DownloadedTrack } from '../../models/models';
 @Component({
   selector: 'yam-downloads-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 py-8">
 
       <!-- Bandeau d'etat reseau -->
       <div class="yam-card p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div class="flex items-center gap-3">
-          <span class="text-2xl">{{ offline.online() ? '📡' : '📴' }}</span>
+          <span class="text-2xl">{{ offline.online() ? '' : '' }}</span>
           <div>
             <p class="font-bold">{{ offline.online() ? 'En ligne' : 'Hors ligne' }}</p>
             <p class="text-white/50 text-sm">
@@ -39,7 +40,7 @@ import { DownloadedTrack } from '../../models/models';
       @if (offline.online() === false) {
         <div class="yam-card p-4 mb-6 border-yam-green/30 bg-yam-green/10">
           <p class="text-sm">
-            🎧 <b>Mode hors ligne actif.</b> Appuie sur ▶ pour ecouter tes
+            <b>Mode hors ligne actif.</b> Appuie sur pour ecouter tes
             telechargements — aucune donnee mobile consommee.
           </p>
         </div>
@@ -48,10 +49,10 @@ import { DownloadedTrack } from '../../models/models';
       <!-- Liste -->
       @if (offline.downloads().length === 0) {
         <div class="yam-card p-10 text-center">
-          <p class="text-5xl mb-4">📥</p>
+          <p class="text-5xl mb-4"><yam-icon name="download" [size]="28"/></p>
           <h2 class="yam-title text-xl mb-2">Aucune piste telechargee</h2>
           <p class="text-white/50 text-sm max-w-md mx-auto mb-6">
-            Appuie sur l'icone 📥 d'une piste pour la telecharger en Data-Lite
+            Appuie sur l'icone d'une piste pour la telecharger en Data-Lite
             (48 kbps) et l'ecouter partout, meme sans connexion — dans le
             bus, en zone blanche, en voyage.
           </p>
@@ -66,18 +67,18 @@ import { DownloadedTrack } from '../../models/models';
                 @if (d.coverUrl) {
                   <img [src]="d.coverUrl" [alt]="d.title" class="w-full h-full object-cover">
                 } @else {
-                  <span class="text-4xl opacity-40">🎵</span>
+                  <span class="text-4xl opacity-40"><yam-icon name="music-note" [size]="28"/></span>
                 }
-                <span class="absolute top-2 left-2 text-xs bg-yam-green/90 text-white px-2 py-0.5 rounded-full font-bold">✅ Hors ligne</span>
+                <span class="absolute top-2 left-2 text-xs bg-yam-green/90 text-white px-2 py-0.5 rounded-full font-bold"> Hors ligne</span>
                 <button class="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-yam-orange text-white flex items-center justify-center text-lg shadow-lg"
-                        (click)="playDownloaded(d)" title="Ecouter (marche hors ligne)">▶</button>
+                        (click)="playDownloaded(d)" title="Ecouter (marche hors ligne)"><yam-icon name="play" [size]="28"/></button>
               </div>
               <p class="font-semibold truncate">{{ d.title }}</p>
               <p class="text-white/50 text-sm truncate">{{ d.artistName }}</p>
               <div class="flex items-center justify-between mt-2 text-xs">
                 <span class="text-white/40">{{ player.formatTime(d.durationSec) }}</span>
                 <button (click)="remove(d)" class="text-white/40 hover:text-red-400 transition"
-                        title="Supprimer le telechargement">🗑</button>
+                        title="Supprimer le telechargement"><yam-icon name="x" [size]="28"/></button>
               </div>
             </div>
           }
@@ -106,7 +107,7 @@ import { DownloadedTrack } from '../../models/models';
 
       <!-- Aide installation PWA -->
       <div class="yam-card p-6 mt-8">
-        <h3 class="yam-title text-lg mb-3">📱 Installer YAM DJ sur ton telephone</h3>
+        <h3 class="yam-title text-lg mb-3"> Installer YAM DJ sur ton telephone</h3>
         <p class="text-white/50 text-sm mb-4">
           Installe l'application sur ton ecran d'accueil : elle s'ouvre
           instantanement, hors ligne, comme une vraie app — sans passer par
@@ -114,7 +115,7 @@ import { DownloadedTrack } from '../../models/models';
         </p>
         <div class="grid sm:grid-cols-2 gap-4 text-sm">
           <div class="bg-yam-surface rounded-xl p-4">
-            <p class="font-bold text-yam-gold mb-2">🤖 Android (Chrome)</p>
+            <p class="font-bold text-yam-gold mb-2"> Android (Chrome)</p>
             <ol class="text-white/60 space-y-1 list-decimal list-inside">
               <li>Ouvre le menu ⋮ de Chrome</li>
               <li>« Installer l'application »</li>
@@ -122,7 +123,7 @@ import { DownloadedTrack } from '../../models/models';
             </ol>
           </div>
           <div class="bg-yam-surface rounded-xl p-4">
-            <p class="font-bold text-yam-gold mb-2">🍎 iPhone (Safari)</p>
+            <p class="font-bold text-yam-gold mb-2"> iPhone (Safari)</p>
             <ol class="text-white/60 space-y-1 list-decimal list-inside">
               <li>Appuie sur le bouton Partager</li>
               <li>« Sur l'ecran d'accueil »</li>

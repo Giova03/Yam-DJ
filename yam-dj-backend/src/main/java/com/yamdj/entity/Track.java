@@ -51,6 +51,10 @@ public class Track {
     @Column(length = 4)
     private String camelot;
 
+    /** Paroles synchronisees au format LRC ([mm:ss.xx] ligne) — null si absentes. */
+    @Column(columnDefinition = "TEXT")
+    private String lyrics;
+
     private String genre;
 
     private String country;

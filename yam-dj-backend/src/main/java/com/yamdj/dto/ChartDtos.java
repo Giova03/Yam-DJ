@@ -16,6 +16,7 @@ public final class ChartDtos {
             long plays,
             LocalDate weekStart,
             String country,
+            Integer movement,
             TrackResponse track
     ) {}
 }

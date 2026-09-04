@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IconComponent } from '../../components/icon/icon.component';
 import { SeoService } from '../../services/seo.service';
 import { AuthService } from '../../services/auth.service';
 import { PaymentService } from '../../services/payment.service';
@@ -11,7 +12,7 @@ import { PaymentService } from '../../services/payment.service';
 @Component({
   selector: 'yam-premium-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 pt-8 pb-16">
 
@@ -19,7 +20,7 @@ import { PaymentService } from '../../services/payment.service';
       <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-yam-orange via-orange-500 to-yam-gold p-8 sm:p-12 text-center shadow-2xl shadow-yam-orange/20">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.15),transparent_60%)]"></div>
         <div class="relative">
-          <h1 class="font-display text-4xl sm:text-5xl font-extrabold text-white mb-3">⭐ YAM DJ Premium</h1>
+          <h1 class="font-display text-4xl sm:text-5xl font-extrabold text-white mb-3">YAM DJ Premium</h1>
           <p class="text-2xl sm:text-3xl font-extrabold text-white mb-3">500 F <span class="text-white/80 text-lg font-semibold">/ mois</span></p>
           <p class="text-white/90 max-w-xl mx-auto">Soutiens la plateforme et tes artistes preferes, profite d'une experience sans limites.</p>
         </div>
@@ -28,12 +29,12 @@ import { PaymentService } from '../../services/payment.service';
       <!-- Etat : Premium actif -->
       @if (premium()) {
         <section class="yam-card p-8 mt-8 text-center border-yam-green/40 bg-yam-green/10">
-          <div class="text-5xl mb-3 animate-bounce-eq">⭐</div>
+          <div class="mb-3 text-yam-gold"><yam-icon name="star" [size]="44"/></div>
           <h2 class="text-2xl font-bold text-yam-green mb-2">Premium actif</h2>
           <p class="text-white/80">Merci pour ton soutien ! Ton abonnement court jusqu'au
             <b class="text-yam-green">{{ premiumUntilLabel() }}</b>.
           </p>
-          <span class="yam-badge !bg-yam-gold/20 !text-yam-gold mt-4">⭐ Membre Premium</span>
+          <span class="yam-badge !bg-yam-gold/20 !text-yam-gold mt-4"><yam-icon name="star" [size]="12"/> Membre Premium</span>
         </section>
       }
 
@@ -66,22 +67,22 @@ import { PaymentService } from '../../services/payment.service';
       <!-- Grille d'avantages -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
         <div class="yam-card p-6">
-          <div class="text-3xl mb-3">🏆</div>
+          <div class="text-yam-gold mb-3"><yam-icon name="trophy" [size]="28"/></div>
           <h3 class="font-bold mb-2">Badge supporteur</h3>
           <p class="text-white/50 text-sm">Badge Premium visible sur ton profil.</p>
         </div>
         <div class="yam-card p-6">
-          <div class="text-3xl mb-3">🚫</div>
+          <div class="text-yam-orange mb-3"><yam-icon name="megaphone" [size]="28"/></div>
           <h3 class="font-bold mb-2">Zero publicite</h3>
           <p class="text-white/50 text-sm">Aucune pub audio, pour toujours.</p>
         </div>
         <div class="yam-card p-6">
-          <div class="text-3xl mb-3">🎧</div>
+          <div class="text-yam-orange mb-3"><yam-icon name="headphones" [size]="28"/></div>
           <h3 class="font-bold mb-2">Avant-premieres</h3>
           <p class="text-white/50 text-sm">Acces prioritaire aux nouveautes.</p>
         </div>
         <div class="yam-card p-6">
-          <div class="text-3xl mb-3">💚</div>
+          <div class="text-yam-green mb-3"><yam-icon name="heart" [size]="28"/></div>
           <h3 class="font-bold mb-2">Soutien direct</h3>
           <p class="text-white/50 text-sm">Ta contribution finance les redevances artistes.</p>
         </div>
@@ -91,11 +92,11 @@ import { PaymentService } from '../../services/payment.service';
       <section class="yam-card p-6 mt-8">
         <h2 class="text-xl font-bold mb-4">Questions frequentes</h2>
         <div class="space-y-3 text-sm">
-          <p class="text-white/60"><b class="text-white">📱 Comment je paie ?</b>
+          <p class="text-white/60"><b class="text-white">Comment je paie ?</b>
             En mobile money via FedaPay : Orange, Moov, MTN, Wave.</p>
           <p class="text-white/60"><b class="text-white">⏳ Combien de temps ?</b>
             L'abonnement dure 30 jours et se renouvelle quand tu veux.</p>
-          <p class="text-white/60"><b class="text-white">🚪 Et si j'arrete ?</b>
+          <p class="text-white/60"><b class="text-white">Et si j'arrete ?</b>
             Annulation libre a tout moment, sans frais.</p>
         </div>
       </section>

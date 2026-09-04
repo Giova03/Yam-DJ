@@ -301,6 +301,28 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         }
         @case ('loader') { <path d="M21 12a9 9 0 1 1-6.22-8.56"/> }
 
+        <!-- ===== V2 — ACTIONS SECONDAIRES / CHARTS / NOUVEAUTES ===== -->
+        @case ('more') {
+          <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+          <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+        }
+        @case ('clock') { <circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.5 2"/> }
+        @case ('car') {
+          <path d="M4 16v-4.5a2 2 0 0 1 .5-1.3L7 7h10l2.5 3.2a2 2 0 0 1 .5 1.3V16"/>
+          <path d="M4 16h16v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2z"/>
+          <path d="M7.5 12.5h9"/>
+        }
+        @case ('trending-up') { <path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/> }
+        @case ('trending-down') { <path d="m3 7 6 6 4-4 8 8"/><path d="M15 17h6v-6"/> }
+        @case ('text') {
+          <path d="M5 5h14"/><path d="M5 10h14"/><path d="M5 15h9"/><path d="M5 20h6"/>
+        }
+        @case ('scissors') {
+          <circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/>
+          <path d="M20 4 8.6 15.4"/><path d="M14.6 14.6 20 20"/><path d="M8.6 8.6l3 3"/>
+        }
+
         <!-- ===== GOOGLE (multicolore, exception en rempli) ===== -->
         @case ('google') {
           <g transform="scale(0.5)" stroke="none">

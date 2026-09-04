@@ -181,6 +181,8 @@ export interface ChartEntry {
   plays: number;
   weekStart: string;
   country?: string;
+  /** Variation hebdo : rang precedent - rang courant (null = nouvelle entree). */
+  movement?: number | null;
   track?: Track;
 }
 

@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { IconComponent } from '../../components/icon/icon.component';
 import { TrackService } from '../../services/track.service';
 import { AuthService } from '../../services/auth.service';
 import { PlayerService } from '../../services/player.service';
@@ -13,12 +14,12 @@ import { Track } from '../../models/models';
 @Component({
   selector: 'yam-stats-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, IconComponent],
   template: `
     <div class="max-w-4xl mx-auto px-4 pt-8 pb-12">
 
       <div class="text-center mb-10">
-        <p class="yam-gradient-text font-display font-extrabold text-3xl md:text-4xl">Ton annee en sons 🎧</p>
+        <p class="yam-gradient-text font-display font-extrabold text-3xl md:text-4xl">Ton annee en sons</p>
         <p class="text-white/50 mt-2">Ce que tes oreilles ont fait de mieux.</p>
       </div>
 
@@ -29,7 +30,7 @@ import { Track } from '../../models/models';
         </div>
       } @else if (!history().length) {
         <div class="yam-card p-12 text-center">
-          <div class="text-5xl mb-4">🎼</div>
+          <div class="text-5xl mb-4"><yam-icon name="music-4" [size]="28"/></div>
           <p class="font-semibold mb-2">Pas encore d'ecoutes</p>
           <p class="text-white/50 text-sm mb-6">Ecoute quelques sons, reviens ici et decouvre ton profil d'auditeur.</p>
           <a routerLink="/" class="yam-btn-primary inline-block">Decouvrir des sons</a>
@@ -58,7 +59,7 @@ import { Track } from '../../models/models';
         <div class="grid md:grid-cols-2 gap-6">
           <!-- Top artistes -->
           <div class="yam-card p-5">
-            <h2 class="font-bold mb-4">🎤 Tes artistes</h2>
+            <h2 class="font-bold mb-4"> Tes artistes</h2>
             <div class="space-y-3">
               @for (a of artists(); track a.name) {
                 <div>
@@ -77,7 +78,7 @@ import { Track } from '../../models/models';
 
           <!-- Top genres -->
           <div class="yam-card p-5">
-            <h2 class="font-bold mb-4">🎶 Tes genres</h2>
+            <h2 class="font-bold mb-4"> Tes genres</h2>
             <div class="space-y-3">
               @for (g of genres(); track g.name) {
                 <div>
@@ -97,7 +98,7 @@ import { Track } from '../../models/models';
 
         <!-- Top sons -->
         <div class="yam-card p-5 mt-6">
-          <h2 class="font-bold mb-4">🔥 Tes sons les plus ecoutes</h2>
+          <h2 class="font-bold mb-4"> Tes sons les plus ecoutes</h2>
           <div class="space-y-2">
             @for (t of topTracks(); track t.track.id; let i = $index) {
               <button (click)="playTop(t.track)"
@@ -106,7 +107,7 @@ import { Track } from '../../models/models';
                 @if (t.track.coverUrl) {
                   <img [src]="t.track.coverUrl" [alt]="t.track.title" class="w-11 h-11 rounded-lg object-cover shrink-0">
                 } @else {
-                  <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center shrink-0">🎵</div>
+                  <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-yam-orange/40 to-yam-gold/40 flex items-center justify-center shrink-0"><yam-icon name="music-note" [size]="28"/></div>
                 }
                 <div class="min-w-0 flex-1">
                   <p class="font-medium truncate text-sm">{{ t.track.title }}</p>
@@ -120,7 +121,7 @@ import { Track } from '../../models/models';
 
         <!-- Data -->
         <div class="yam-card p-5 mt-6">
-          <h2 class="font-bold mb-2">📱 Ta data, ta maniere</h2>
+          <h2 class="font-bold mb-2"> Ta data, ta maniere</h2>
           <p class="text-white/50 text-sm">
             Aujourd'hui : <b class="text-yam-orange">{{ dataLabel() }}</b> d'ecoute estimes.
             Le mode Data-Lite consomme <b>3 fois moins</b> que la qualite standard (48 kbps) —

@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { IconComponent } from '../../components/icon/icon.component';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -10,7 +11,7 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'yam-forgot-password',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <div class="min-h-screen flex items-center justify-center p-4 bg-yam-dark">
       <div class="w-full max-w-md">
@@ -25,7 +26,7 @@ import { AuthService } from '../../services/auth.service';
         <div class="yam-card p-6">
           @if (sent()) {
             <div class="text-center py-4">
-              <div class="text-5xl mb-4">📧</div>
+              <div class="text-5xl mb-4"><yam-icon name="mail" [size]="28"/></div>
               <p class="font-semibold mb-2">Verifie ta boite mail</p>
               <p class="text-white/50 text-sm mb-6">
                 Si un compte YAM DJ existe avec <b>{{ email() }}</b>, le lien de

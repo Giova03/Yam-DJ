@@ -2,65 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== YAM DJ Design System (Spotify-like, sombre + clair) =====
-   Fondations variables : triplets RGB pilotes par :root (sombre, defaut)
-   et html.light (mode clair "Ivoire & Terre d'igname" — chaud, Boomplay-like).
-   Les classes yam-dark/yam-surface/yam-card de Tailwind les consomment
-   avec transparence (bg-yam-surface/95...). */
+/* ============================================================================
+   YAM DJ 2.0 — AFROPULSE NIGHT
+   Identite : premium, dark-first, editorial, urbain, africain sans cliches.
+   Ratio visuel : 80 % surfaces/noir · 15 % orange · 5 % violet/dore.
+   L'orange est une SIGNATURE, pas un remplissage.
+   Tous les tokens sont centralises ici (couleurs, rayons, ombres, motion,
+   z-index) — aucune valeur arbitraire dans les composants.
+   ============================================================================ */
 
 :root {
-  --c-bg-base: 10 10 10;       /* #0A0A0A */
-  --c-bg-surface: 20 20 20;    /* #141414 */
-  --c-bg-card: 30 30 30;       /* #1E1E1E */
-  --c-fg: 255 255 255;         /* texte principal */
-  --c-fg-muted: 255 255 255;   /* opacite appliquee par la classe */
+  /* — Couleurs AFROPULSE NIGHT (mode sombre = defaut) — */
+  --c-bg-base: 9 9 15;        /* #09090F — fond */
+  --c-bg-surface: 19 19 28;   /* #13131C — surface */
+  --c-bg-card: 27 27 39;      /* #1B1B27 — surface elevee */
+  --c-fg: 247 245 242;        /* #F7F5F2 — texte principal */
+  --c-fg-muted: 185 182 197;  /* #B9B6C5 — texte secondaire */
+  --c-border: 52 51 66;       /* #343342 — bordures */
+  --c-primary: 255 138 36;    /* #FF8A24 — orange YAM */
+  --c-secondary: 124 92 255;  /* #7C5CFF — violet studio */
+  --c-accent: 244 201 93;     /* #F4C95D — dore editorial */
+  --c-ink: 21 14 6;           /* #150E06 — texte pose sur orange */
+
+  /* — Rayons — */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* — Ombres (chaudes, jamais de gris pur) — */
+  --sh-1: 0 4px 14px -6px rgba(0, 0, 0, .5);
+  --sh-2: 0 18px 44px -14px rgba(0, 0, 0, .65);
+  --sh-glow: 0 8px 30px -8px rgba(255, 138, 36, .35);
+
+  /* — Motion — */
+  --m-fast: 150ms;
+  --m-base: 250ms;
+  --m-slow: 450ms;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  /* — Z-index (echelle unique, jamfalls interdits) — */
+  --z-nav: 40;
+  --z-tabbar: 45;
+  --z-player: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+
   color-scheme: dark;
 }
 
-/* MODE CLAIR « Ivoire & Terre d'igname » :
-   base ivoire chaud #FBF5EC (pas un gris froid), surfaces blanches,
-   textes brun-noir profonds. Les accents orange/or passent en versions
-   assombries AA (conseil designer) pour rester lisibles (>= 4.5:1). */
+/* MODE CLAIR « Ivoire & Terre d'igname » (choix utilisateur) :
+   base ivoire chaud, surfaces blanches, textes brun-noir. Les accents
+   passent en versions assombries AA pour rester lisibles (>= 4.5:1). */
 html.light {
   --c-bg-base: 251 245 236;    /* #FBF5EC — ivoire chaud */
-  --c-bg-surface: 255 255 255; /* #FFFFFF */
-  --c-bg-card: 255 255 255;    /* cartes blanches sur fond ivoire */
-  --c-fg: 31 27 22;            /* #1F1B16 — texte principal brun-noir */
-  --c-fg-muted: 87 83 78;      /* #57534E — texte secondaire */
+  --c-bg-surface: 255 255 255;
+  --c-bg-card: 255 255 255;
+  --c-fg: 31 27 22;            /* #1F1B16 — brun-noir */
+  --c-fg-muted: 87 83 78;      /* #57534E */
+  --c-border: 237 229 216;     /* #EDE5D8 */
   color-scheme: light;
 }
 
 html {
-  scrollbar-color: #333 #0a0a0a;
+  scrollbar-color: #343342 #09090F;
 }
-
 html.light {
   scrollbar-color: #C2B49A #FBF5EC;
 }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #09090F; }
+::-webkit-scrollbar-thumb { background: #343342; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #4A4960; }
+html.light ::-webkit-scrollbar-track { background: #f6f1e7; }
+html.light ::-webkit-scrollbar-thumb { background: #c1b7a4; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #9a9486; }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: #0a0a0a;
-}
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 8px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-html.light ::-webkit-scrollbar-track {
-  background: #f6f7f9;
-}
-html.light ::-webkit-scrollbar-thumb {
-  background: #c1c5cb;
-}
-html.light ::-webkit-scrollbar-thumb:hover {
-  background: #9aa0a8;
-}
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
 /* Transition douce entre les themes */
 html.theme-anim, html.theme-anim * {
@@ -71,40 +90,189 @@ html.theme-anim, html.theme-anim * {
   .yam-card {
     @apply rounded-2xl border transition-all duration-300;
     background-color: rgb(var(--c-bg-card));
-    border-color: rgba(127, 127, 127, 0.15);
+    border-color: rgba(52, 51, 66, .55);
   }
+  html.light .yam-card { border-color: #EDE5D8; }
   html.light .yam-card:hover { border-color: #D6CBB8; }
   .yam-btn-primary {
-    @apply bg-yam-orange text-white font-semibold rounded-full px-6 py-2.5 hover:bg-orange-600 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply font-bold rounded-full px-6 py-2.5 hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: rgb(var(--c-primary));
+    color: rgb(var(--c-ink));
   }
   .yam-btn-secondary {
-    @apply font-semibold rounded-full px-6 py-2.5 active:scale-95 transition-all duration-200;
-    background-color: rgba(127, 127, 127, 0.18);
+    @apply font-semibold rounded-full px-6 py-2.5 active:scale-95 transition-all duration-200 border;
+    background-color: rgba(127, 127, 140, .16);
+    border-color: rgba(52, 51, 66, .8);
     color: rgb(var(--c-fg));
   }
   .yam-btn-secondary:hover {
-    background-color: rgba(127, 127, 127, 0.3);
+    background-color: rgba(127, 127, 140, .26);
+    border-color: rgba(255, 138, 36, .5);
   }
   .yam-input {
-    @apply border rounded-xl px-4 py-3 w-full focus:outline-none focus:border-yam-orange focus:ring-1 focus:ring-yam-orange transition;
+    @apply border rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-1 transition;
     background-color: rgb(var(--c-bg-surface));
-    border-color: rgba(127, 127, 127, 0.25);
+    border-color: rgba(52, 51, 66, .9);
     color: rgb(var(--c-fg));
   }
-  .yam-input::placeholder { color: rgba(127, 127, 127, 0.75); }
+  .yam-input:focus {
+    border-color: rgb(var(--c-primary));
+    --tw-ring-color: rgba(255, 138, 36, .45);
+  }
+  .yam-input::placeholder { color: rgba(185, 182, 197, .8); }
   .yam-title {
     @apply font-display font-bold text-2xl md:text-3xl tracking-tight;
     color: rgb(var(--c-fg));
   }
   .yam-badge {
     @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full;
-    background-color: rgba(127, 127, 127, 0.18);
+    background-color: rgba(127, 127, 140, .18);
     color: rgb(var(--c-fg));
   }
 }
 
-/* ============ SURCHARGES MODE CLAIR (utilitaires blancs/noirs) ============
-   Les templates utilisent text-white/50, bg-white/10, border-white/10...
+/* ============ TYPOGRAPHIE EDITORIALE (signature sans logo) ============ */
+
+/* Kicker : surtitre magazine — petite capitale espacee, orange */
+.yam-kicker {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .24em;
+  font-size: .72rem;
+  font-weight: 600;
+  color: rgb(var(--c-primary));
+}
+html.light .yam-kicker { color: #C2410C; }
+
+/* Titre d'affichage : Syne 800, serré — la voix editoriale YAM DJ */
+.yam-display {
+  font-family: 'Syne', 'Inter', sans-serif;
+  font-weight: 800;
+  letter-spacing: -.022em;
+  line-height: .98;
+  color: rgb(var(--c-fg));
+}
+
+/* Chiffres : Space Grotesk tabulaire (charts, BPM, compteurs, horloges) */
+.yam-num {
+  font-family: 'Space Grotesk', 'Inter', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Gradient texte signature (orange -> dore) */
+.yam-gradient-text {
+  background-image: linear-gradient(92deg, #FF8A24 5%, #F4C95D 55%, #FF8A24 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+html.light .yam-gradient-text {
+  background-image: linear-gradient(92deg, #C2410C, #A16207, #C2410C) !important;
+}
+
+/* Filet editorial : regle fine + point orange */
+.yam-rule {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.yam-rule::before {
+  content: '';
+  width: 26px;
+  height: 2px;
+  background: rgb(var(--c-primary));
+  border-radius: 2px;
+}
+
+/* ============ AMBIANCES / TEXTURES ============ */
+
+/* Halo orange tres dilue (hero, charts) — jamais un gradient de remplissage */
+.yam-glow {
+  position: absolute;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 138, 36, .16), transparent 72%);
+  filter: blur(2px);
+}
+
+/* Grain editorial leger (imprime, pas "flat design") */
+.yam-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+html.light .yam-grain::after { opacity: .035; }
+
+/* Ligne de lecture fine du mini-player */
+.yam-progress-thin {
+  height: 3px;
+  background: rgba(185, 182, 197, .25);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.yam-progress-thin > span {
+  display: block;
+  height: 100%;
+  background: rgb(var(--c-primary));
+  border-radius: 999px;
+}
+
+/* Visualiseur audio (barres animees — signature du player) */
+.yam-viz {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+}
+.yam-viz > span {
+  width: 3px;
+  border-radius: 2px;
+  background: rgb(var(--c-primary));
+  animation: yam-viz-bounce 1s ease-in-out infinite;
+  height: 20%;
+}
+.yam-viz > span:nth-child(2) { animation-delay: .12s; }
+.yam-viz > span:nth-child(3) { animation-delay: .24s; }
+.yam-viz > span:nth-child(4) { animation-delay: .36s; }
+.yam-viz > span:nth-child(5) { animation-delay: .48s; }
+.yam-viz > span:nth-child(6) { animation-delay: .6s; }
+.yam-viz.paused > span { animation-play-state: paused; opacity: .45; }
+@keyframes yam-viz-bounce {
+  0%, 100% { height: 18%; }
+  50% { height: 92%; }
+}
+
+/* Equalizer anime (track en lecture) */
+.eq-bar {
+  width: 3px;
+  background: #FF8A24;
+  animation: eq-bounce 0.9s ease-in-out infinite;
+}
+html.light .eq-bar { background: #C2410C; }
+.eq-bar:nth-child(2) { animation-delay: 0.15s; }
+.eq-bar:nth-child(3) { animation-delay: 0.3s; }
+.eq-bar:nth-child(4) { animation-delay: 0.45s; }
+@keyframes eq-bounce {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+/* ============ APPARITION PROGRESSIVE (rare et qualitative) ============ */
+.yam-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--m-slow) var(--ease), transform var(--m-slow) var(--ease);
+}
+.yam-reveal.yam-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* ============ SURCHARGES MODE CLAIR (heritage V1.4, adjustees V2) ============ */
+/* Les templates utilisent text-white/50, bg-white/10, border-white/10...
    herites du design sombre. En mode clair on les reecrit proprement ici —
    un seul fichier, aucune modification des 30+ composants. */
 
@@ -140,27 +308,20 @@ html.light .bg-black\/80 { background-color: rgba(10, 12, 16, 0.6) !important; }
 html.light .from-white\/10 { --tw-gradient-from: rgba(31, 27, 22, 0.07) !important; }
 html.light .to-white\/5 { --tw-gradient-to: rgba(31, 27, 22, 0.03) !important; }
 
-/* ============ R1 — ACCENTS TEXTE AA + GRADIENT LOGO ============
-   #FFD166 sur blanc = illisible (1,35:1). En clair, l'or devient #A16207,
-   l'orange texte devient #C2410C (5,2:1), le vert #15803D, le rouge #B91C1C. */
+/* Accents texte AA en clair : orange #C2410C (5,2:1), or #A16207, violet #6D28D9 */
 html.light .text-yam-gold   { color: #A16207 !important; }
 html.light .text-yam-orange { color: #C2410C !important; }
+html.light .text-yam-violet { color: #6D28D9 !important; }
 html.light .text-yam-green  { color: #15803D !important; }
 html.light .text-red-400    { color: #B91C1C !important; }
 html.light .text-red-500    { color: #B91C1C !important; }
 html.light .text-red-500\/90 { color: #B91C1C !important; }
 
-/* text-yam-dark : texte POSE sur fond orange/or (bouton play, badges).
-   En clair il reste BLANC sur les fonds vifs (pas #fff neige : ivoire). */
-html.light .text-yam-dark { color: #FFFFFF !important; }
+/* text-yam-dark : texte POSE sur fond orange/or. */
+html.light .text-yam-dark { color: #150E06 !important; }
 html.light .bg-white.text-yam-dark { background-color: #1F1B16 !important; color: #FFFFFF !important; }
 
-/* Logo/hero en degrade : version clair lisible (pas de segment or invisible) */
-html.light .yam-gradient-text {
-  background-image: linear-gradient(90deg, #C2410C, #A16207, #C2410C) !important;
-}
-
-/* ============ ETATS HOVER COMPLEMENTS ============ */
+/* Etats hover complements */
 html.light .hover\:text-white:hover { color: #1F1B16 !important; }
 html.light .hover\:text-yam-gold:hover { color: #A16207 !important; }
 html.light .hover\:text-yam-orange:hover { color: #C2410C !important; }
@@ -169,8 +330,7 @@ html.light .hover\:text-red-500:hover { color: #B91C1C !important; }
 html.light .hover\:border-yam-orange\/40:hover { border-color: rgba(194, 65, 12, 0.4) !important; }
 html.light .hover\:border-yam-orange\/50:hover { border-color: rgba(194, 65, 12, 0.5) !important; }
 
-/* ============ R3 — BASE CHAUDE + GRADIENTS + TINTS DENSES ============ */
-/* Moitie d'ecran noire sur login/register en mode clair : to-black fixe */
+/* Base chaude + gradients + tints denses */
 html.light .to-black { --tw-gradient-to: #FBF5EC var(--tw-gradient-to-position) !important; }
 html.light .bg-black\/40 { background-color: rgba(31, 27, 22, 0.08) !important; }
 html.light .bg-black\/30 { background-color: rgba(31, 27, 22, 0.06) !important; }
@@ -181,6 +341,8 @@ html.light .bg-yam-gold\/5 { background-color: #FAF0DA !important; }
 html.light .bg-yam-orange\/10 { background-color: #FCE9DC !important; }
 html.light .bg-yam-orange\/20 { background-color: #F8D4C0 !important; }
 html.light .bg-yam-orange\/5 { background-color: #FEF2EA !important; }
+html.light .bg-yam-violet\/10, html.light .bg-yam-violet\/5 { background-color: #EDE9FB !important; }
+html.light .bg-yam-violet\/20 { background-color: #DDD5F8 !important; }
 html.light .bg-yam-green\/10 { background-color: #DFF3E6 !important; }
 html.light .bg-yam-green\/5 { background-color: #EDF9F1 !important; }
 html.light .bg-red-400\/10 { background-color: #FDE4E4 !important; }
@@ -195,8 +357,8 @@ html.light .border-yam-gold\/40 { border-color: rgba(161, 98, 7, 0.4) !important
 html.light .border-yam-green\/40 { border-color: rgba(21, 128, 61, 0.4) !important; }
 html.light .border-red-400\/40 { border-color: rgba(185, 28, 28, 0.4) !important; }
 
-/* ============ R4 — CTA, FOCUS, SLIDERS ============ */
-html.light .yam-btn-primary { background-color: #E8511F !important; }
+/* CTA, focus, sliders */
+html.light .yam-btn-primary { background-color: #E8511F !important; color: #FFFFFF !important; }
 html.light .yam-btn-primary:hover { background-color: #C63D0D !important; }
 html.light .accent-yam-orange { accent-color: #C2410C !important; }
 html.light .accent-yam-gold { accent-color: #A16207 !important; }
@@ -206,66 +368,65 @@ html.light .focus\:ring-yam-orange:focus {
   --tw-ring-color: rgba(194, 65, 12, 0.6) !important;
 }
 
-/* ============ R5 — BORDURES / OMBRES CHAUDES ============ */
-html.light .yam-card { border-color: #EDE5D8 !important; }
+/* Ombres chaudes / bordures */
 html.light .shadow-black\/50 { --tw-shadow-color: rgba(74, 52, 24, 0.18) !important; --tw-shadow: var(--tw-shadow-colored) !important; }
 html.light .shadow-black\/40 { --tw-shadow-color: rgba(74, 52, 24, 0.15) !important; --tw-shadow: var(--tw-shadow-colored) !important; }
 html.light .border-yam-dark { border-color: #FBF5EC !important; }
-
-/* Barre de lecture : pochette du bouton play reste foncee (contraste logo) */
 html.light .bg-yam-dark\/98 { background-color: #FFFFFF !important; }
 
-/* Equalizer anime (track en lecture) */
-.eq-bar {
-  width: 3px;
-  background: #FF6B35;
-  animation: eq-bounce 0.9s ease-in-out infinite;
-}
-html.light .eq-bar { background: #C2410C; }
-.eq-bar:nth-child(2) { animation-delay: 0.15s; }
-.eq-bar:nth-child(3) { animation-delay: 0.3s; }
-.eq-bar:nth-child(4) { animation-delay: 0.45s; }
-@keyframes eq-bounce {
-  0%, 100% { height: 4px; }
-  50% { height: 16px; }
-}
-
-/* Zone tactile elargie des sliders (cible pouce >= 44px, conseil designer) */
-input[type="range"] { touch-action: none; }
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px; height: 16px;
-  border-radius: 999px;
-  background: #FF6B35;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,.35);
-  margin-top: -6px;
-}
-html.light input[type="range"]::-webkit-slider-thumb { background: #C2410C; }
-
-/* ============ TASK 24-a — REFINEMENTS DESIGN (additif uniquement) ============
-   Hover subtil des cartes (levee -2px + ombre chaude, 200 ms) et focus
-   visible orange sur les boutons. Aucune classe existante n'est modifiee :
-   ces regles s'ajoutent a la suite (cascade) du design system. */
+/* ============ HOVER CARTES + FOCUS VISIBLE (consignes V2) ============ */
 .yam-card {
-  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+  transition: transform var(--m-fast) ease, box-shadow var(--m-base) ease, border-color var(--m-base) ease, background-color var(--m-base) ease;
 }
 .yam-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .55), 0 4px 14px -8px rgba(255, 107, 53, .25);
+  box-shadow: var(--sh-2), 0 4px 14px -8px rgba(255, 138, 36, .22);
 }
 html.light .yam-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 28px -14px rgba(74, 52, 24, .30), 0 4px 12px -8px rgba(230, 122, 60, .30);
 }
 
-/* Focus visible : anneau or/orange clair, coherent sur toute la plateforme */
 .yam-btn-primary:focus-visible,
 .yam-btn-secondary:focus-visible {
-  outline: 2px solid #FFD166;
+  outline: 2px solid #F4C95D;
   outline-offset: 2px;
 }
 .yam-badge:focus-visible {
-  outline: 2px solid rgba(255, 209, 102, .8);
+  outline: 2px solid rgba(244, 201, 93, .8);
   outline-offset: 2px;
+}
+
+/* Focus visible global : tout element interactif focusable garde un anneau */
+a:focus-visible, button:focus-visible, input:focus-visible,
+[tabindex]:focus-visible, summary:focus-visible {
+  outline: 2px solid rgba(244, 201, 93, .85);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============ TEXTE SUR ORANGE (AA — l'orange V2 est clair) ============ */
+.bg-yam-orange.text-white { color: #150E06; }
+html.light .bg-yam-orange.text-white { color: #FFFFFF; }
+
+/* ============ ZONE TACTILE SLIDERS ============ */
+input[type="range"] { touch-action: none; }
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  background: #FF8A24;
+  border: 2px solid #F7F5F2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  margin-top: -6px;
+}
+html.light input[type="range"]::-webkit-slider-thumb { background: #C2410C; border-color: #fff; }
+
+/* ============ PREFERS-REDUCED-MOTION (respect systeme) ============ */
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar, .yam-viz > span { animation: none !important; }
+  .yam-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .yam-card, .yam-card:hover { transform: none !important; }
+  html.theme-anim, html.theme-anim * { transition: none !important; }
+  .animate-spin-slow, .animate-vinyl { animation: none !important; }
 }

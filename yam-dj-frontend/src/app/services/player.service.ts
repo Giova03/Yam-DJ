@@ -58,6 +58,9 @@ export class PlayerService {
   // Etat reactif
   currentTrack = signal<Track | null>(null);
   isPlaying = signal<boolean>(false);
+
+  /** V2 : player plein ecran ouvert (partage home "A l'ecoute" <-> player). */
+  fullOpen = signal<boolean>(false);
   position = signal<number>(0);
   duration = signal<number>(0);
   volume = signal<number>(0.9);
@@ -256,7 +259,7 @@ export class PlayerService {
         this.audio.src = url;
         this.tryResume(track);
         this.audio.play().then(() => this.updateMediaSession(track))
-          .catch(() => this.isPlaying.set(false));
+          .catch(() => { this.isPlaying.set(false); this.loading.set(false); });
       } else {
         const local = (track as any).__local as LocalFileTrack | undefined;
         if (local) {
@@ -317,7 +320,7 @@ export class PlayerService {
       this.hls.attachMedia(this.audio);
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
         this.tryResume(this.currentTrack()!);
-        this.audio.play().catch(() => this.isPlaying.set(false));
+        this.audio.play().catch(() => { this.isPlaying.set(false); this.loading.set(false); });
       });
       this.hls.on(Hls.Events.ERROR, (_evt: any, data: any) => {
         if (data?.fatal) {
@@ -337,7 +340,7 @@ export class PlayerService {
     } else {
       this.audio.src = url;
       this.tryResume(this.currentTrack()!);
-      this.audio.play().catch(() => this.isPlaying.set(false));
+      this.audio.play().catch(() => { this.isPlaying.set(false); this.loading.set(false); });
     }
   }
 
