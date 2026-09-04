@@ -440,3 +440,44 @@ html:not(.light) .text-white\/30 { color: rgba(185, 182, 197, .66) !important; }
 html:not(.light) .text-white\/35 { color: rgba(185, 182, 197, .72) !important; }
 html:not(.light) .text-white\/40 { color: rgba(185, 182, 197, .78) !important; }
 html:not(.light) .text-white\/45 { color: rgba(185, 182, 197, .84) !important; }
+
+/* ============ V2.1 : VARIANTES MANQUANTES EN MODE CLAIR ============
+   Audit exhaustif des opacites utilisees : text-white/85-55-45-35-25-15,
+   bg-white/8 (+hover), border-white/6-8-12 restaient BLANCES sur fond
+   clair -> texte invisible (panneau Explorer mobile, menus ••• des
+   morceaux, tabbar, navbar). Elles sont maintenant reecrites sur la
+   base brun-noir #1F1B16, comme leurs soeurs deja couvertes. */
+html.light .text-white\/85 { color: rgba(31, 27, 22, .88) !important; }
+html.light .text-white\/55 { color: rgba(31, 27, 22, .62) !important; }
+html.light .text-white\/45 { color: rgba(31, 27, 22, .52) !important; }
+html.light .text-white\/35 { color: rgba(31, 27, 22, .44) !important; }
+html.light .text-white\/25 { color: rgba(31, 27, 22, .36) !important; }
+html.light .text-white\/15 { color: rgba(31, 27, 22, .22) !important; }
+
+html.light .bg-white\/8 { background-color: rgba(31, 27, 22, .06) !important; }
+html.light .hover\:bg-white\/8:hover { background-color: rgba(31, 27, 22, .10) !important; }
+
+html.light .border-white\/6 { border-color: rgba(31, 27, 22, .09) !important; }
+html.light .border-white\/8 { border-color: rgba(31, 27, 22, .12) !important; }
+html.light .border-white\/12 { border-color: rgba(31, 27, 22, .16) !important; }
+
+/* Fonds sombres fins (rangées studio) : voile chaud leger en clair */
+html.light .bg-black\/20 { background-color: rgba(31, 27, 22, .05) !important; }
+
+/* Violet studio (accent MIX AUTO) : versions AA sur fond clair */
+html.light .text-yam-violet { color: #6D28D9 !important; }
+html.light .text-yam-violet\/90 { color: #6D28D9 !important; }
+html.light .text-yam-violet\/80 { color: #6D28D9 !important; }
+html.light .border-yam-violet\/30 { border-color: rgba(109, 40, 217, .3) !important; }
+html.light .border-yam-violet\/40 { border-color: rgba(109, 40, 217, .4) !important; }
+html.light .border-yam-violet\/50 { border-color: rgba(109, 40, 217, .5) !important; }
+html.light .bg-yam-violet\/10 { background-color: #EDE9FB !important; }
+html.light .bg-yam-violet\/20 { background-color: #DDD5F8 !important; }
+html.light .hover\:bg-yam-violet\/10:hover { background-color: #E4DDF8 !important; }
+/* kicker violet force (Studio MIX AUTO) : version AA en clair */
+html.light .\!text-yam-violet { color: #6D28D9 !important; }
+html.light .from-yam-violet\/50 { --tw-gradient-from: rgba(109, 40, 217, .35) !important; }
+html.light .to-yam-violet { --tw-gradient-to: #9F7CFF var(--tw-gradient-to-position) !important; }
+
+/* Selections clavier / focus sur violet */
+html.light input.accent-yam-violet { accent-color: #6D28D9 !important; }

@@ -1,10 +1,13 @@
-import { Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, AfterViewInit, inject, signal, viewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, AfterViewInit, inject, signal, viewChildren, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { DjService } from '../../services/dj.service';
+import { DjLiveService } from '../../services/dj-live.service';
 import { TrackService } from '../../services/track.service';
 import { Mixtape, Track } from '../../models/models';
 import { DjDeck, DjEngine } from './dj-engine';
+import { IconComponent } from '../../components/icon/icon.component';
+import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionType, Mood, planAutoMix } from './auto-mix-planner';
 
 /**
  * ============================================================================
@@ -20,18 +23,27 @@ import { DjDeck, DjEngine } from './dj-engine';
  *  - SYNC B vers A (half/double auto) + harmonie Camelot A<->B ;
  *  - ENREGISTREMENT du mix de sortie (MediaRecorder) + publication en
  *    mixtape (MP3 transcode cote serveur) ou telechargement local ;
- *  - Auto-Mix IA + creation de mixtape FFmpeg + gestion existantes ;
+ *  - MIX AUTO : DJ IA complet (selection, courbe d'energie, BPM, Camelot,
+ *    8 types de transitions, analyse reelle au chargement) ;
+ *  - LECTURE EN ARRIERE-PLAN : le moteur vit dans DjLiveService — la
+ *    musique continue quand on quitte le studio (indicateur navbar) ;
  *  - raccourcis clavier (Espace, fleches, S, 1-4).
  */
 @Component({
   selector: 'yam-dj-studio',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   styles: [`
     .dj-console-grid { display: grid; grid-template-columns: 1fr 235px 1fr; grid-template-areas: 'deck-a mixer deck-b'; }
     @media (max-width: 1023px) {
       .dj-console-grid { grid-template-columns: 1fr; grid-template-areas: 'mixer' 'deck-a' 'deck-b'; }
     }
+    /* Ecran "console" : sombre dans les DEUX themes (c'est un scope audio,
+       comme un vrai ecran de platine) — les textes dedans restent clairs. */
+    .dj-scope { background: #0A0A15; }
+    .dj-t90 { color: rgba(247, 245, 242, .92); }
+    .dj-t50 { color: rgba(247, 245, 242, .55); }
+    .dj-t20 { color: rgba(247, 245, 242, .28); }
     .dj-crossfader::-webkit-slider-thumb {
       width: 26px; height: 26px; border-radius: 8px;
       background: linear-gradient(135deg, #FF6B35, #FFD166);
@@ -47,23 +59,180 @@ import { DjDeck, DjEngine } from './dj-engine';
       <!-- ============ EN-TETE ============ -->
       <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 class="yam-title">🎚️ Studio DJ <span class="yam-gradient-text">PRO</span></h1>
-          <p class="text-white/50 text-sm">Moteur Web Audio réel : ta musique locale ou le catalogue, waveform, EQ, effets, sync BPM, boucles précises, enregistrement.</p>
+          <p class="yam-kicker">Console de mixage</p>
+          <h1 class="yam-title">Studio DJ <span class="yam-gradient-text">PRO</span></h1>
+          <p class="text-white/50 text-sm">Moteur Web Audio réel : waveform, EQ, effets, sync BPM, boucles précises — et Mix Auto, ton DJ IA. La musique continue en arrière-plan.</p>
         </div>
         <div class="flex gap-2 flex-wrap items-center">
-          <button (click)="toggleHelp()" class="yam-btn-secondary text-sm">⌨️ Aide</button>
-          <button (click)="loadLibrary()" class="yam-btn-secondary text-sm">🔄 Bibliothèque</button>
-          <button (click)="autoMix()" [disabled]="selected().length < 2" class="yam-btn-primary text-sm">
-            🤖 Auto-Mix IA ({{ selected().length }})
-          </button>
+          <button (click)="toggleHelp()" class="yam-btn-secondary text-sm flex items-center gap-1.5"><yam-icon name="book-open" [size]="14"/> Aide</button>
+          <button (click)="loadLibrary()" class="yam-btn-secondary text-sm flex items-center gap-1.5"><yam-icon name="history" [size]="14"/> Bibliothèque</button>
         </div>
       </div>
 
-      @if (analysis()) {
-        <div class="yam-card p-4 mb-5 border-yam-orange/30 bg-yam-orange/5">
-          <p class="text-sm text-yam-orange font-medium">🤖 {{ analysis() }}</p>
+      <!-- ============ MIX AUTO — DJ IA ============ -->
+      <section class="yam-card p-4 md:p-6 mb-5 border-yam-violet/30">
+        <div class="flex items-start justify-between flex-wrap gap-3 mb-1">
+          <div>
+            <p class="yam-kicker !text-yam-violet">Assistant DJ · IA locale</p>
+            <h2 class="yam-display text-2xl md:text-3xl mt-1">MIX AUTO</h2>
+          </div>
+          <span class="yam-badge text-yam-violet border border-yam-violet/30 gap-1.5"><yam-icon name="disc" [size]="12"/> aucune donnée envoyée</span>
         </div>
-      }
+        <p class="text-white/50 text-sm max-w-2xl mb-5">Choisis une ambiance : le DJ IA sélectionne les morceaux, construit la courbe d'énergie, synchronise les BPM, accorde les tonalités (roue Camelot) et enchaîne les transitions comme en soirée. Chaque piste est réellement analysée (structure, énergie, loudness) et le mix <b class="text-white/70">continue en arrière-plan</b> pendant que tu navigues.</p>
+
+        @if (djLive.autoActive()) {
+          <!-- ===== LECTURE EN COURS ===== -->
+          <div class="rounded-2xl border border-yam-violet/30 bg-yam-violet/10 p-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="yam-viz" [class.paused]="djLive.autoPhase() !== 'playing' && djLive.autoPhase() !== 'transition'">
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                </span>
+                <div class="min-w-0">
+                  <p class="font-semibold truncate text-sm">{{ currentAutoSeg()?.track?.title || 'Préparation…' }}</p>
+                  <p class="text-white/40 text-xs truncate">{{ currentAutoSeg()?.track?.artistName }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button (click)="djLive.togglePauseAutoMix()" class="yam-btn-secondary !px-4 !py-2 text-sm">
+                  {{ djLive.autoPhase() === 'paused' ? 'Reprendre' : 'Pause' }}
+                </button>
+                <button (click)="stopAutoMix()" class="px-4 py-2 rounded-full font-bold text-sm bg-red-500/10 text-red-400 border border-red-400/40 hover:bg-red-500 hover:text-white transition">Stop</button>
+              </div>
+            </div>
+            <div class="yam-progress-thin mb-1.5"><span [style.width.%]="autoProgressPct()"></span></div>
+            <div class="flex justify-between text-[11px] text-white/40 yam-num mb-2">
+              <span>{{ fmt(djLive.autoMixPosition()) }} / {{ fmt(djLive.autoMixDuration()) }}</span>
+              <span class="text-right">
+                @if (djLive.autoPhase() === 'transition' && djLive.autoTransitionLabel()) { {{ djLive.autoTransitionLabel() }} }
+                @else if (djLive.autoCountdown() != null) { prochaine transition dans {{ ceil(djLive.autoCountdown()!) }} s }
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-white/50 flex-wrap">
+              <span class="yam-badge !text-yam-violet border border-yam-violet/30 !px-2">Piste {{ djLive.autoIndex() + 1 }}/{{ autoSegCount() }}</span>
+              @if (nextAutoSeg(); as nx) {
+                <span class="truncate">Ensuite : <b class="text-white/70">{{ nx.track.title }}</b> — {{ nx.track.artistName }}</span>
+              }
+              @if (currentAutoMeasured(); as m) {
+                <span class="yam-num text-white/35 hidden sm:inline">{{ m.bpm || '?' }} BPM · énergie {{ (m.energy * 10).toFixed(1) }}/10</span>
+              }
+            </div>
+            @if (djLive.autoLoading()) { <p class="text-xs text-yam-orange mt-2 animate-pulse">{{ djLive.autoLoading() }}</p> }
+            @if (djLive.autoError()) { <p class="text-xs text-red-400 mt-2">{{ djLive.autoError() }}</p> }
+            <p class="text-[11px] text-white/35 mt-2 flex items-center gap-1.5"><yam-icon name="smartphone" [size]="12"/> Arrière-plan actif : navigue librement, la musique continue — contrôle aussi depuis l'écran verrouillé.</p>
+          </div>
+        } @else {
+          <!-- ===== PARAMETRES ===== -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="col-span-2">
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Ambiance</label>
+              <div class="flex flex-wrap gap-1.5">
+                @for (m of moods; track m.key) {
+                  <button (click)="mixMood.set(m.key)"
+                          class="text-xs font-semibold px-3 py-1.5 rounded-full border transition"
+                          [class]="mixMood() === m.key ? 'bg-yam-violet/20 border-yam-violet/50 text-yam-violet' : 'border-white/10 text-white/50 hover:border-yam-violet/30'"
+                          [title]="m.desc">{{ m.label }}</button>
+                }
+              </div>
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Genre</label>
+              <select [(ngModel)]="mixGenre" class="yam-input !py-2 !px-2 text-sm">
+                <option value="all">Tous</option>
+                @for (g of genres(); track g) { <option [value]="g">{{ g }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Morceaux</label>
+              <select [(ngModel)]="mixCount" class="yam-input !py-2 !px-2 text-sm">
+                <option [ngValue]="null">Auto</option>
+                @for (n of [2, 3, 4, 5, 6, 8, 10, 12]; track n) { <option [ngValue]="n">{{ n }}</option> }
+              </select>
+            </div>
+            <div class="col-span-2 md:col-span-1">
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">
+                Durée max <span class="yam-num text-white/60">{{ mixMaxMin }} min</span>
+              </label>
+              <input type="range" min="10" max="90" step="5" [(ngModel)]="mixMaxMin" class="w-full h-1.5 accent-yam-violet cursor-pointer">
+            </div>
+            <div class="col-span-2 md:col-span-1">
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">
+                Intensité <span class="yam-num text-white/60">{{ mixEnergy }}/10</span>
+              </label>
+              <input type="range" min="1" max="10" step="1" [(ngModel)]="mixEnergy" class="w-full h-1.5 accent-yam-violet cursor-pointer">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Transitions</label>
+              <select [(ngModel)]="mixStyle" class="yam-input !py-2 !px-2 text-sm">
+                <option value="auto">Auto (le DJ IA choisit)</option>
+                @for (s of styleOptions; track s.value) { <option [value]="s.value">{{ s.label }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Artistes (facultatif)</label>
+              <input type="text" [(ngModel)]="mixArtists" placeholder="ex : Floby, Dee Jay" class="yam-input !py-2 !px-2 text-sm">
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <button (click)="generateMix()" [disabled]="generating() || library().length + localFiles().length < 2" class="yam-btn-primary text-sm flex items-center gap-1.5">
+              <yam-icon name="sparkles" [size]="15"/> {{ generating() ? 'Analyse…' : 'Générer le mix' }}
+            </button>
+            <span class="text-xs text-white/40">{{ mixSourceLabel() }}</span>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap text-xs text-white/45">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="mixRecord" class="accent-yam-violet w-4 h-4"> Enregistrer le mix auto
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" [(ngModel)]="mixVoice" class="accent-yam-violet w-4 h-4"> Voix DJ (annonces)
+            </label>
+          </div>
+        }
+
+        <!-- ===== RAPPORT DU PLAN ===== -->
+        @if (djLive.autoPlan(); as plan) {
+          @if (!djLive.autoActive()) {
+            <div class="mt-5 border-t border-white/10 pt-4">
+              <p class="text-sm font-semibold mb-1">{{ plan.summary }}</p>
+              @for (w of plan.warnings; track $index) {
+                <p class="text-xs text-yam-gold mb-0.5 flex items-start gap-1.5"><yam-icon name="alert-circle" [size]="13" class="shrink-0 mt-0.5"/>{{ w }}</p>
+              }
+              @if (plan.segments.length >= 2) {
+                <!-- Courbe d'energie du mix -->
+                <div class="flex items-end gap-1 h-12 mb-4 mt-3" aria-hidden="true">
+                  @for (s of plan.segments; track s.track.id) {
+                    <div class="flex-1 rounded-t-sm bg-gradient-to-t from-yam-violet/50 to-yam-violet min-h-[6%]"
+                         [style.height.%]="(s.measuredEnergy ?? s.estEnergy) * 100"></div>
+                  }
+                </div>
+                <div class="grid grid-cols-1 gap-1.5 mb-4">
+                  @for (s of plan.segments; track s.track.id; let i = $index) {
+                    <div class="flex items-center gap-3 rounded-xl bg-black/20 border border-white/10 px-3 py-2">
+                      <span class="yam-num text-xs text-white/40 w-6 text-center">{{ i + 1 }}</span>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium truncate">{{ s.track.title }}</p>
+                        <p class="text-[11px] text-white/40 truncate">{{ s.track.artistName }} · {{ s.track.bpm || '?' }} BPM @if (s.track.camelot) { · {{ s.track.camelot }} } @if (s.pitchPct) { · pitch {{ s.pitchPct > 0 ? '+' : '' }}{{ s.pitchPct }} % }</p>
+                      </div>
+                      <span class="yam-num text-[11px] text-white/40 hidden sm:inline">{{ fmt(s.mixStart) }}</span>
+                    </div>
+                    @if (plan.transitions[i]; as tr) {
+                      <p class="text-[10px] text-yam-violet/90 pl-9 flex items-center gap-1.5 flex-wrap">
+                        <yam-icon name="arrow-right" [size]="11"/>{{ transitionLabelOf(tr) }} · {{ tr.durationSec.toFixed(0) }} s
+                        <span class="text-white/35">— {{ tr.reason }}</span>
+                      </p>
+                    }
+                  }
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button (click)="launchAutoMix()" class="yam-btn-primary text-sm flex items-center gap-1.5"><yam-icon name="play" [size]="14"/> Lancer le mix</button>
+                  <button (click)="generateMix()" class="yam-btn-secondary text-sm">Régénérer</button>
+                  <button (click)="discardMix()" class="yam-btn-secondary text-sm">Effacer le plan</button>
+                </div>
+              }
+            </div>
+          }
+        }
+      </section>
 
       <!-- ============ BARRE MASTER + ENREGISTREMENT ============ -->
       <div class="yam-card p-3 md:p-4 mb-4">
@@ -73,12 +242,12 @@ import { DjDeck, DjEngine } from './dj-engine';
               <button (click)="startRecording()" [disabled]="!anyDeckReady()"
                       class="px-5 py-2.5 rounded-full font-bold text-sm bg-red-500/10 text-red-400 border border-red-400/40 hover:bg-red-500 hover:text-white hover:border-red-500 transition disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Enregistrer la sortie master de ton mix">
-                <span class="dj-rec-dot">●</span> ENREGISTRER LE MIX
+                <span class="dj-rec-dot block w-2 h-2 rounded-full bg-current"></span> ENREGISTRER LE MIX
               </button>
             } @else {
               <button (click)="stopRecording()"
                       class="px-5 py-2.5 rounded-full font-bold text-sm bg-red-500 text-white shadow-lg shadow-red-500/30 transition">
-                <span class="dj-rec-dot">●</span> STOP ({{ recTimeText() }})
+                <span class="dj-rec-dot block w-2 h-2 rounded-full bg-current"></span> STOP ({{ recTimeText() }})
               </button>
             }
             @if (!engine?.canRecord) {
@@ -132,22 +301,22 @@ import { DjDeck, DjEngine } from './dj-engine';
                     <p class="font-semibold truncate text-sm">{{ panel.deck.track.title }}</p>
                     <p class="text-white/50 text-xs truncate">{{ panel.deck.track.artistName }}
                       @if (panel.deck.track.bpm) { · <b class="tabular-nums">{{ liveBpm(panel) }}</b> BPM }
-                      @if (panel.deck.track.camelot) { · 🎹 {{ panel.deck.track.camelot }} }
+                      @if (panel.deck.track.camelot) { · {{ panel.deck.track.camelot }} }
                     </p>
                   </div>
                   <button (click)="pickLocalFile(panel)" title="Charger un fichier de mon téléphone / ordinateur"
-                          class="w-8 h-8 rounded-full text-white/40 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0">📂</button>
+                          class="w-8 h-8 rounded-full text-white/40 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0 flex items-center justify-center"><yam-icon name="folder" [size]="15"/></button>
                   <button (click)="ejectDeck(panel)" title="Ejecter la piste"
-                          class="w-8 h-8 rounded-full text-white/40 hover:text-red-400 hover:bg-red-400/10 transition shrink-0">⏏</button>
+                          class="w-8 h-8 rounded-full text-white/40 hover:text-red-400 hover:bg-red-400/10 transition shrink-0 flex items-center justify-center"><yam-icon name="x" [size]="15"/></button>
                 } @else {
-                  <p class="text-white/30 text-sm flex-1">Deck libre — charge une piste ou un fichier 📂</p>
+                  <p class="text-white/30 text-sm flex-1">Deck libre — charge une piste ou un fichier local</p>
                   <button (click)="pickLocalFile(panel)" title="Charger un fichier de mon téléphone / ordinateur"
-                          class="w-8 h-8 rounded-full text-yam-gold/60 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0">📂</button>
+                          class="w-8 h-8 rounded-full text-yam-gold/60 hover:text-yam-gold hover:bg-yam-gold/10 transition shrink-0 flex items-center justify-center"><yam-icon name="folder" [size]="15"/></button>
                 }
               </div>
 
               <!-- Waveform reelle -->
-              <div class="relative h-28 rounded-xl bg-black/50 border border-white/10 overflow-hidden mb-3 cursor-pointer group"
+              <div class="relative h-28 rounded-xl dj-scope border border-white/10 overflow-hidden mb-3 cursor-pointer group"
                    (click)="seekWave(panel, $event)">
                 <canvas #waveEl class="dj-wave w-full h-full block" [attr.data-deck]="panel.id"></canvas>
                 @if (panel.loading()) {
@@ -159,15 +328,15 @@ import { DjDeck, DjEngine } from './dj-engine';
                     </div>
                   </div>
                 } @else if (!panel.deck.track) {
-                  <div class="absolute inset-0 flex items-center justify-center text-white/20 text-xs pointer-events-none">
-                    Charge une piste pour afficher sa vraie waveform 🎵
+                  <div class="absolute inset-0 flex items-center justify-center dj-t20 text-xs pointer-events-none">
+                    Charge une piste pour afficher sa vraie waveform
                   </div>
                 } @else if (panel.error()) {
                   <div class="absolute inset-0 bg-red-500/10 flex items-center justify-center p-3 pointer-events-none">
                     <p class="text-xs text-red-300 text-center">{{ panel.error() }}</p>
                   </div>
                 }
-                <div class="absolute bottom-1 left-2 right-2 flex justify-between text-[10px] text-white/80 tabular-nums pointer-events-none drop-shadow">
+                <div class="absolute bottom-1 left-2 right-2 flex justify-between text-[10px] dj-t90 tabular-nums pointer-events-none drop-shadow">
                   <span #timeEl>0:00</span><span #remainEl>-0:00</span>
                 </div>
                 <div class="absolute top-1.5 right-2 w-20 h-2 rounded-full bg-black/60 overflow-hidden pointer-events-none border border-white/10">
@@ -181,24 +350,24 @@ import { DjDeck, DjEngine } from './dj-engine';
                         class="w-11 h-11 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-bold transition disabled:opacity-30"
                         title="CUE : en lecture = retour au cue ; en pause = lecture depuis le cue ; 1er appui = pose le cue">CUE</button>
                 <button (click)="toggleDeck(panel)" [disabled]="!panel.deck.track"
-                        class="w-14 h-14 rounded-full bg-white text-yam-dark text-2xl font-bold hover:scale-105 active:scale-95 transition disabled:opacity-30 shrink-0"
+                        class="w-14 h-14 rounded-full bg-white text-yam-dark flex items-center justify-center hover:scale-105 active:scale-95 transition disabled:opacity-30 shrink-0"
                         [class]="panel.id === 'A' ? 'shadow-[0_0_20px_rgba(255,107,53,0.4)]' : 'shadow-[0_0_20px_rgba(255,209,102,0.4)]'">
-                  {{ panel.playing() ? '⏸' : '▶' }}
+                  <yam-icon [name]="panel.playing() ? 'pause' : 'play'" [size]="22" class="fill-current ml-0.5"/>
                 </button>
                 <div class="flex flex-col gap-1">
                   <button (mousedown)="nudge(panel, 1)" (mouseup)="nudgeEnd(panel)" (mouseleave)="nudgeEnd(panel)"
                           (touchstart)="nudge(panel, 1)" (touchend)="nudgeEnd(panel)"
                           [disabled]="!panel.playing()"
-                          class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold disabled:opacity-30" title="Avance le tempo (appui maintenu)">▶▶</button>
+                          class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold disabled:opacity-30" title="Avance le tempo (appui maintenu)">»</button>
                   <button (mousedown)="nudge(panel, -1)" (mouseup)="nudgeEnd(panel)" (mouseleave)="nudgeEnd(panel)"
                           (touchstart)="nudge(panel, -1)" (touchend)="nudgeEnd(panel)"
                           [disabled]="!panel.playing()"
-                          class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold disabled:opacity-30" title="Recule le tempo (appui maintenu)">◀◀</button>
+                          class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold disabled:opacity-30" title="Recule le tempo (appui maintenu)">«</button>
                 </div>
                 <div class="flex-1"></div>
                 <button (click)="syncDeck(panel)" [disabled]="!canSync(panel)"
                         class="text-xs font-bold px-3 py-2 rounded-xl bg-yam-orange/15 text-yam-orange hover:bg-yam-orange hover:text-white transition disabled:opacity-30"
-                        title="Asservit le BPM de ce deck sur l'autre (half/double auto)">⚡ SYNC</button>
+                        title="Asservit le BPM de ce deck sur l'autre (half/double auto)">SYNC</button>
               </div>
 
               <!-- Pitch -->
@@ -248,7 +417,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                     <button (click)="toggleEcho(panel)" [disabled]="!panel.deck.track"
                             class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
                             [class]="panel.echoOn() ? 'bg-yam-orange text-white' : 'text-white/60 hover:bg-white/10'">
-                      ⏱ ECHO {{ panel.echoOn() ? 'ON' : '' }}
+                      ECHO {{ panel.echoOn() ? 'ON' : '' }}
                     </button>
                     @if (panel.echoOn()) {
                       <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.echoWet()"
@@ -261,7 +430,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                     <button (click)="toggleReverb(panel)" [disabled]="!panel.deck.track"
                             class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
                             [class]="panel.reverbOn() ? 'bg-yam-gold text-yam-dark' : 'text-white/60 hover:bg-white/10'">
-                      🏛 REVERB {{ panel.reverbOn() ? 'ON' : '' }}
+                      REVERB {{ panel.reverbOn() ? 'ON' : '' }}
                     </button>
                     @if (panel.reverbOn()) {
                       <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.reverbWet()"
@@ -274,7 +443,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                     <button (click)="toggleFlanger(panel)" [disabled]="!panel.deck.track"
                             class="w-full text-xs font-bold py-1 rounded-lg transition disabled:opacity-30"
                             [class]="panel.flangerOn() ? 'bg-yam-green text-white' : 'text-white/60 hover:bg-white/10'">
-                      ✈ FLANGER {{ panel.flangerOn() ? 'ON' : '' }}
+                      FLANGER {{ panel.flangerOn() ? 'ON' : '' }}
                     </button>
                     @if (panel.flangerOn()) {
                       <input type="range" min="0.05" max="0.9" step="0.05" [value]="panel.flangerWet()"
@@ -306,7 +475,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                             : 'bg-white/10 text-white/50 hover:bg-white/20'">{{ bars }}</button>
                 }
                 @if (panel.deck.loop) {
-                  <span class="text-[10px] text-yam-orange tabular-nums">↻ {{ loopLenText(panel) }}</span>
+                  <span class="text-[10px] text-yam-orange tabular-nums">boucle {{ loopLenText(panel) }}</span>
                 }
                 <span class="text-[10px] text-white/30 shrink-0 ml-2">CUES</span>
                 @for (i of [0, 1, 2, 3]; track i) {
@@ -338,7 +507,7 @@ import { DjDeck, DjEngine } from './dj-engine';
             </div>
             <div class="text-center">
               <button (click)="syncBtoA()" [disabled]="!canSync(panels[1])"
-                      class="yam-btn-secondary text-xs w-full">⚡ SYNC B → A</button>
+                      class="yam-btn-secondary text-xs w-full">SYNC B → A</button>
               <p class="text-[10px] text-white/40 mt-1">{{ syncHint() }}</p>
             </div>
             <div class="text-center">
@@ -351,7 +520,7 @@ import { DjDeck, DjEngine } from './dj-engine';
 
       <!-- ============ BIBLIOTHEQUE ============ -->
       <section>
-        <h2 class="text-xl font-bold mb-1">🎵 Ma musique & bibliothèque</h2>
+        <h2 class="text-xl font-bold mb-1 flex items-center gap-2"><yam-icon name="music-4" [size]="18" class="text-yam-orange"/> Ma musique &amp; bibliothèque</h2>
         <p class="text-white/40 text-sm mb-4">
           Charge TES fichiers (mp3, m4a, wav...) ou choisis dans le catalogue — BPM détecté automatiquement.
           Chargement complet en mémoire pour un mix précis (rendu {{ quality() === 'lite' ? 'Data-Lite 48 kbps' : 'HQ 128 kbps' }}).
@@ -362,11 +531,11 @@ import { DjDeck, DjEngine } from './dj-engine';
         <div class="yam-card p-4 mb-4 border-dashed border-yam-gold/30">
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p class="font-semibold text-sm">📂 Ma musique locale</p>
+              <p class="font-semibold text-sm flex items-center gap-1.5"><yam-icon name="folder" [size]="15" class="text-yam-gold"/> Ma musique locale</p>
               <p class="text-white/40 text-xs mt-0.5">Tes fichiers ne quittent jamais ton appareil — chargés en mémoire pour le mix.</p>
             </div>
             <button (click)="localFilesInput.click()" class="yam-btn-primary text-sm shrink-0">
-              ➕ Ajouter des fichiers
+              <yam-icon name="plus" [size]="15"/> Ajouter des fichiers
             </button>
             <input #localFilesInput type="file" accept="audio/*,.mp3,.m4a,.wav,.flac,.ogg,.aac" multiple
                    class="hidden" (change)="onLocalFilesSelected($event)">
@@ -391,7 +560,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                     <span class="text-xs text-yam-orange animate-pulse shrink-0">analyse…</span>
                   }
                   <button (click)="removeLocalFile(item)" title="Retirer"
-                          class="w-8 h-8 rounded-full text-white/30 hover:text-red-400 hover:bg-red-400/10 transition shrink-0">✕</button>
+                          class="w-8 h-8 rounded-full text-white/30 hover:text-red-400 hover:bg-red-400/10 transition shrink-0 flex items-center justify-center"><yam-icon name="x" [size]="14"/></button>
                 </div>
               }
             </div>
@@ -411,7 +580,7 @@ import { DjDeck, DjEngine } from './dj-engine';
           <button (click)="compatOnly.set(!compatOnly()); filterLibrary()"
                   class="text-xs font-bold px-4 py-2 rounded-full border transition"
                   [class]="compatOnly() ? 'bg-yam-green/20 text-yam-green border-yam-green/40' : 'border-white/20 text-white/50'">
-            🎯 BPM compatibles deck A
+            <yam-icon name="activity" [size]="13"/> BPM compatibles deck A
           </button>
         </div>
 
@@ -429,7 +598,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                 <p class="text-white/40 text-xs truncate">{{ item.artistName }}
                   @if (item.genre) { · {{ item.genre }} }
                   @if (item.bpm) { · <b class="tabular-nums">{{ item.bpm }}</b> BPM }
-                  @if (item.camelot) { · 🎹 {{ item.camelot }} }
+                  @if (item.camelot) { · {{ item.camelot }} }
                   · {{ fmt(item.durationSec) }}
                 </p>
               </div>
@@ -444,7 +613,7 @@ import { DjDeck, DjEngine } from './dj-engine';
             </div>
           } @empty {
             <div class="yam-card p-10 text-center text-white/40">
-              <div class="text-4xl mb-2">🎼</div>
+              <div class="mb-2 text-white/30"><yam-icon name="disc" [size]="40"/></div>
               @if (library().length === 0) { Aucune piste audio disponible pour le mix. }
               @else { Aucun résultat avec ces filtres. }
             </div>
@@ -455,11 +624,11 @@ import { DjDeck, DjEngine } from './dj-engine';
       <!-- ============ ENREGISTREMENT DU MIX ============ -->
       @if (recUrl()) {
         <section class="mt-10">
-          <h2 class="text-xl font-bold mb-4">🎙️ Mon mix enregistré</h2>
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><yam-icon name="mic" [size]="18" class="text-yam-orange"/> Mon mix enregistré</h2>
           <div class="yam-card p-4">
             <div class="flex items-center gap-3 flex-wrap">
               <audio #recAudio controls [src]="recUrl()" (loadedmetadata)="fixRecDuration($event)" class="flex-1 min-w-[220px] h-10"></audio>
-              <a [href]="recUrl()" [download]="recFileName()" class="yam-btn-secondary text-sm">⬇ Télécharger</a>
+              <a [href]="recUrl()" [download]="recFileName()" class="yam-btn-secondary text-sm flex items-center gap-1.5"><yam-icon name="download" [size]="15"/> Télécharger</a>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 mt-4 items-end">
               <div>
@@ -472,7 +641,7 @@ import { DjDeck, DjEngine } from './dj-engine';
               </div>
               <button (click)="publishRecording()" [disabled]="publishing()"
                       class="yam-btn-primary text-sm">
-                @if (publishing()) { Publication... } @else { 🚀 Publier sur YAM DJ }
+                @if (publishing()) { Publication... } @else { Publier sur YAM DJ }
               </button>
             </div>
             @if (recMessage()) {
@@ -486,13 +655,13 @@ import { DjDeck, DjEngine } from './dj-engine';
 
       <!-- ============ MES MIXTAPES ============ -->
       <section class="mt-10">
-        <h2 class="text-xl font-bold mb-4">🎛️ Mes mixtapes</h2>
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><yam-icon name="disc" [size]="18" class="text-yam-orange"/> Mes mixtapes</h2>
 
         @if (mixMessage()) {
           <div class="yam-card p-3 mb-4"
                [class]="mixMessageOk() ? 'border-yam-green/40 bg-yam-green/10' : 'border-red-400/40 bg-red-400/10'">
             <p class="text-sm font-medium" [class]="mixMessageOk() ? 'text-yam-green' : 'text-red-400'">
-              {{ mixMessageOk() ? '✔' : '✖' }} {{ mixMessage() }}
+              {{ mixMessage() }}
             </p>
           </div>
         }
@@ -503,13 +672,13 @@ import { DjDeck, DjEngine } from './dj-engine';
               <div class="yam-card p-4 flex items-center gap-3">
                 <button (click)="playMixtape(mix)" title="Ecouter le mix"
                         class="w-10 h-10 rounded-full bg-yam-orange/20 text-yam-orange flex items-center justify-center hover:bg-yam-orange hover:text-white transition shrink-0">
-                  {{ mixPlayingId() === mix.id ? '⏸' : '▶' }}
+                  <yam-icon [name]="djLive.mixPlayingId() === mix.id ? 'pause' : 'play'" [size]="16" class="fill-current"/>
                 </button>
                 <div class="min-w-0 flex-1">
                   <p class="font-medium truncate">{{ mix.title }}</p>
                   <p class="text-white/40 text-xs truncate">
-                    🎧 {{ mix.playCount }} écoutes · {{ fmt(mix.durationSec) }} · {{ formatDate(mix.createdAt) }}
-                    @if (mix.priceXof && mix.priceXof > 0) { · <span class="text-yam-gold">💰 {{ mix.priceXof }} F</span> }
+                    <yam-icon name="headphones" [size]="12" class="inline"/> {{ mix.playCount }} écoutes · {{ fmt(mix.durationSec) }} · {{ formatDate(mix.createdAt) }}
+                    @if (mix.priceXof && mix.priceXof > 0) { · <span class="text-yam-gold flex items-center gap-1"><yam-icon name="banknote" [size]="12"/> {{ mix.priceXof }} F</span> }
                   </p>
                 </div>
                 <button (click)="askDeleteMixtape(mix)" [disabled]="deletingMixId() === mix.id" title="Supprimer"
@@ -517,7 +686,7 @@ import { DjDeck, DjEngine } from './dj-engine';
                         [class]="confirmDeleteMixId() === mix.id
                           ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                           : 'text-white/40 hover:text-red-400 hover:bg-red-400/10'">
-                  @if (deletingMixId() === mix.id) { <span class="animate-pulse">⏳</span> }
+                  @if (deletingMixId() === mix.id) { <span class="animate-pulse">…</span> }
                   @else if (confirmDeleteMixId() === mix.id) { Confirmer ? }
                   @else { Supprimer }
                 </button>
@@ -526,8 +695,8 @@ import { DjDeck, DjEngine } from './dj-engine';
           </div>
         } @else {
           <div class="yam-card p-8 text-center text-white/40">
-            <div class="text-4xl mb-2">🎛️</div>
-            Aucune mixtape. Mixe en direct et enregistre, ou sélectionne 2+ pistes puis « Auto-Mix IA ».
+            <div class="mb-2 text-white/30"><yam-icon name="disc" [size]="40"/></div>
+            Aucune mixtape. Mixe en direct et enregistre, ou lance un Mix Auto puis publie-le.
           </div>
         }
       </section>
@@ -536,7 +705,7 @@ import { DjDeck, DjEngine } from './dj-engine';
       @if (selected().length >= 2) {
         <div class="fixed bottom-24 right-4 z-40">
           <button (click)="mixModalVisible.set(true)" class="yam-btn-primary !px-6 !py-3 shadow-2xl">
-            🎛️ Créer une mixtape ({{ selected().length }})
+            Créer une mixtape ({{ selected().length }})
           </button>
         </div>
       }
@@ -546,14 +715,14 @@ import { DjDeck, DjEngine } from './dj-engine';
         <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
              (click)="!creatingMix() && mixModalVisible.set(false)">
           <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10" (click)="$event.stopPropagation()">
-            <h2 class="yam-title mb-4">🎛️ Nouvelle mixtape</h2>
+            <h2 class="yam-title mb-4">Nouvelle mixtape</h2>
             <label class="text-sm text-white/60 mb-1 block">Titre du mix</label>
             <input type="text" [(ngModel)]="mixTitle" placeholder="Mix Nuit Ouaga Vol.1" class="yam-input mb-4">
             <label class="text-sm text-white/60 mb-1 block">Crossfade : {{ crossfadeSec }} secondes</label>
             <input type="range" min="2" max="16" [(ngModel)]="crossfadeSec" class="w-full h-2 accent-yam-orange cursor-pointer mb-4">
             <label class="flex items-center gap-2 text-sm text-white/60 cursor-pointer mb-4">
               <input type="checkbox" [(ngModel)]="autoOrder" class="accent-yam-orange w-4 h-4">
-              Ordonner avec l'Auto-Mix IA (tonalités + BPM)
+              Ordonner intelligemment (tonalités + BPM)
             </label>
             <div class="yam-card !bg-yam-surface p-3 mb-4">
               <label class="text-sm text-white/60 mb-1 block">
@@ -580,9 +749,9 @@ import { DjDeck, DjEngine } from './dj-engine';
         <div class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
              (click)="helpVisible.set(false)">
           <div class="bg-yam-card rounded-3xl p-6 w-full max-w-lg border border-white/10 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
-            <h2 class="yam-title mb-4">⌨️ Pilotage du studio</h2>
+            <h2 class="yam-title mb-4">Pilotage du studio</h2>
             <ul class="space-y-2 text-sm text-white/70">
-              <li><b class="text-yam-orange">📂 Ma musique locale</b> — charge TES mp3/m4a/wav dans un deck (bouton 📂 du deck ou zone « Ma musique locale ») — BPM détecté automatiquement</li>
+              <li><b class="text-yam-orange">Ma musique locale</b> — charge TES mp3/m4a/wav dans un deck (bouton dossier du deck ou zone « Ma musique locale ») — BPM détecté automatiquement</li>
               <li><b class="text-yam-orange">Espace</b> — lecture/pause deck A · <b class="text-yam-gold">Maj+Espace</b> — deck B</li>
               <li><b class="text-yam-orange">← / →</b> — déplacer le crossfader</li>
               <li><b class="text-yam-orange">S</b> — synchroniser le deck B sur A</li>
@@ -590,7 +759,7 @@ import { DjDeck, DjEngine } from './dj-engine';
               <li><b>Effets</b> — ECHO / REVERB / FLANGER : clic = ON, molette = intensité · presets 1 clic (CLUB, SPACE, SWEEP...)</li>
               <li><b>CUE</b> : en lecture = retour au point ; en pause = lecture depuis le point ; premier appui = pose le point</li>
               <li><b>Loop</b> : boucle exacte de 1 à 16 temps relancée à l'échantillon près</li>
-              <li><b>Sync</b> : aligne le BPM (moitié/double auto) — affine la phase avec ◀◀/▶▶</li>
+              <li><b>Sync</b> : aligne le BPM (moitié/double auto) — affine la phase avec « »</li>
               <li><b>Pitch</b> : le ton suit le tempo, comme sur une vraie platine vinyle</li>
               <li><b>Enregistrer</b> : capture la sortie master (limiteur inclus) — publie-la ou télécharge-la</li>
             </ul>
@@ -607,6 +776,9 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   private trackService = inject(TrackService);
   private zone = inject(NgZone);
   private destroy$ = new Subject<void>();
+
+  /** Studio vivant en arrière-plan : moteur, mix auto et mixtapes. */
+  djLive = inject(DjLiveService);
 
   // ================= MOTEUR =================
   engine: DjEngine | null = null;
@@ -644,16 +816,15 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
 
   /** Presets d'effets 1 clic (EQ + filtre + FX). */
   readonly fxPresets: FxPreset[] = [
-    { name: 'clean', label: '✨ CLEAN', desc: 'EQ neutre, aucun effet', eq: [0, 0, 0], filter: 0.5, echo: false, reverb: false, flanger: false, wet: 0.5 },
-    { name: 'bass', label: '🔊 BASS+', desc: 'Graves boostés +4 dB, aigus -2 dB', eq: [4, 0, -2], filter: 0.42, echo: false, reverb: false, flanger: false, wet: 0.5 },
-    { name: 'club', label: '🪩 CLUB', desc: 'EQ club + echo léger synchro BPM', eq: [2, 1, 2], filter: 0.5, echo: true, reverb: false, flanger: false, wet: 0.25 },
-    { name: 'radio', label: '📻 RADIO', desc: 'Passe-haut type radio FM', eq: [-6, 3, 4], filter: 0.68, echo: false, reverb: false, flanger: false, wet: 0.5 },
-    { name: 'space', label: '🌌 SPACE', desc: 'Reverb ample + echo profond', eq: [0, 1, 3], filter: 0.5, echo: true, reverb: true, flanger: false, wet: 0.55 },
-    { name: 'sweep', label: '✈ SWEEP', desc: 'Flanger montée davion (build-up)', eq: [0, 0, 1], filter: 0.5, echo: false, reverb: false, flanger: true, wet: 0.6 }
+    { name: 'clean', label: 'CLEAN', desc: 'EQ neutre, aucun effet', eq: [0, 0, 0], filter: 0.5, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'bass', label: 'BASS+', desc: 'Graves boostés +4 dB, aigus -2 dB', eq: [4, 0, -2], filter: 0.42, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'club', label: 'CLUB', desc: 'EQ club + echo léger synchro BPM', eq: [2, 1, 2], filter: 0.5, echo: true, reverb: false, flanger: false, wet: 0.25 },
+    { name: 'radio', label: 'RADIO', desc: 'Passe-haut type radio FM', eq: [-6, 3, 4], filter: 0.68, echo: false, reverb: false, flanger: false, wet: 0.5 },
+    { name: 'space', label: 'SPACE', desc: 'Reverb ample + echo profond', eq: [0, 1, 3], filter: 0.5, echo: true, reverb: true, flanger: false, wet: 0.55 },
+    { name: 'sweep', label: 'SWEEP', desc: 'Flanger montée davion (build-up)', eq: [0, 0, 1], filter: 0.5, echo: false, reverb: false, flanger: true, wet: 0.6 }
   ];
 
   // ================= AUTO-MIX / MIXTAPES =================
-  analysis = signal<string | null>(null);
   mixModalVisible = signal(false);
   mixTitle = 'Mon mix YAM';
   crossfadeSec = 8;
@@ -661,14 +832,47 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   mixPriceXof = 0;
   creatingMix = signal(false);
   mixtapes = signal<Mixtape[]>([]);
-  mixPlayingId = signal<string | null>(null);
   confirmDeleteMixId = signal<string | null>(null);
   deletingMixId = signal<string | null>(null);
   mixMessage = signal<string | null>(null);
   mixMessageOk = signal(false);
-  private mixAudio: HTMLAudioElement | null = null;
   private mixConfirmTimer: any = null;
   private mixMessageTimer: any = null;
+
+  // ================= MIX AUTO (DJ IA) =================
+  readonly moods = MOODS;
+  mixMood = signal<Mood>('fete');
+  mixGenre = 'all';
+  mixCount: number | null = null;
+  mixMaxMin = 45;
+  mixEnergy = 8;
+  mixStyle: 'auto' | TransitionType = 'auto';
+  mixArtists = '';
+  mixRecord = true;
+  mixVoice = false;
+  generating = signal(false);
+  readonly styleOptions: { value: 'auto' | TransitionType; label: string }[] = [
+    { value: 'auto', label: 'Auto' },
+    ...(Object.keys(TRANSITION_INFO) as TransitionType[])
+      .map(k => ({ value: k, label: TRANSITION_INFO[k].label }))
+  ];
+
+  constructor() {
+    // Un mix auto terminé (même après avoir quitté le studio) atterrit ici :
+    // l'enregistrement devient publiable / téléchargeable.
+    effect(() => {
+      const r = this.djLive.autoResult();
+      if (r?.blob) {
+        if (this.recUrl()) URL.revokeObjectURL(this.recUrl()!);
+        this.recBlob = r.blob;
+        this.recUrl.set(URL.createObjectURL(r.blob));
+        this.recTitle = 'Mix Auto YAM ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        this.setRecMessage(r.completed
+          ? 'Mix auto terminé et enregistré — prêt à publier ou télécharger.'
+          : 'Mix auto arrêté : enregistrement partiel récupéré.', true);
+      }
+    });
+  }
 
   // ================= ENREGISTREMENT =================
   recBlob: Blob | null = null;
@@ -693,15 +897,26 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   // ================= CYCLE DE VIE =================
 
   ngOnInit(): void {
-    this.engine = new DjEngine();
+    // Le moteur vit dans le SERVICE : il survit à la navigation (arrière-plan).
+    this.engine = this.djLive.ensureEngine();
     this.panels = [
       new DeckPanel('A', this.engine.deckA),
       new DeckPanel('B', this.engine.deckB)
     ];
+    // Restaure l'état des decks (ils peuvent jouer depuis une visite précédente)
+    for (const p of this.panels) this.syncPanelFromDeck(p);
     this.engine.onDeckEnded = (deck) => {
       const panel = this.panelOf(deck);
       if (panel) this.zone.run(() => panel.playing.set(false));
     };
+    // fichiers locaux connus du service (mix auto après navigation)
+    for (const f of this.localFiles()) this.djLive.registerLocalFile(f.track.id, f.file);
+    // un mix auto terminé en arrière-plan : on récupère l'enregistrement
+    const prev = this.djLive.autoResult();
+    if (prev?.blob && !this.recBlob) {
+      this.recBlob = prev.blob;
+      this.recUrl.set(URL.createObjectURL(prev.blob));
+    }
     this.loadLibrary();
     this.loadMyMixtapes();
   }
@@ -726,9 +941,24 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.rafId) cancelAnimationFrame(this.rafId);
     if (this.mixConfirmTimer) clearTimeout(this.mixConfirmTimer);
     if (this.mixMessageTimer) clearTimeout(this.mixMessageTimer);
-    this.stopMixtape();
-    this.engine?.destroy();
+    // Le moteur N'EST PAS détruit : decks, mix auto et mixtape continuent
+    // en arrière-plan. Les buffers sont libérés seulement si tout est inactif.
+    this.djLive.releaseEngineIfIdle();
     if (this.recUrl()) URL.revokeObjectURL(this.recUrl()!);
+  }
+
+  /** Réaligne les signaux d'un panneau sur l'état réel du deck (retour de navigation). */
+  private syncPanelFromDeck(panel: DeckPanel): void {
+    panel.playing.set(panel.deck.playing);
+    panel.pitch.set(panel.deck.pitchPct);
+    panel.cues.set([...panel.deck.cues]);
+    panel.vol.set(panel.deck.volume);
+    panel.loading.set(false);
+    panel.error.set(null);
+    panel.detail.set(panel.deck.track ? 'Prêt' : '');
+    if (panel.deck.track && panel.deck.peaks.length) {
+      setTimeout(() => this.renderStaticWave(panel), 80);
+    }
   }
 
   @HostListener('window:resize')
@@ -832,6 +1062,18 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   private renderFrame(): void {
     if (!this.engine) return;
     this.engine.updateVu();
+
+    // Le mix auto pilote aussi les decks : l'UI suit (lecture/pitch) sans
+    // déclencher de détection de changement inutile (écriture seulement au changement).
+    for (const panel of this.panels) {
+      if (panel.playing() !== panel.deck.playing) {
+        this.zone.run(() => panel.playing.set(panel.deck.playing));
+      }
+      if (Math.abs(panel.pitch() - panel.deck.pitchPct) > 0.05) {
+        this.zone.run(() => panel.pitch.set(panel.deck.pitchPct));
+      }
+    }
+
     const waves = this.waveCanvases();
     const times = this.timeEls();
     const remains = this.remainEls();
@@ -920,6 +1162,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
 
   loadTrackToDeck(track: Track, panel: DeckPanel): void {
     if (!this.engine || panel.loading()) return;
+    if (this.deckLockedByAutoMix(panel)) return;
     // Garde DJ : jamais couper un deck en lecture (pause d'abord, comme en boite)
     if (panel.playing()) {
       panel.error.set('Ce deck joue — mets-le en pause avant de charger une autre piste.');
@@ -932,40 +1175,29 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     panel.pitch.set(0); // anti pitch fantôme : le deck est reset, l'affichage aussi
     panel.detail.set('Connexion...');
 
-    const fallbackUrl = this.quality() === 'hq'
-      ? (track.audioUrlHq || track.audioUrlLq)
-      : (track.audioUrlLq || track.audioUrlHq);
+    this.djLive.loadTrackIntoDeck(track, panel.deck, this.quality(), (p, detail) => {
+      panel.pct.set(Math.round(p * 100));
+      panel.detail.set(detail);
+    }).then(() => {
+      panel.loading.set(false);
+      panel.playing.set(false);
+      this.renderStaticWave(panel);
+    }).catch(() => {
+      panel.loading.set(false);
+      panel.error.set(panel.deck.loadError
+        || 'Impossible de decoder cette piste sur ce navigateur (essaie Chrome/Edge).');
+    });
+  }
 
-    const doLoad = (url: string) => {
-      panel.deck.load(url, track, (p, phase, detail) => {
-        panel.pct.set(Math.round(p * 100));
-        panel.detail.set(detail);
-      }).then(() => {
-        panel.loading.set(false);
-        panel.playing.set(false);
-        this.renderStaticWave(panel);
-      }).catch(() => {
-        panel.loading.set(false);
-        panel.error.set(panel.deck.loadError
-          || 'Impossible de decoder cette piste sur ce navigateur (essaie Chrome/Edge).');
-      });
-    };
-
-    this.trackService.streamUrl(track.id, this.quality())
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: res => doLoad(res.url),
-        error: () => {
-          if (fallbackUrl) doLoad(fallbackUrl);
-          else {
-            panel.loading.set(false);
-            panel.error.set('Flux audio indisponible pour cette piste.');
-          }
-        }
-      });
+  /** Le mix auto occupe les 2 decks en ping-pong : on bloque la manipulation manuelle. */
+  private deckLockedByAutoMix(panel: DeckPanel): boolean {
+    if (!this.djLive.autoActive()) return false;
+    panel.error.set('Mix auto en cours — clique Stop dans MIX AUTO pour reprendre la main sur les decks.');
+    return true;
   }
 
   ejectDeck(panel: DeckPanel): void {
+    if (this.deckLockedByAutoMix(panel)) return;
     panel.deck.pause();
     panel.deck.track = null;
     panel.deck.buffer = null;
@@ -1219,6 +1451,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
 
   /** Ouvre le selecteur de fichier pour charger directement dans un deck. */
   pickLocalFile(panel: DeckPanel): void {
+    if (this.deckLockedByAutoMix(panel)) return;
     if (panel.playing()) {
       panel.error.set('Ce deck joue — mets-le en pause avant de charger un autre fichier.');
       return;
@@ -1279,11 +1512,14 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   /** Charge un fichier local dans un deck (avec BPM detecte automatiquement). */
   loadLocalToDeck(item: LocalFileEntry, panel: DeckPanel): void {
     if (!this.engine || panel.loading()) return;
+    if (this.deckLockedByAutoMix(panel)) return;
     if (panel.playing()) {
       panel.error.set('Ce deck joue — mets-le en pause avant de charger un autre fichier.');
       return;
     }
     this.ensureEngine();
+    // fichier connu du service (mix auto en arriere-plan)
+    this.djLive.registerLocalFile(item.track.id, item.file);
     panel.loading.set(true);
     panel.error.set(null);
     panel.pct.set(0);
@@ -1298,6 +1534,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     }).then(bpm => {
       // synchronise la piste (BPM/duree mis a jour par le moteur)
       item.track = panel.deck.track!;
+      this.djLive.registerLocalFile(item.track.id, item.file);
       item.loading = false;
       this.localFiles.set([...this.localFiles()]);
       panel.loading.set(false);
@@ -1441,32 +1678,89 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.selected().some(t => t.id === item.id);
   }
 
-  // ================= AUTO-MIX IA + MIXTAPES =================
+  // ================= MIX AUTO (DJ IA) + MIXTAPES =================
 
-  autoMix(): void {
-    const ids = this.selected().map(t => t.id);
-    if (ids.length < 2) return;
-    this.djService.suggestAutoMix(ids).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (suggestion: any) => {
-        this.analysis.set(suggestion?.analysis
-          || `Ordre proposé : ${suggestion?.orderedTrackIds?.length || 0} pistes.`);
-        // Reordonne la selection selon l'ordre harmonique propose
-        if (suggestion?.orderedTrackIds?.length) {
-          const byId = new Map(this.selected().map(t => [t.id, t]));
-          const ordered: Track[] = [];
-          for (const id of suggestion.orderedTrackIds) {
-            const t = byId.get(id);
-            if (t) { ordered.push(t); byId.delete(id); }
-          }
-          ordered.push(...byId.values());
-          this.selected.set(ordered);
+  /** Génère le plan du mix (sélection + courbe + transitions) — instantané. */
+  generateMix(): void {
+    const localTracks = this.localFiles().map(f => f.track);
+    const pool: Track[] = this.selected().length >= 2
+      ? [...this.selected(), ...localTracks.filter(t => !this.selected().some(s => s.id === t.id))]
+      : [...this.library(), ...localTracks];
+    if (pool.length < 2) {
+      this.setMixMessage('Il faut au moins 2 pistes mixables (catalogue ou fichiers locaux).', false);
+      return;
+    }
+    const params: Partial<MixParams> = {
+      mood: this.mixMood(),
+      genre: this.mixGenre,
+      trackCount: this.mixCount,
+      trackIds: this.selected().length >= 2 ? this.selected().map(t => t.id) : [],
+      artists: this.mixArtists.split(',').map(s => s.trim()).filter(Boolean),
+      targetBpm: null,
+      maxDurationSec: this.mixMaxMin * 60,
+      trackDurationSec: null,
+      energyLevel: this.mixEnergy,
+      transitionStyle: this.mixStyle,
+      introOutro: true,
+      djVoice: this.mixVoice
+    };
+    this.generating.set(true);
+    // laisse l'UI peindre avant le calcul (le tri glouton est rapide)
+    setTimeout(() => {
+      try {
+        const plan = planAutoMix(pool, params);
+        this.djLive.autoPlan.set(plan);
+        if (plan.segments.length < 2) {
+          this.setMixMessage(plan.warnings[0] || 'Pas assez de pistes pour construire un mix.', false);
+        } else {
+          this.setMixMessage(`Plan prêt : ${plan.summary}`, true);
         }
-      },
-      error: err => {
-        this.analysis.set(err?.error?.message || 'Auto-Mix indisponible pour le moment.');
+      } catch (e: any) {
+        this.setMixMessage('Génération impossible : ' + (e?.message || 'erreur'), false);
+      } finally {
+        this.generating.set(false);
       }
-    });
+    }, 30);
   }
+
+  /** Lance la lecture du mix par le DJ IA (arrière-plan + MediaSession). */
+  launchAutoMix(): void {
+    const plan: MixPlan | null = this.djLive.autoPlan();
+    if (!plan || plan.segments.length < 2) return;
+    // fichiers locaux utilisés par le plan → connus du service
+    for (const f of this.localFiles()) this.djLive.registerLocalFile(f.track.id, f.file);
+    this.djLive.startAutoMix(plan, { record: this.mixRecord, djVoice: this.mixVoice });
+  }
+
+  stopAutoMix(): void { this.djLive.stopAutoMix(1.5); }
+
+  discardMix(): void { this.djLive.autoPlan.set(null); }
+
+  currentAutoSeg() { return this.djLive.autoPlan()?.segments[this.djLive.autoIndex()] || null; }
+  nextAutoSeg() { return this.djLive.autoPlan()?.segments[this.djLive.autoIndex() + 1] || null; }
+  currentAutoMeasured() { return this.djLive.activeAutoPlayer?.snapshot?.currentMeasured || null; }
+  autoSegCount(): number { return this.djLive.autoPlan()?.segments.length || 0; }
+
+  autoProgressPct(): number {
+    const dur = this.djLive.autoMixDuration();
+    if (!dur) return 0;
+    return Math.max(0, Math.min(100, (this.djLive.autoMixPosition() / dur) * 100));
+  }
+
+  transitionLabelOf(tr: MixTransition): string {
+    const info = TRANSITION_INFO[tr.type];
+    return `${info.label} · ${tr.bars} mesures`;
+  }
+
+  mixSourceLabel(): string {
+    if (this.selected().length >= 2) {
+      return `Sélection manuelle : ${this.selected().length} pistes — le DJ IA les réordonne`;
+    }
+    return `Sélection automatique : ${this.library().length} pistes du catalogue`
+      + (this.localFiles().length ? ` + ${this.localFiles().length} fichiers locaux` : '');
+  }
+
+  ceil(v: number): number { return Math.ceil(v); }
 
   djSharePreview(): number {
     return Math.floor((this.mixPriceXof || 0) * 70 / 100);
@@ -1504,32 +1798,12 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   playMixtape(mix: Mixtape): void {
-    if (this.mixPlayingId() === mix.id) {
-      this.stopMixtape();
-      return;
-    }
-    this.stopMixtape();
-    this.djService.mixtapeStreamUrl(mix.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: res => {
-        if (!res?.url) return;
-        this.mixAudio = new Audio();
-        this.mixAudio.src = res.url;
-        this.mixAudio.play().catch(() => { });
-        this.mixAudio.onended = () => this.mixPlayingId.set(null);
-        this.mixPlayingId.set(mix.id);
-        this.djService.registerMixtapePlay(mix.id).pipe(takeUntil(this.destroy$))
-          .subscribe({ error: () => { } });
-      },
-      error: () => this.setMixMessage('Lecture du mix impossible.', false)
-    });
+    // lecture via le service : continue en arrière-plan
+    this.djLive.playMixtape(mix, (ok, msg) => this.setMixMessage(msg, ok));
   }
 
   stopMixtape(): void {
-    if (this.mixAudio) {
-      this.mixAudio.pause();
-      this.mixAudio = null;
-    }
-    this.mixPlayingId.set(null);
+    this.djLive.stopMixtape();
   }
 
   askDeleteMixtape(mix: Mixtape): void {

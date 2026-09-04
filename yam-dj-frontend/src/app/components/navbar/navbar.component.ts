@@ -4,6 +4,7 @@ import { AuthService } from '../../services/auth.service';
 import { PlayerService } from '../../services/player.service';
 import { OfflineService } from '../../services/offline.service';
 import { ThemeService } from '../../services/theme.service';
+import { DjLiveService } from '../../services/dj-live.service';
 import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
 import { IconComponent } from '../icon/icon.component';
 
@@ -92,6 +93,16 @@ interface MenuLink { path: string; label: string; icon: string; badge?: string; 
             <span class="yam-badge text-yam-orange border border-yam-orange/30 !px-2 hidden lg:inline" title="Mode Nightclub actif">
               <yam-icon name="discoball" [size]="13"/>
             </span>
+          }
+
+          <!-- Studio DJ en lecture ARRIERE-PLAN : retour en 1 clic -->
+          @if (djLive.backgroundActive()) {
+            <a routerLink="/dj-studio" aria-label="Le Studio DJ joue en arrière-plan"
+               class="yam-badge !px-2.5 border border-yam-violet/40 text-yam-violet hover:bg-yam-violet/10 transition gap-1.5"
+               [title]="djLive.autoActive() ? 'Mix Auto en cours — clique pour revenir au studio' : 'Le studio DJ joue — clique pour revenir'">
+              <yam-icon [name]="djLive.autoActive() ? 'disc' : 'sliders'" [size]="13"/>
+              <span class="hidden sm:inline">{{ djLive.autoActive() ? 'MIX AUTO · LIVE' : 'STUDIO · LIVE' }}</span>
+            </a>
           }
 
           <!-- Recherche (mobile) -->
@@ -184,6 +195,7 @@ export class NavbarComponent {
   player = inject(PlayerService);
   offline = inject(OfflineService);
   theme = inject(ThemeService);
+  djLive = inject(DjLiveService);
   private router = inject(Router);
   premium = signal<boolean>(false);
   menu = signal<'explorer' | 'user' | null>(null);

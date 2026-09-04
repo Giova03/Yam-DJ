@@ -114,6 +114,13 @@ export class PlayerService {
   private currentPlayEventId: string | null = null;
   private playStartedAt = 0;
 
+  /**
+   * Hook « une autre source va prendre la main » — le Studio DJ s'y branche
+   * pour arrêter son mix auto avant qu'une lecture normale ne démarre
+   * (jamais deux musiques en même temps).
+   */
+  onBeforePlay: (() => void) | null = null;
+
   private adConfig: AdConfig | null = null;
   private adChecked = false;
   private adStateLoaded = false;
@@ -175,6 +182,7 @@ export class PlayerService {
 
   /** Lecture d'une piste. newQueue remplace la file (ex : playlist, radio). */
   play(track: Track, newQueue: Track[] = []): void {
+    this.onBeforePlay?.();
     if (newQueue.length) {
       const rest = newQueue.filter(t => t.id !== track.id);
       this.queue.set([track, ...rest]);
@@ -192,6 +200,7 @@ export class PlayerService {
 
   /** Lecture d'un fichier local (Ma Musique) — passe par le player global. */
   playLocal(local: LocalFileTrack, playlist: LocalFileTrack[] = []): void {
+    this.onBeforePlay?.();
     const url = local.objectUrl
       || (local.file ? URL.createObjectURL(local.file) : (local.handle ? null : null));
     if (!url && local.handle) {
@@ -477,6 +486,15 @@ export class PlayerService {
   // =====================================================================
   // CONTROLES
   // =====================================================================
+
+  /** Pause simple sans rien vider — utilisée quand le Studio DJ prend la main. */
+  pausePlayback(): void {
+    if (this.isYouTube()) {
+      if (this.isPlaying()) this.ytCommand('pauseVideo');
+      return;
+    }
+    if (this.isPlaying()) this.audio.pause();
+  }
 
   toggle(): void {
     this.audioCtx?.resume().catch(() => {});
