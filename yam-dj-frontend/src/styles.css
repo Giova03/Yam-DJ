@@ -430,3 +430,13 @@ html.light input[type="range"]::-webkit-slider-thumb { background: #C2410C; bord
   html.theme-anim, html.theme-anim * { transition: none !important; }
   .animate-spin-slow, .animate-vinyl { animation: none !important; }
 }
+
+/* ============ AA DARK : degrades de texte secondaire renforces ============
+   V2 §16 (WCAG AA) : text-white/30-/40 pese ~3-4:1 sur la nuit #09090F,
+   insuffisant pour les petites metadonnees (12px). Ces degrades passent
+   sur la base muted #B9B6C5 avec alphas releves (>= 4.6:1) — la
+   hierarchie visuelle reste, la lisibilite devient conforme. */
+html:not(.light) .text-white\/30 { color: rgba(185, 182, 197, .66) !important; }
+html:not(.light) .text-white\/35 { color: rgba(185, 182, 197, .72) !important; }
+html:not(.light) .text-white\/40 { color: rgba(185, 182, 197, .78) !important; }
+html:not(.light) .text-white\/45 { color: rgba(185, 182, 197, .84) !important; }
