@@ -75,7 +75,25 @@ export class OfflineService {
   private loadCatalog(): void {
     try {
       const raw = localStorage.getItem(this.CATALOG_KEY);
-      this.downloads.set(raw ? JSON.parse(raw) : []);
+      let list: DownloadedTrack[] = raw ? JSON.parse(raw) : [];
+      // PURGE DES DONNÉES DÉMO (Ouaga Flow, Abidjan Nuit, etc.) : les pistes
+      // de démonstration n'existent plus côté serveur — on retire aussi les
+      // entrées résiduelles du navigateur pour ne plus jamais les afficher.
+      const DEMO_TITLES = ['ouaga flow', 'abidjan nuit', 'bambara sound',
+        'dakar sunset', 'kori don', 'sahel vibration'];
+      const cleaned = list.filter(d =>
+        !DEMO_TITLES.includes((d.title || '').toLowerCase().trim())
+        && !(d.audioUrlLq || '').includes('yam-dj-demo-media')
+        && !(d.audioUrlHq || '').includes('yam-dj-demo-media'));
+      if (cleaned.length !== list.length) {
+        list = cleaned;
+        localStorage.setItem(this.CATALOG_KEY, JSON.stringify(list));
+        // les fichiers audio démo ne servent plus : purge du cache SW
+        try {
+          navigator.serviceWorker?.controller?.postMessage({ type: 'PURGE_AUDIO' });
+        } catch { /* non bloquant */ }
+      }
+      this.downloads.set(list);
     } catch {
       this.downloads.set([]);
     }
