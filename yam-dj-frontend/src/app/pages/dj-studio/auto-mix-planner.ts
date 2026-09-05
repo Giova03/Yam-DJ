@@ -121,6 +121,8 @@ export interface MixPlan {
   warnings: string[];
   summary: string;
   params: MixParams;
+  /** Performance DJ V2 (gestes, moves, timeline) — posée par buildPerformance. */
+  performance?: import('./performance-engine').DjPerformance;
 }
 
 // ============================ OUTILS ============================

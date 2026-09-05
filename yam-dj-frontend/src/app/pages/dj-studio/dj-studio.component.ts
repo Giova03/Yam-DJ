@@ -7,8 +7,10 @@ import { TrackService } from '../../services/track.service';
 import { Mixtape, Track } from '../../models/models';
 import { DjDeck, DjEngine, detectBpm } from './dj-engine';
 import { IconComponent } from '../../components/icon/icon.component';
-import { estimateCamelot } from './mix-analyzer';
+import { estimateCamelot, TrackAnalysis, analyzeTrack } from './mix-analyzer';
 import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionType, Mood, planAutoMix } from './auto-mix-planner';
+import { buildPerformance } from './performance-engine';
+import { DJ_STYLES, DJ_PERSONALITIES, DjStyle, DjPersonality } from './dj-moves';
 import { LocalFileEntry } from '../../services/dj-live.service';
 
 /**
@@ -119,6 +121,26 @@ import { LocalFileEntry } from '../../services/dj-live.service';
                 <span class="yam-num text-white/35 hidden sm:inline">{{ m.bpm || '?' }} BPM · énergie {{ (m.energy * 10).toFixed(1) }}/10</span>
               }
             </div>
+            @if (djLive.autoMoveName()) {
+              <!-- ===== PERFORMANCE EN COURS (les gestes du DJ) ===== -->
+              <div class="mt-3 rounded-xl bg-black/25 border border-yam-violet/25 px-3 py-2.5">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <p class="text-xs font-bold text-yam-violet tracking-wide flex items-center gap-1.5">
+                    <yam-icon name="flame" [size]="12"/> MOVE : {{ djLive.autoMoveName() }}
+                  </p>
+                  @if (djLive.autoCurrentAction()) {
+                    <p class="text-[11px] text-white/70 truncate max-w-[60%]">{{ djLive.autoCurrentAction() }}</p>
+                  }
+                </div>
+                @if (djLive.autoGestures().length) {
+                  <div class="mt-2 space-y-0.5 max-h-28 overflow-y-auto">
+                    @for (g of djLive.autoGestures().slice(-6); track $index) {
+                      <p class="text-[10px] text-white/40 yam-num flex gap-2"><span class="text-white/25 w-12 shrink-0">{{ fmt(g.t) }}</span><span class="text-yam-violet/80 w-14 shrink-0">{{ g.deck === 'master' ? 'MASTER' : 'DECK ' + g.deck }}</span><span class="truncate">{{ g.label }}</span></p>
+                    }
+                  </div>
+                }
+              </div>
+            }
             @if (djLive.autoLoading()) { <p class="text-xs text-yam-orange mt-2 animate-pulse">{{ djLive.autoLoading() }}</p> }
             @if (djLive.autoError()) { <p class="text-xs text-red-400 mt-2">{{ djLive.autoError() }}</p> }
             <p class="text-[11px] text-white/35 mt-2 flex items-center gap-1.5"><yam-icon name="smartphone" [size]="12"/> Arrière-plan actif : navigue librement, la musique continue — contrôle aussi depuis l'écran verrouillé.</p>
@@ -195,6 +217,28 @@ import { LocalFileEntry } from '../../services/dj-live.service';
               <input type="text" [(ngModel)]="mixArtists" placeholder="ex : Floby, Dee Jay" class="yam-input !py-2 !px-2 text-sm">
             </div>
           </div>
+          <!-- ===== PERFORMANCE DJ : audace + personnalité ===== -->
+          <div class="flex flex-wrap items-end gap-x-6 gap-y-3 mb-4">
+            <div class="min-w-[220px]">
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-yam-violet/80 block mb-1.5">Performance DJ — audace</label>
+              <div class="flex flex-wrap gap-1.5">
+                @for (s of djStyles; track s.key) {
+                  <button (click)="mixDjStyleKey = s.key" [title]="s.desc"
+                          class="text-xs font-semibold px-3 py-1.5 rounded-full border transition"
+                          [class]="mixDjStyleKey === s.key ? 'bg-yam-violet/20 border-yam-violet/50 text-yam-violet' : 'border-white/10 text-white/50 hover:border-yam-violet/30'">
+                    {{ s.label }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div class="min-w-[180px]">
+              <label class="text-[10px] font-bold uppercase tracking-[.14em] text-yam-violet/80 block mb-1.5">Personnalité du DJ</label>
+              <select [(ngModel)]="mixPersoKey" class="yam-input !py-2 !px-2 text-sm">
+                @for (p of djPersonalities; track p.key) { <option [value]="p.key">{{ p.label }} — {{ p.desc }}</option> }
+              </select>
+            </div>
+          </div>
+
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <button (click)="generateMix()" [disabled]="generating() || library().length + localFiles().length < 2" class="yam-btn-primary text-sm flex items-center gap-1.5">
               <yam-icon name="sparkles" [size]="15"/> {{ generating() ? (generatingLabel() || 'Analyse…') : 'Générer le mix' }}
@@ -203,7 +247,7 @@ import { LocalFileEntry } from '../../services/dj-live.service';
           </div>
           <div class="flex items-center gap-3 flex-wrap text-xs text-white/45">
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" [(ngModel)]="mixRecord" class="accent-yam-violet w-4 h-4"> Enregistrer le mix auto
+              <input type="checkbox" [(ngModel)]="mixRecord" class="accent-yam-violet w-4 h-4"> Enregistrer le mix + sauvegarde hors ligne auto
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer">
               <input type="checkbox" [(ngModel)]="mixVoice" class="accent-yam-violet w-4 h-4"> Voix DJ (annonces)
@@ -245,9 +289,37 @@ import { LocalFileEntry } from '../../services/dj-live.service';
                     }
                   }
                 </div>
+                <!-- ===== PERFORMANCE DJ (moves choisis + QC) ===== -->
+                @if (plan.performance; as perf) {
+                  <div class="rounded-2xl border border-yam-violet/30 bg-yam-violet/5 p-4 mb-4">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                      <p class="text-xs font-bold text-yam-violet tracking-wide flex items-center gap-1.5"><yam-icon name="waves" [size]="13"/> PERFORMANCE DJ — {{ perf.signature }}</p>
+                      <span class="text-[10px] text-white/40 yam-num">{{ perf.stats.totalActions }} gestes · {{ perf.stats.distinctMoves }} moves · densité {{ perf.stats.fxDensity }}</span>
+                    </div>
+                    <div class="space-y-1.5">
+                      @for (mv of perf.moves; track mv.fromIndex) {
+                        <div class="text-[11px] flex items-start gap-2 flex-wrap">
+                          <span class="yam-badge !text-yam-violet border-yam-violet/30 !px-1.5 !py-0.5 yam-num shrink-0">{{ mv.fromIndex + 1 }}→{{ mv.fromIndex + 2 }}</span>
+                          <b class="text-white/75">{{ mv.name }}</b>
+                          <span class="text-white/40 yam-num">{{ mv.bars }} mes. · {{ mv.durationSec.toFixed(0) }} s · score {{ mv.score }}</span>
+                          <span class="text-white/35 basis-full pl-1">{{ mv.reason }}</span>
+                        </div>
+                      }
+                    </div>
+                    @if (perf.qc.checks.length) {
+                      <div class="mt-3 pt-2 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-1">
+                        @for (c of perf.qc.checks; track c.name) {
+                          <span class="text-[10px] flex items-center gap-1" [class]="c.ok ? 'text-yam-green' : 'text-yam-gold'">
+                            <yam-icon [name]="c.ok ? 'check' : 'alert-circle'" [size]="11"/> {{ c.name }}
+                          </span>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
                 <div class="flex items-center gap-2 flex-wrap">
                   <button (click)="launchAutoMix()" class="yam-btn-primary text-sm flex items-center gap-1.5"><yam-icon name="play" [size]="14"/> Lancer le mix</button>
-                  <button (click)="generateMix()" class="yam-btn-secondary text-sm">Régénérer</button>
+                  <button (click)="generateMix()" class="yam-btn-secondary text-sm">Régénérer (autre performance)</button>
                   <button (click)="discardMix()" class="yam-btn-secondary text-sm">Effacer le plan</button>
                 </div>
               }
@@ -678,6 +750,43 @@ import { LocalFileEntry } from '../../services/dj-live.service';
         </section>
       }
 
+      <!-- ============ MES MIXES HORS LIGNE (enregistrement automatique) ============ -->
+      @if (djLive.offlineMixes().length) {
+        <section class="mt-10">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h2 class="text-xl font-bold flex items-center gap-2"><yam-icon name="smartphone" [size]="18" class="text-yam-orange"/> Mes mixes hors ligne</h2>
+            <span class="text-xs text-white/40">Enregistrés automatiquement — lisibles et téléchargeables sans connexion</span>
+          </div>
+          <div class="space-y-2">
+            @for (m of djLive.offlineMixes(); track m.id) {
+              <div class="yam-card p-4 flex items-center gap-3 flex-wrap">
+                <button (click)="djLive.playOfflineMix(m.id)" title="Ecouter hors ligne"
+                        class="w-10 h-10 rounded-full bg-yam-gold/20 text-yam-gold flex items-center justify-center hover:bg-yam-gold hover:text-[#150E06] transition shrink-0">
+                  <yam-icon [name]="djLive.offlinePlayingId() === m.id ? 'pause' : 'play'" [size]="16" class="fill-current"/>
+                </button>
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium truncate">{{ m.title }}</p>
+                  <p class="text-xs text-white/40 flex items-center gap-2 flex-wrap">
+                    <yam-icon name="wifi-off" [size]="12"/> hors ligne
+                    @if (m.durationSec) { · {{ fmt(m.durationSec) }} }
+                    · {{ fmtSize(m.sizeBytes) }}
+                    @if (m.signature) { · <span class="text-yam-violet/80 truncate">{{ m.signature }}</span> }
+                  </p>
+                </div>
+                <button (click)="djLive.downloadOfflineMix(m.id)" title="Télécharger le fichier audio (écoute hors ligne sur n'importe quel appareil)"
+                        class="yam-btn-secondary text-sm flex items-center gap-1.5 shrink-0">
+                  <yam-icon name="download" [size]="14"/> Télécharger
+                </button>
+                <button (click)="djLive.deleteOfflineMix(m.id)" title="Supprimer"
+                        class="w-9 h-9 rounded-full border border-white/15 text-white/40 hover:border-red-400/40 hover:text-red-400 transition flex items-center justify-center shrink-0">
+                  <yam-icon name="x" [size]="14"/>
+                </button>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
       <!-- ============ MES MIXTAPES ============ -->
       <section class="mt-10">
         <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><yam-icon name="disc" [size]="18" class="text-yam-orange"/> Mes mixtapes</h2>
@@ -869,6 +978,14 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   // ================= MIX AUTO (DJ IA) =================
   readonly moods = MOODS;
   mixMood = signal<Mood>('fete');
+
+  // ================= PERFORMANCE DJ V2 =================
+  readonly djStyles = DJ_STYLES;
+  readonly djPersonalities = DJ_PERSONALITIES;
+  mixDjStyleKey: string = 'club';
+  mixPersoKey: string = 'afroclub';
+  /** Analyses réelles des fichiers locaux (id piste → analyse complète). */
+  private poolAnalyses = new Map<string, TrackAnalysis>();
   mixGenre = 'all';
   mixCount: number | null = null;
   mixMaxMin = 45;
@@ -1725,11 +1842,31 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
           return;
         }
         const plan = planAutoMix(pool, params);
+
+        // ---- PERFORMANCE DJ V2 : le DJ choisit ses gestes (moves, style,
+        //      personnalité, variation, QC) sur les analyses réelles dispo ----
+        const analyses = new Map<number, TrackAnalysis>();
+        plan.segments.forEach((seg, i) => {
+          const a = this.poolAnalyses.get(seg.track.id);
+          if (a) analyses.set(i, a);
+        });
+        const style = (['safe', 'creative', 'club', 'aggressive'].includes(this.mixDjStyleKey)
+          ? this.mixDjStyleKey : 'club') as DjStyle;
+        const perso = DJ_PERSONALITIES.some(p => p.key === this.mixPersoKey)
+          ? this.mixPersoKey as DjPersonality : 'afroclub';
+        try {
+          plan.performance = buildPerformance(plan, { style, personality: perso, analyses });
+        } catch { /* la performance est optionnelle : le mix de base reste jouable */ }
+
         this.djLive.autoPlan.set(plan);
         if (plan.segments.length < 2) {
           this.setMixMessage(plan.warnings[0] || 'Pas assez de pistes pour construire un mix.', false);
         } else {
-          this.setMixMessage(`Plan prêt : ${plan.summary}`, true);
+          const perfInfo = plan.performance
+            ? ` · ${plan.performance.signature} · ${plan.performance.stats.totalActions} gestes` +
+              (plan.performance.qc.passed ? ' · QC OK' : '')
+            : '';
+          this.setMixMessage(`Plan prêt : ${plan.summary}${perfInfo}`, true);
         }
       } catch (e: any) {
         this.setMixMessage('Génération impossible : ' + (e?.message || 'erreur'), false);
@@ -1758,7 +1895,9 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     this.generatingLabel.set('');
   }
 
-  /** Décode un fichier local et remplit BPM / tonalité / durée (silencieux si échec). */
+  /** Décode un fichier local et remplit BPM / tonalité / durée + cache
+   *  l'analyse complète (courbes, structure, proxy vocal) pour la
+   *  performance DJ. Silencieux si échec. */
   private async analyzeLocalEntry(entry: LocalFileEntry): Promise<void> {
     entry.loading = true;
     this.djLive.touchLocalFiles();
@@ -1775,6 +1914,10 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
         durationSec: Math.round(buf.duration) || entry.track.durationSec
       };
       this.djLive.registerLocalFile(entry.track.id, entry.file);
+      // analyse complète (structure + énergie + vocal) pour le moteur de performance
+      try {
+        this.poolAnalyses.set(entry.track.id, analyzeTrack(entry.track, buf));
+      } catch { /* performance optionnelle */ }
     } catch { /* on planifie sans métriques : l'analyse au chargement rattrapera */ }
     finally {
       entry.loading = false;
@@ -1808,7 +1951,17 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
 
   transitionLabelOf(tr: MixTransition): string {
     const info = TRANSITION_INFO[tr.type];
+    const plan = this.djLive.autoPlan();
+    const mv = plan?.performance?.moves.find(m => m.fromIndex === tr.fromIndex);
+    if (mv) return `${mv.name} · ${tr.bars} mesures`;
     return `${info.label} · ${tr.bars} mesures`;
+  }
+
+  /** Taille lisible (Mo / Ko) d'un mix hors ligne. */
+  fmtSize(bytes: number): string {
+    if (!bytes || bytes < 0) return '0 o';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' Ko';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   }
 
   mixSourceLabel(): string {

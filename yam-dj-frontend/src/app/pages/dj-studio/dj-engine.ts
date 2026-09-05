@@ -697,7 +697,142 @@ export class DjDeck {
     this.flangerWet.gain.setTargetAtTime(on ? wet : 0, this.ctx.currentTime, 0.08);
   }
 
-  // ============ VU ============
+  // ============ PERFORMANCE DJ (couche V2 — gestes temps réel) ============
+
+  /** Boucle EXPLICITE (région en secondes piste) — utilisée par le moteur de
+   *  performance pour les loop rolls 4→2→1→½ temps calés sur la grille.
+   *  Appliquée à la source vivante : le bouclage est précis à l'échantillon. */
+  setLoopRegion(startSec: number, endSec: number, bars = 0): void {
+    if (!this.buffer) return;
+    const start = Math.max(0, Math.min(startSec, this.buffer.duration - 0.05));
+    const end = Math.max(start + 0.04, Math.min(endSec, this.buffer.duration));
+    this.loop = { start, end, bars };
+    this.applyLoopToSource();
+  }
+
+  /** Vitesse BRUTE (hors clamp pitch ±8 %) avec rebasage de position —
+   *  nécessaire pour brake / spinback / pitch ramp du moteur de performance. */
+  applyRawRate(rate: number): void {
+    const r = Math.max(0.02, Math.min(3, rate));
+    if (this.playing) {
+      const pos = this.position;
+      this.startOffset = pos;
+      this.startCtxTime = this.ctx.currentTime;
+    }
+    this.rate = r;
+    if (this.source) this.source.playbackRate.value = r;
+  }
+
+  get rawRate(): number { return this.rate; }
+
+  /** VINYL BRAKE : la platine ralentit jusqu'à l'arrêt (frein vinyle).
+   *  Retourne la durée réelle (ms). La source est ensuite stoppée. */
+  brake(durMs = 420): number {
+    if (!this.playing || !this.source) return 0;
+    const from = this.rate;
+    const t0 = this.ctx.currentTime;
+    // rate → presque zéro (exponentiel : la rotation s'effondre)
+    this.source.playbackRate.setValueAtTime(from, t0);
+    this.source.playbackRate.exponentialRampToValueAtTime(0.02, t0 + durMs / 1000);
+    // le filtre se ferme en même temps (impression mécanique)
+    this.setFilter(Math.max(0, 0.5 - 0.5 * (durMs / 600)));
+    setTimeout(() => {
+      this.pause();
+      this.applyRawRate(this.baseRate());
+      this.setFilter(0.5);
+    }, durMs + 60);
+    return durMs;
+  }
+
+  /** SPINBACK : le morceau repart EN ARRIÈRE (extrait inversé, accéléré) —
+   *  le geste de coupe spectaculaire. Durée ~200-350 ms. */
+  spinback(durMs = 280): number {
+    if (!this.buffer || !this.source) return 0;
+    const pos = this.position;
+    const rate = this.rate;
+    const backLen = Math.min((durMs / 1000) * 2.2 * rate, pos);
+    if (backLen < 0.12) { this.brake(durMs); return durMs; }
+    // buffer inversé de la fin du morceau
+    const rate2 = Math.max(1, rate);
+    const rev = this.ctx.createBuffer(
+      this.buffer.numberOfChannels,
+      Math.floor(backLen * this.buffer.sampleRate),
+      this.buffer.sampleRate);
+    const startS = Math.floor((pos - backLen) * this.buffer.sampleRate);
+    const lenS = rev.length;
+    for (let ch = 0; ch < this.buffer.numberOfChannels; ch++) {
+      const src = this.buffer.getChannelData(ch);
+      const dst = rev.getChannelData(ch);
+      for (let i = 0; i < lenS; i++) dst[i] = src[startS + lenS - 1 - i] || 0;
+    }
+    this.stopSource(true);
+    this.playing = false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = rev;
+    src.playbackRate.setValueAtTime(0.55 * rate2, this.ctx.currentTime);
+    src.playbackRate.linearRampToValueAtTime(2.1 * rate2, this.ctx.currentTime + durMs / 1000);
+    src.connect(this.input);
+    src.start(0);
+    src.onended = () => { try { src.disconnect(); } catch { } };
+    // le playhead « virtuel » reste au point de coupe pour le suivi UI
+    this.startOffset = pos;
+    return durMs;
+  }
+
+  /** GATE / STUTTER : coupure rythmique du volume de voie (grille 1/16),
+   *  n beats — automation d'enveloppe carrée sur le fader. */
+  gateStutter(beats: number, duty = 0.5): void {
+    if (!this.buffer) return;
+    const bpm = (this.track?.bpm || 105) * this.rate;
+    const step = (60 / bpm) / 4;           // 1/16 de temps
+    const vol = this.volume > 0.05 ? this.volume : 0.8;
+    const t0 = this.ctx.currentTime + 0.01;
+    const n = Math.max(1, Math.round(beats * 4));
+    const g = this.channelGain.gain;
+    try { g.cancelScheduledValues(0); } catch { }
+    g.setValueAtTime(vol, t0);
+    for (let i = 1; i <= n; i++) {
+      const t = t0 + i * step;
+      const up = (i % 2 === 0) ? vol : vol * (1 - duty);
+      g.setValueAtTime(up, t);
+    }
+    g.setValueAtTime(vol, t0 + (n + 1) * step);
+  }
+
+  /** Accès direct au fader de voie (performance automation). */
+  setVolumeRamp(to: number, durSec = 0.2): void {
+    const v = Math.max(0, Math.min(1, to));
+    this.volume = v;
+    this.channelGain.gain.setTargetAtTime(v, this.ctx.currentTime, Math.max(0.01, durSec / 3));
+  }
+
+  /** Filtre : pose une valeur en RAMPE linéaire (automation continue). */
+  setFilterRamp(toPos: number, durSec = 0.4): void {
+    const p = Math.max(0, Math.min(1, toPos));
+    const t = this.ctx.currentTime;
+    const cur = this.filterPos;
+    const steps = Math.max(2, Math.ceil(durSec / 0.05));
+    for (let i = 1; i <= steps; i++) {
+      const v = cur + (p - cur) * (i / steps);
+      // interpolation exponentielle des fréquences comme setFilter
+      this.setFilterAt(v, t + (durSec * i / steps));
+    }
+    this.filterPos = p;
+  }
+
+  private filterPos = 0.5;
+
+  private setFilterAt(p: number, t: number): void {
+    if (p <= 0.5) {
+      const ratio = 1 - p * 2;
+      this.lpf.frequency.setValueAtTime(22050 * Math.pow(200 / 22050, ratio), t);
+      this.hpf.frequency.setValueAtTime(10, t);
+    } else {
+      const ratio = (p - 0.5) * 2;
+      this.hpf.frequency.setValueAtTime(20 * Math.pow(4000 / 20, ratio), t);
+      this.lpf.frequency.setValueAtTime(22050, t);
+    }
+  }
 
   updateVu(): void {
     if (!this.playing) { this.vu *= 0.85; return; }
@@ -741,6 +876,9 @@ export class DjEngine {
   private readonly masterAnalyser: AnalyserNode;
   private readonly masterVuData: Uint8Array;
   private readonly streamDest: MediaStreamAudioDestinationNode;
+  /** Bus FX public : les one-shots du moteur de performance (riser, impact,
+   *  sirene...) s'y branchent — ils passent dans le master et l'enregistrement. */
+  readonly fxBus: GainNode;
   private recorder: MediaRecorder | null = null;
   private recChunks: Blob[] = [];
   recording = false;
@@ -768,6 +906,9 @@ export class DjEngine {
     this.masterAnalyser.smoothingTimeConstant = 0.75;
     this.masterVuData = new Uint8Array(this.masterAnalyser.fftSize);
     this.streamDest = this.ctx.createMediaStreamDestination();
+    this.fxBus = this.ctx.createGain();
+    this.fxBus.gain.value = 0.9;
+    this.fxBus.connect(this.masterGain);
 
     this.masterGain.connect(this.limiter);
     this.limiter.connect(this.masterAnalyser);

@@ -5,8 +5,9 @@ import { PlayerService } from './player.service';
 import { DjService } from './dj.service';
 import { Mixtape, Track } from '../models/models';
 import { DjDeck, DjEngine } from '../pages/dj-studio/dj-engine';
-import { AutoMixPlayer, AutoMixSnapshot } from '../pages/dj-studio/auto-mix-player';
+import { AutoMixPlayer, AutoMixSnapshot, PerformanceGesture } from '../pages/dj-studio/auto-mix-player';
 import { MixPlan } from '../pages/dj-studio/auto-mix-planner';
+import { PerformancePlayer } from '../pages/dj-studio/performance-player';
 
 /** Fichier audio local ajouté par le DJ (vit dans le service → survit à la navigation). */
 export interface LocalFileEntry {
@@ -14,6 +15,16 @@ export interface LocalFileEntry {
   file: File;
   loading: boolean;
   track: Track;
+}
+
+/** Mix enregistré sauvegardé pour l'écoute HORS LIGNE (IndexedDB). */
+export interface OfflineMix {
+  id: string;
+  title: string;
+  createdAt: string;
+  durationSec: number;
+  sizeBytes: number;
+  signature: string;
 }
 
 /**
@@ -125,6 +136,16 @@ export class DjLiveService {
   autoRecording = signal(false);
   /** Résultat du dernier mix auto terminé (blob prêt à publier). */
   autoResult = signal<{ blob: Blob | null; completed: boolean; reason: string; at: number } | null>(null);
+  /** Performance V2 : move courant + geste courant + journal des gestes. */
+  autoMoveName = signal<string | null>(null);
+  autoCurrentAction = signal<string | null>(null);
+  autoGestures = signal<PerformanceGesture[]>([]);
+
+  /** Mixes enregistrés sauvegardés hors ligne (IndexedDB). */
+  readonly offlineMixes = signal<OfflineMix[]>([]);
+  private mixDb: IDBDatabase | null = null;
+  private offlineAudio: HTMLAudioElement | null = null;
+  offlinePlayingId = signal<string | null>(null);
 
   /** Decks en lecture manuelle (indicateur navbar). */
   decksLive = signal(false);
@@ -140,6 +161,7 @@ export class DjLiveService {
     this.playerService.onBeforePlay = () => {
       if (this.autoActive()) this.stopAutoMix(1.2);
     };
+    this.openMixDb().then(() => this.loadOfflineMixes());
   }
 
   // ================== MOTEUR ==================
@@ -265,25 +287,45 @@ export class DjLiveService {
     // une seule musique à la fois : pause du player principal
     this.playerService.pausePlayback();
 
-    this.autoPlayer = new AutoMixPlayer(engine, plan, {
-      loadTrack: (track, deck, onProgress) =>
+    const deps = {
+      loadTrack: (track: Track, deck: DjDeck, onProgress: (pct: number, d: string) => void) =>
         this.loadTrackIntoDeck(track, deck, 'lite', onProgress),
-      onSnapshot: s => this.consumeSnapshot(s),
-      onFinish: (blob, completed, reason) => {
+      onSnapshot: (s: AutoMixSnapshot) => this.consumeSnapshot(s),
+      onFinish: (blob: Blob | null, completed: boolean, reason: string) => {
         this.zone.run(() => {
           this.autoActive.set(false);
           this.autoRecording.set(false);
           this.decksLive.set(false);
           this.autoResult.set({ blob, completed, reason, at: Date.now() });
+          // ENREGISTREMENT AUTOMATIQUE pour l'écoute hors ligne (IndexedDB)
+          if (blob && blob.size > 4096) {
+            const plan2 = this.autoPlan();
+            this.saveOfflineMix(blob, plan2).catch(() => { });
+          }
           this.releaseEngineIfIdle();
         });
+      },
+      onAction: (g: PerformanceGesture) => {
+        this.zone.run(() => {
+          const list = this.autoGestures();
+          this.autoGestures.set([...list.slice(-40), g]);
+        });
       }
-    }, { record: opts.record, djVoice: opts.djVoice });
+    };
+
+    // PERFORMANCE DJ V2 : si le plan porte une performance, on joue les gestes ;
+    // sinon, séquenceur classique (rétro-compatible).
+    this.autoPlayer = plan.performance
+      ? new PerformancePlayer(engine, plan, deps, { record: opts.record, djVoice: opts.djVoice }, plan.performance)
+      : new AutoMixPlayer(engine, plan, deps, { record: opts.record, djVoice: opts.djVoice });
 
     this.autoPlan.set(plan);
     this.autoActive.set(true);
     this.autoRecording.set(!!opts.record && engine.canRecord);
     this.autoResult.set(null);
+    this.autoGestures.set([]);
+    this.autoMoveName.set(null);
+    this.autoCurrentAction.set(null);
     this.autoError.set(null);
     this.autoPlayer.start();
   }
@@ -294,6 +336,8 @@ export class DjLiveService {
 
   stopAutoMix(fadeSec = 1.5): void {
     this.stopAutoMixNow(fadeSec);
+    this.autoMoveName.set(null);
+    this.autoCurrentAction.set(null);
   }
 
   private stopAutoMixNow(fadeSec: number): void {
@@ -323,9 +367,147 @@ export class DjLiveService {
       this.autoMixDuration.set(s.mixDuration);
       this.autoCountdown.set(s.countdown);
       this.autoTransitionLabel.set(s.transitionLabel);
+      this.autoMoveName.set(s.moveName ?? null);
+      this.autoCurrentAction.set(s.currentAction ?? null);
       this.autoLoading.set(s.loadingText);
       this.autoError.set(s.error);
     });
+  }
+
+  // ================== MIXES HORS LIGNE (IndexedDB) ==================
+
+  private openMixDb(): Promise<IDBDatabase | null> {
+    return new Promise(resolve => {
+      try {
+        const req = indexedDB.open('yam-mixes', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('mixes')) {
+            db.createObjectStore('mixes', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => { this.mixDb = req.result; resolve(req.result); };
+        req.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+  }
+
+  /** Sauvegarde automatique du mix enregistré → écoute hors ligne. */
+  async saveOfflineMix(blob: Blob, plan: MixPlan | null): Promise<OfflineMix | null> {
+    const db = this.mixDb || await this.openMixDb();
+    if (!db) return null;
+    const mix: OfflineMix & { blob: Blob } = {
+      id: 'mix-' + Date.now() + '-' + Math.floor(Math.random() * 999),
+      title: 'Mix YAM ' + new Date().toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
+      durationSec: Math.round(plan?.totalDurationSec || 0),
+      sizeBytes: blob.size,
+      signature: plan?.performance?.signature || '',
+      blob
+    };
+    return new Promise(resolve => {
+      try {
+        const tx = db.transaction('mixes', 'readwrite');
+        tx.objectStore('mixes').put(mix);
+        tx.oncomplete = () => { this.loadOfflineMixes().then(() => resolve(mix)); };
+        tx.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+  }
+
+  private async loadOfflineMixes(): Promise<void> {
+    const db = this.mixDb || await this.openMixDb();
+    if (!db) return;
+    new Promise<void>(resolve => {
+      try {
+        const req = db.transaction('mixes', 'readonly').objectStore('mixes').getAll();
+        req.onsuccess = () => {
+          const list = (req.result || []).map((m: any) => ({
+            id: m.id, title: m.title, createdAt: m.createdAt,
+            durationSec: m.durationSec, sizeBytes: m.sizeBytes, signature: m.signature || ''
+          }));
+          list.sort((a: OfflineMix, b: OfflineMix) => b.createdAt.localeCompare(a.createdAt));
+          this.zone.run(() => this.offlineMixes.set(list));
+          resolve();
+        };
+        req.onerror = () => resolve();
+      } catch { resolve(); }
+    });
+  }
+
+  private getMixBlob(id: string): Promise<Blob | null> {
+    const db = this.mixDb;
+    if (!db) return Promise.resolve(null);
+    return new Promise(resolve => {
+      try {
+        const req = db.transaction('mixes', 'readonly').objectStore('mixes').get(id);
+        req.onsuccess = () => resolve(req.result?.blob || null);
+        req.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+  }
+
+  /** Télécharge un mix hors ligne (fichier audio). */
+  async downloadOfflineMix(id: string): Promise<void> {
+    const blob = await this.getMixBlob(id);
+    if (!blob) return;
+    const mix = this.offlineMixes().find(m => m.id === id);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (mix?.title || 'mix-yam').replace(/[^a-z0-9 _-]/gi, '').replace(/\s+/g, ' ').trim() + '.webm';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
+  }
+
+  /** Lecture d'un mix hors ligne (arrière-plan, simple). */
+  async playOfflineMix(id: string): Promise<void> {
+    if (this.offlinePlayingId() === id) { this.stopOfflineMix(); return; }
+    this.stopOfflineMix();
+    const blob = await this.getMixBlob(id);
+    if (!blob) return;
+    const mix = this.offlineMixes().find(m => m.id === id);
+    this.playerService.pausePlayback();
+    this.offlineAudio = new Audio();
+    this.offlineAudio.src = URL.createObjectURL(blob);
+    this.offlineAudio.play().catch(() => { });
+    this.offlineAudio.onended = () => this.offlinePlayingId.set(null);
+    this.offlinePlayingId.set(id);
+    try {
+      const ms = (navigator as any).mediaSession;
+      if (ms) {
+        ms.metadata = new (window as any).MediaMetadata({
+          title: mix?.title || 'Mon mix', artist: 'Moi', album: 'YAM DJ · hors ligne'
+        });
+        ms.setActionHandler('pause', () => this.stopOfflineMix());
+        ms.setActionHandler('stop', () => this.stopOfflineMix());
+        ms.playbackState = 'playing';
+      }
+    } catch { }
+  }
+
+  stopOfflineMix(): void {
+    if (this.offlineAudio) {
+      this.offlineAudio.pause();
+      this.offlineAudio = null;
+    }
+    this.offlinePlayingId.set(null);
+  }
+
+  async deleteOfflineMix(id: string): Promise<void> {
+    const db = this.mixDb;
+    if (!db) return;
+    if (this.offlinePlayingId() === id) this.stopOfflineMix();
+    new Promise<void>(resolve => {
+      try {
+        const tx = db.transaction('mixes', 'readwrite');
+        tx.objectStore('mixes').delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch { resolve(); }
+    });
+    await this.loadOfflineMixes();
   }
 
   // ================== MIXTAPES (arrière-plan) ==================

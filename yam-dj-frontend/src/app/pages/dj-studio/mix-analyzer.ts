@@ -37,6 +37,10 @@ export interface TrackAnalysis {
   energy: number;
   /** Courbe d'énergie normalisée (points équirépartis). */
   energyCurve: number[];
+  /** Proxy vocal (énergie bande 300–3400 Hz normalisée) — même longueur
+   *  que energyCurve. Utilisé par le moteur de performance pour repérer
+   *  les fins de phrase vocale et les extraits teasables. */
+  vocalCurve?: number[];
   /** RMS global (≈ loudness). */
   rms: number;
   /** Gain de normalisation vers RMS cible 0.20 (0.7..1.4). */
@@ -103,6 +107,43 @@ export function computeEnergy(buffer: AudioBuffer, points = 96): { curve: number
   return { curve, rms };
 }
 
+/** Proxy vocal : énergie de la bande 300–3400 Hz (là où vivent les voix)
+ *  via un filtre passe-bande numérique 2e ordre, fenêtré comme computeEnergy. */
+export function computeVocalCurve(buffer: AudioBuffer, points = 96): number[] {
+  try {
+    const rate = buffer.sampleRate;
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+    const n = buffer.length;
+    const hop = Math.max(1, Math.floor(n / points));
+    const win = Math.min(hop, 4096);
+    // passe-bande RLC (biquad) centré ~1200 Hz, Q ~0.8
+    const f0 = 1200, Q = 0.8;
+    const w0 = 2 * Math.PI * f0 / rate;
+    const alpha = Math.sin(w0) / (2 * Q);
+    const cw = Math.cos(w0), a0 = 1 + alpha;
+    const b0 = alpha / a0, b2 = -alpha / a0;
+    const a1 = (-2 * cw) / a0, a2 = (1 - alpha) / a0;
+    const raw: number[] = [];
+    for (let w = 0; w * hop < n; w++) {
+      const start = w * hop;
+      const end = Math.min(start + win, n);
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0, sum = 0, cnt = 0;
+      for (let i = start; i < end; i++) {
+        const v = ch1 ? (ch0[i] + ch1[i]) * 0.5 : ch0[i];
+        const y = b0 * v + b2 * x2 - a1 * y1 - a2 * y2;
+        x2 = x1; x1 = v; y2 = y1; y1 = y;
+        sum += y * y; cnt++;
+      }
+      raw.push(cnt ? Math.sqrt(sum / cnt) : 0);
+    }
+    // normalisation au 95e centile (indépendante du loudness du morceau)
+    const sorted = [...raw].sort((a, b) => a - b);
+    const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] || 0;
+    const norm = p95 > 0.0005 ? p95 : 1;
+    return raw.map(v => Math.max(0, Math.min(1, v / norm)));
+  } catch { return []; }
+}
 /** Magnitude Goertzel d'une fréquence sur une fenêtre (chroma rapide). */
 function goertzelMag(data: Float32Array, rate: number, freq: number, start: number, len: number): number {
   const k = 2 * Math.PI * freq / rate;
@@ -278,6 +319,7 @@ function medianBandEnergy(curve: number[]): number {
 export function analyzeTrack(track: Track, buffer: AudioBuffer): TrackAnalysis {
   const duration = buffer.duration;
   const { curve, rms } = computeEnergy(buffer);
+  const vocalCurve = computeVocalCurve(buffer, 96);
   const bpm = (track.bpm && track.bpm > 40 && track.bpm < 220)
     ? track.bpm
     : (detectBpm(buffer) ?? track.bpm ?? null);
@@ -291,7 +333,7 @@ export function analyzeTrack(track: Track, buffer: AudioBuffer): TrackAnalysis {
   return {
     track, duration, bpm, camelot,
     energy: medianBandEnergy(curve),
-    energyCurve: curve, rms, trim,
+    energyCurve: curve, vocalCurve, rms, trim,
     structure, barLen
   };
 }

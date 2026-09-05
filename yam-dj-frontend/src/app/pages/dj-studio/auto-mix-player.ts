@@ -47,6 +47,19 @@ export interface AutoMixSnapshot {
   /** Analyse réelle de la piste courante (dès qu'elle est mesurée). */
   currentMeasured: TrackAnalysis | null;
   announced: string | null;
+  /** Performance DJ V2 : move en cours et geste courant. */
+  moveName?: string | null;
+  currentAction?: string | null;
+  moveReason?: string | null;
+}
+
+/** Geste exécuté (journal de performance — l'UI affiche les gestes du DJ). */
+export interface PerformanceGesture {
+  t: number;          // position dans le mix (s)
+  deck: 'A' | 'B' | 'master';
+  action: string;
+  label: string;
+  move: string;
 }
 
 export interface AutoMixDeps {
@@ -56,6 +69,8 @@ export interface AutoMixDeps {
   onSnapshot: (s: AutoMixSnapshot) => void;
   /** Fin du mix (naturelle ou stop) : blob enregistré éventuel. */
   onFinish: (blob: Blob | null, completed: boolean, reason: string) => void;
+  /** Performance V2 : chaque geste exécuté est notifié (timeline live). */
+  onAction?: (g: PerformanceGesture) => void;
 }
 
 export interface AutoMixRunOptions {
@@ -67,28 +82,28 @@ const TICK_MS = 100;
 
 export class AutoMixPlayer {
 
-  private phase: AutoPhase = 'idle';
-  private idx = 0;
-  private timer: any = null;
-  private mixStartedAt = 0;          // performance.now()
-  private pausedAt = 0;
-  private transStartedAt = 0;        // performance.now()
-  private transDurMs = 0;
-  private currentTrans: MixTransition | null = null;
-  private analyses = new Map<number, TrackAnalysis>();
-  private announcedIdx = -1;
-  private loading: { segIndex: number; started: boolean } | null = null;
-  private errorMsg: string | null = null;
-  private baseMaster = 0.9;
-  private finishing = false;
-  private ended = false;
-  private lastVoiceAt = 0;
+  protected phase: AutoPhase = 'idle';
+  protected idx = 0;
+  protected timer: any = null;
+  protected mixStartedAt = 0;          // performance.now()
+  protected pausedAt = 0;
+  protected transStartedAt = 0;        // performance.now()
+  protected transDurMs = 0;
+  protected currentTrans: MixTransition | null = null;
+  protected analyses = new Map<number, TrackAnalysis>();
+  protected announcedIdx = -1;
+  protected loading: { segIndex: number; started: boolean } | null = null;
+  protected errorMsg: string | null = null;
+  protected baseMaster = 0.9;
+  protected finishing = false;
+  protected ended = false;
+  protected lastVoiceAt = 0;
 
   constructor(
-    private engine: DjEngine,
+    protected engine: DjEngine,
     public plan: MixPlan,
-    private deps: AutoMixDeps,
-    private opts: AutoMixRunOptions
+    protected deps: AutoMixDeps,
+    protected opts: AutoMixRunOptions
   ) { }
 
   // ============================ CYCLE DE VIE ============================
@@ -235,7 +250,7 @@ export class AutoMixPlayer {
 
   // ============================ BOUCLE (10 Hz) ============================
 
-  private tick(): void {
+  protected tick(): void {
     if (this.ended) return;
     if (this.phase === 'paused' || this.phase === 'done' || this.phase === 'error' || this.phase === 'preparing') {
       this.emit();
@@ -305,11 +320,11 @@ export class AutoMixPlayer {
     this.emit();
   }
 
-  private waitedLate = false;
+  protected waitedLate = false;
 
   // ============================ TRANSITIONS ============================
 
-  private beginTransition(out: DjDeck, inn: DjDeck, trans: MixTransition, nextSeg: MixSegment): void {
+  protected beginTransition(out: DjDeck, inn: DjDeck, trans: MixTransition, nextSeg: MixSegment): void {
     this.currentTrans = trans;
     this.transDurMs = Math.max(1500, trans.durationSec * 1000);
     this.transStartedAt = performance.now();
@@ -338,7 +353,7 @@ export class AutoMixPlayer {
     }
   }
 
-  private applyTransition(p: number, out: DjDeck, inn: DjDeck): void {
+  protected applyTransition(p: number, out: DjDeck, inn: DjDeck): void {
     const eng = this.engine;
     const trans = this.currentTrans!;
     const pe = p * p * (3 - 2 * p); // easing doux (smoothstep)
@@ -392,7 +407,7 @@ export class AutoMixPlayer {
     }
   }
 
-  private completeTransition(out: DjDeck, inn: DjDeck): void {
+  protected completeTransition(out: DjDeck, inn: DjDeck): void {
     const eng = this.engine;
     eng.setCrossfade(inn === eng.deckA ? 0 : 1);
     eng.setMasterVolume(this.baseMaster);
@@ -417,7 +432,7 @@ export class AutoMixPlayer {
     this.emit();
   }
 
-  private skipToNext(deck: DjDeck, other: DjDeck, nextSeg: MixSegment | undefined): void {
+  protected skipToNext(deck: DjDeck, other: DjDeck, nextSeg: MixSegment | undefined): void {
     if (!nextSeg) { this.beginFinish(deck); return; }
     // le suivant n'a pas chargé à temps : on tente de le jouer dès prêt (max 6 s de silence)
     this.phase = 'transition';
@@ -452,7 +467,7 @@ export class AutoMixPlayer {
 
   // ============================ FIN DU MIX ============================
 
-  private beginFinish(deck: DjDeck): void {
+  protected beginFinish(deck: DjDeck): void {
     this.phase = 'finishing';
     this.finishing = true;
     // fondu de fin naturel : 4 s de master
@@ -476,7 +491,7 @@ export class AutoMixPlayer {
     }, 250);
   }
 
-  private stopRecordingAndFinish(completed: boolean, reason: string): void {
+  protected stopRecordingAndFinish(completed: boolean, reason: string): void {
     if (this.engine.recording) {
       this.engine.stopRecording().then(blob => {
         this.deps.onFinish(blob || null, completed, reason);
@@ -488,7 +503,7 @@ export class AutoMixPlayer {
 
   // ============================ CHARGEMENT ============================
 
-  private loadSegment(index: number): Promise<void> {
+  protected loadSegment(index: number): Promise<void> {
     const seg = this.plan.segments[index];
     if (!seg) return Promise.reject(new Error('segment absent'));
     const deck = this.deckOf(index);
@@ -525,7 +540,7 @@ export class AutoMixPlayer {
     });
   }
 
-  private kickPreload(index: number): void {
+  protected kickPreload(index: number): void {
     if (this.ended) return;
     if (index >= this.plan.segments.length) return;
     if (this.loading) return;
@@ -540,7 +555,7 @@ export class AutoMixPlayer {
     });
   }
 
-  private startDeck(segIndex: number, deck: DjDeck): void {
+  protected startDeck(segIndex: number, deck: DjDeck): void {
     const seg = this.plan.segments[segIndex];
     deck.setPitch(seg.pitchPct || 0);
     this.startDeckVolume(deck, segIndex);
@@ -552,13 +567,13 @@ export class AutoMixPlayer {
   }
 
   /** Volume de voie = trim de normalisation loudness (mix homogène). */
-  private startDeckVolume(deck: DjDeck, segIndex: number): void {
+  protected startDeckVolume(deck: DjDeck, segIndex: number): void {
     const analysis = this.analyses.get(segIndex);
     const trim = analysis ? analysis.trim : 1;
     deck.setVolume(Math.max(0.5, Math.min(1, trim)));
   }
 
-  private resetDeckFx(deck: DjDeck): void {
+  protected resetDeckFx(deck: DjDeck): void {
     deck.setEcho(false);
     deck.setReverb(false);
     deck.setFlanger(false);
@@ -572,7 +587,7 @@ export class AutoMixPlayer {
 
   // ============================ VOIX DJ ============================
 
-  private announce(index: number): void {
+  protected announce(index: number): void {
     if (!this.opts.djVoice) return;
     const seg = this.plan.segments[index];
     if (!seg) return;
@@ -592,7 +607,7 @@ export class AutoMixPlayer {
 
   // ============================ MEDIA SESSION ============================
 
-  private setMediaSession(): void {
+  protected setMediaSession(): void {
     try {
       const ms = (navigator as any).mediaSession;
       if (!ms) return;
@@ -610,7 +625,7 @@ export class AutoMixPlayer {
     } catch { /* non supporté */ }
   }
 
-  private updateMediaPlaybackState(playing: boolean): void {
+  protected updateMediaPlaybackState(playing: boolean): void {
     try {
       const ms = (navigator as any).mediaSession;
       if (ms?.setPositionState) {
@@ -623,7 +638,7 @@ export class AutoMixPlayer {
     } catch { /* non supporté */ }
   }
 
-  private clearMediaSession(): void {
+  protected clearMediaSession(): void {
     try {
       const ms = (navigator as any).mediaSession;
       if (!ms) return;
@@ -636,21 +651,21 @@ export class AutoMixPlayer {
 
   // ============================ DIVERS ============================
 
-  private deckOf(segIndex: number): DjDeck {
+  protected deckOf(segIndex: number): DjDeck {
     // ping-pong : segments pairs sur A, impairs sur B
     return segIndex % 2 === 0 ? this.engine.deckA : this.engine.deckB;
   }
 
-  private otherDeck(deck: DjDeck): DjDeck {
+  protected otherDeck(deck: DjDeck): DjDeck {
     return deck === this.engine.deckA ? this.engine.deckB : this.engine.deckA;
   }
 
-  private mixPositionOf(): number {
+  protected mixPositionOf(): number {
     if (!this.mixStartedAt) return 0;
     return Math.max(0, (performance.now() - this.mixStartedAt) / 1000);
   }
 
-  private fail(msg: string): void {
+  protected fail(msg: string): void {
     this.phase = 'error';
     this.errorMsg = msg;
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
@@ -659,7 +674,7 @@ export class AutoMixPlayer {
     this.emit();
   }
 
-  private emit(): void {
+  protected emit(): void {
     try { this.deps.onSnapshot(this.snapshot); } catch { /* service parti */ }
   }
 }
