@@ -8,6 +8,14 @@ import { DjDeck, DjEngine } from '../pages/dj-studio/dj-engine';
 import { AutoMixPlayer, AutoMixSnapshot } from '../pages/dj-studio/auto-mix-player';
 import { MixPlan } from '../pages/dj-studio/auto-mix-planner';
 
+/** Fichier audio local ajouté par le DJ (vit dans le service → survit à la navigation). */
+export interface LocalFileEntry {
+  id: string;
+  file: File;
+  loading: boolean;
+  track: Track;
+}
+
 /**
  * ============================================================================
  *  DJ LIVE — le studio qui joue EN ARRIÈRE-PLAN
@@ -38,7 +46,67 @@ export class DjLiveService {
   private engineRef: DjEngine | null = null;
   private autoPlayer: AutoMixPlayer | null = null;
   private watcher: any = null;
-  private localFiles = new Map<string, File>();
+  private localFileMap = new Map<string, File>();
+  private localSeq = 0;
+
+  // ================== FICHIERS LOCAUX DU DJ ==================
+
+  /** Fichiers locaux du DJ — vit dans le service : la liste survit à la
+   *  navigation (le DJ revient au studio, ses morceaux sont toujours là). */
+  readonly localFiles = signal<LocalFileEntry[]>([]);
+
+  /** Ajoute des fichiers (sélection multiple) — retourne les entrées créées. */
+  addLocalFiles(files: File[] | FileList): LocalFileEntry[] {
+    const created: LocalFileEntry[] = [];
+    for (const file of Array.from(files)) {
+      const seq = ++this.localSeq;
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[ _-]+/g, ' ').trim() || file.name;
+      const entry: LocalFileEntry = {
+        id: 'local-' + seq,
+        file,
+        loading: false,
+        track: {
+          id: 'local-' + seq,
+          title,
+          artistId: '',
+          artistName: 'Fichier local',
+          artistPseudo: '',
+          durationSec: 0,
+          playCount: 0,
+          likeCount: 0,
+          status: 'APPROVED' as const,
+          dataLiteReady: false,
+          createdAt: new Date().toISOString()
+        }
+      };
+      this.localFileMap.set(entry.id, file);
+      created.push(entry);
+    }
+    this.localFiles.set([...this.localFiles(), ...created]);
+    return created;
+  }
+
+  /** Retire un fichier local. */
+  removeLocalFile(id: string): void {
+    this.localFileMap.delete(id);
+    this.localFiles.set(this.localFiles().filter(f => f.id !== id));
+  }
+
+  /** Remplace/rafraîchit une entrée (après analyse : BPM, tonalité, durée). */
+  updateLocalEntry(entry: LocalFileEntry): void {
+    this.localFileMap.set(entry.id, entry.file);
+    this.localFiles.set([...this.localFiles()]);
+  }
+
+  /** Diffuse la liste (rafraîchissement d'affichage après mutation). */
+  touchLocalFiles(): void {
+    this.localFiles.set([...this.localFiles()]);
+  }
+
+  /** Map interne id → File (utilisée par loadTrackIntoDeck). */
+  getLocalFile(id: string): File | undefined {
+    return this.localFileMap.get(id);
+  }
 
   // ================== SIGNAUX (UI navbar + studio) ==================
 
@@ -103,6 +171,7 @@ export class DjLiveService {
     this.clearDeckMemory(eng.deckB);
     eng.setCrossfade(0.5);
     eng.setMasterVolume(0.9);
+    this.zone.run(() => this.decksLive.set(false));
   }
 
   private clearDeckMemory(deck: DjDeck): void {
@@ -145,7 +214,7 @@ export class DjLiveService {
 
   /** Enregistre un fichier local (id 'local-N') pour le mix auto. */
   registerLocalFile(id: string, file: File): void {
-    this.localFiles.set(id, file);
+    this.localFileMap.set(id, file);
   }
 
   /**
@@ -157,7 +226,7 @@ export class DjLiveService {
     onProgress: (pct: number, detail: string) => void
   ): Promise<void> {
     if (track.id.startsWith('local-')) {
-      const file = this.localFiles.get(track.id);
+      const file = this.localFileMap.get(track.id);
       if (!file) throw new Error('Fichier local introuvable (rajoute-le dans « Ma musique locale »).');
       const bpm = await deck.loadLocalFile(file, track, (p, phase, detail) => onProgress(p, detail));
       void bpm;
@@ -204,6 +273,7 @@ export class DjLiveService {
         this.zone.run(() => {
           this.autoActive.set(false);
           this.autoRecording.set(false);
+          this.decksLive.set(false);
           this.autoResult.set({ blob, completed, reason, at: Date.now() });
           this.releaseEngineIfIdle();
         });
@@ -234,6 +304,7 @@ export class DjLiveService {
       this.zone.run(() => {
         this.autoActive.set(false);
         this.autoRecording.set(false);
+        this.decksLive.set(false);
         this.releaseEngineIfIdle();
       });
     });

@@ -102,7 +102,7 @@ const SHARE_BASE_URL = 'https://yam-dj-frontend.vercel.app/track/';
                 <p class="text-yam-green text-sm">{{ sendMessage() }}</p>
               } @else {
                 <div class="flex gap-2">
-                  <input type="text" [(ngModel)]="friendPseudo" placeholder="Pseudo de ton ami (ex : faso-king)"
+                  <input type="text" [(ngModel)]="friendPseudo" placeholder="Pseudo de ton ami"
                          class="yam-input !py-2.5 text-sm flex-1">
                   <button (click)="sendToFriend()" [disabled]="sendState() === 'sending' || !friendPseudo.trim()"
                           class="yam-btn-primary !px-4 !py-2.5 text-sm shrink-0">

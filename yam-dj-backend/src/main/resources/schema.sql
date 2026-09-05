@@ -297,7 +297,7 @@ CREATE INDEX IF NOT EXISTS idx_mixtape_purchase_buyer ON mixtape_purchase(buyer_
 CREATE INDEX IF NOT EXISTS idx_mixtape_purchase_mixtape ON mixtape_purchase(mixtape_id, buyer_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mixtape_purchase_token ON mixtape_purchase(payment_token);
 
--- ====================== DONNEES DE DEMO ==========================
+-- ====================== COMPTES DE BASE ==========================
 INSERT INTO app_user (id, email, password, pseudo, role, email_verified, country)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'giobamos03@gmail.com', '$2a$10$eTHWUK80g09Q4u5eZxQ/a.i43QVLTz1r9EiLnrTCNY0Yu/kC.xncm', 'GioBamos', 'ADMIN', TRUE, 'Burkina Faso'),
@@ -307,7 +307,7 @@ VALUES
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO artist_profile (user_id, stage_name, bio)
-VALUES ('00000000-0000-0000-0000-000000000002', 'FasoArtist', 'Artiste demo — coupes-decale et afrobeats depuis Ouagadougou.')
+VALUES ('00000000-0000-0000-0000-000000000002', 'FasoArtist', 'Coupé-décalé et afrobeats depuis Ouagadougou.')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO artist_profile (user_id, stage_name, bio)
@@ -315,7 +315,7 @@ VALUES ('00000000-0000-0000-0000-000000000005', 'YAM Music', 'Catalogue officiel
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO dj_profile (user_id, dj_name, bio)
-VALUES ('00000000-0000-0000-0000-000000000003', 'DJOuaga', 'DJ resident demo — mix afro, coupe-decale, ndombolo.')
+VALUES ('00000000-0000-0000-0000-000000000003', 'DJOuaga', 'DJ résident — mix afro, coupé-décalé, ndombolo.')
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Le compte admin personnel remplace l'ancien admin demo : l'email ayant

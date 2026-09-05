@@ -5,9 +5,11 @@ import { DjService } from '../../services/dj.service';
 import { DjLiveService } from '../../services/dj-live.service';
 import { TrackService } from '../../services/track.service';
 import { Mixtape, Track } from '../../models/models';
-import { DjDeck, DjEngine } from './dj-engine';
+import { DjDeck, DjEngine, detectBpm } from './dj-engine';
 import { IconComponent } from '../../components/icon/icon.component';
+import { estimateCamelot } from './mix-analyzer';
 import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionType, Mood, planAutoMix } from './auto-mix-planner';
+import { LocalFileEntry } from '../../services/dj-live.service';
 
 /**
  * ============================================================================
@@ -122,6 +124,26 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
             <p class="text-[11px] text-white/35 mt-2 flex items-center gap-1.5"><yam-icon name="smartphone" [size]="12"/> Arrière-plan actif : navigue librement, la musique continue — contrôle aussi depuis l'écran verrouillé.</p>
           </div>
         } @else {
+          <!-- ===== SOURCES DU MIX (catalogue + mes fichiers) ===== -->
+          <div class="flex items-center gap-2 flex-wrap mb-4">
+            <span class="yam-badge !px-2.5 !py-1 gap-1.5 border-yam-violet/30 text-white/60"><yam-icon name="disc" [size]="12"/> Catalogue mixable : <b class="text-white/85 yam-num">{{ library().length }}</b></span>
+            <span class="yam-badge !px-2.5 !py-1 gap-1.5 border-yam-gold/30 text-white/60"><yam-icon name="folder" [size]="12"/> Mes fichiers : <b class="text-white/85 yam-num">{{ localFiles().length }}</b></span>
+            @if (library().length + localFiles().length < 2) {
+              <button (click)="localFilesInput.click()" class="yam-btn-primary text-xs !py-1.5 !px-3 ml-auto">
+                <yam-icon name="plus" [size]="13"/> Ajouter ma musique
+              </button>
+            }
+          </div>
+          @if (library().length + localFiles().length < 2) {
+            <div class="rounded-2xl border border-dashed border-yam-gold/40 bg-yam-gold/5 p-4 mb-5 text-center">
+              <p class="text-sm font-semibold text-yam-gold flex items-center justify-center gap-2"><yam-icon name="folder" [size]="16"/> Charge au moins 2 morceaux pour mixer</p>
+              <p class="text-white/50 text-xs mt-1 max-w-md mx-auto">Tes mp3, m4a, wav… restent sur ton appareil : le DJ IA les analyse (BPM, tonalité, énergie) et construit un vrai mix. Tu peux aussi publier tes titres depuis l'espace artiste pour les retrouver dans le catalogue.</p>
+              <button (click)="localFilesInput.click()" class="yam-btn-primary text-sm mt-3">
+                <yam-icon name="folder" [size]="15"/> Choisir mes fichiers
+              </button>
+            </div>
+          }
+
           <!-- ===== PARAMETRES ===== -->
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div class="col-span-2">
@@ -175,7 +197,7 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
           </div>
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <button (click)="generateMix()" [disabled]="generating() || library().length + localFiles().length < 2" class="yam-btn-primary text-sm flex items-center gap-1.5">
-              <yam-icon name="sparkles" [size]="15"/> {{ generating() ? 'Analyse…' : 'Générer le mix' }}
+              <yam-icon name="sparkles" [size]="15"/> {{ generating() ? (generatingLabel() || 'Analyse…') : 'Générer le mix' }}
             </button>
             <span class="text-xs text-white/40">{{ mixSourceLabel() }}</span>
           </div>
@@ -524,7 +546,7 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
         <p class="text-white/40 text-sm mb-4">
           Charge TES fichiers (mp3, m4a, wav...) ou choisis dans le catalogue — BPM détecté automatiquement.
           Chargement complet en mémoire pour un mix précis (rendu {{ quality() === 'lite' ? 'Data-Lite 48 kbps' : 'HQ 128 kbps' }}).
-          @if (ytExcluded > 0) { {{ ytExcluded }} pistes sans audio direct masquées. }
+          @if (ytExcluded > 0) { {{ ytExcluded }} pistes YouTube non mixables masquées. }
         </p>
 
         <!-- Zone fichiers locaux -->
@@ -614,7 +636,10 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
           } @empty {
             <div class="yam-card p-10 text-center text-white/40">
               <div class="mb-2 text-white/30"><yam-icon name="disc" [size]="40"/></div>
-              @if (library().length === 0) { Aucune piste audio disponible pour le mix. }
+              @if (library().length === 0 && ytExcluded > 0) {
+                Les {{ ytExcluded }} pistes du catalogue sont lues via YouTube (pas d'audio mixable) :
+                publie tes propres titres depuis l'espace artiste pour les mixer ici.
+              } @else if (library().length === 0) { Aucune piste audio disponible pour le mix. }
               @else { Aucun résultat avec ces filtres. }
             </div>
           }
@@ -633,7 +658,7 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 mt-4 items-end">
               <div>
                 <label class="text-xs text-white/50 mb-1 block">Titre du mix</label>
-                <input type="text" [(ngModel)]="recTitle" placeholder="Live Nuit Ouaga Vol.1" class="yam-input !py-2">
+                <input type="text" [(ngModel)]="recTitle" placeholder="Mon live Vol. 1" class="yam-input !py-2">
               </div>
               <div>
                 <label class="text-xs text-white/50 mb-1 block">Prix FCFA (0 = gratuit)</label>
@@ -717,7 +742,7 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
           <div class="bg-yam-card rounded-3xl p-6 w-full max-w-md border border-white/10" (click)="$event.stopPropagation()">
             <h2 class="yam-title mb-4">Nouvelle mixtape</h2>
             <label class="text-sm text-white/60 mb-1 block">Titre du mix</label>
-            <input type="text" [(ngModel)]="mixTitle" placeholder="Mix Nuit Ouaga Vol.1" class="yam-input mb-4">
+            <input type="text" [(ngModel)]="mixTitle" placeholder="Ma mixtape Vol. 1" class="yam-input mb-4">
             <label class="text-sm text-white/60 mb-1 block">Crossfade : {{ crossfadeSec }} secondes</label>
             <input type="range" min="2" max="16" [(ngModel)]="crossfadeSec" class="w-full h-2 accent-yam-orange cursor-pointer mb-4">
             <label class="flex items-center gap-2 text-sm text-white/60 cursor-pointer mb-4">
@@ -752,6 +777,7 @@ import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionTy
             <h2 class="yam-title mb-4">Pilotage du studio</h2>
             <ul class="space-y-2 text-sm text-white/70">
               <li><b class="text-yam-orange">Ma musique locale</b> — charge TES mp3/m4a/wav dans un deck (bouton dossier du deck ou zone « Ma musique locale ») — BPM détecté automatiquement</li>
+              <li><b class="text-yam-violet">Mix Auto</b> — le DJ IA analyse tes morceaux (BPM, tonalité, énergie), construit le plan complet du mix puis l'enchaîne tout seul — il continue en arrière-plan quand tu quittes le studio</li>
               <li><b class="text-yam-orange">Espace</b> — lecture/pause deck A · <b class="text-yam-gold">Maj+Espace</b> — deck B</li>
               <li><b class="text-yam-orange">← / →</b> — déplacer le crossfader</li>
               <li><b class="text-yam-orange">S</b> — synchroniser le deck B sur A</li>
@@ -810,8 +836,9 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   loadingRows = signal<string[]>([]);
 
   // ================= FICHIERS LOCAUX =================
-  localFiles = signal<LocalFileEntry[]>([]);
-  private localSeq = 0;
+  /** Fichiers locaux du DJ — propriété du service racine : la liste SURVIT
+   *  à la navigation (le DJ revient au studio, ses morceaux sont toujours là). */
+  get localFiles() { return this.djLive.localFiles; }
   private filePickerTarget: DeckPanel | null = null;
 
   /** Presets d'effets 1 clic (EQ + filtre + FX). */
@@ -851,6 +878,8 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   mixRecord = true;
   mixVoice = false;
   generating = signal(false);
+  /** Libellé de progression pendant l'analyse des morceaux locaux. */
+  generatingLabel = signal('');
   readonly styleOptions: { value: 'auto' | TransitionType; label: string }[] = [
     { value: 'auto', label: 'Auto' },
     ...(Object.keys(TRANSITION_INFO) as TransitionType[])
@@ -860,16 +889,22 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor() {
     // Un mix auto terminé (même après avoir quitté le studio) atterrit ici :
     // l'enregistrement devient publiable / téléchargeable.
+    // Writes différés hors contexte réactif (NG0600 : interdit d'écrire des
+    // signaux directement dans un effect — ça tuait l'affichage du mix fini).
     effect(() => {
       const r = this.djLive.autoResult();
       if (r?.blob) {
-        if (this.recUrl()) URL.revokeObjectURL(this.recUrl()!);
-        this.recBlob = r.blob;
-        this.recUrl.set(URL.createObjectURL(r.blob));
-        this.recTitle = 'Mix Auto YAM ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        this.setRecMessage(r.completed
-          ? 'Mix auto terminé et enregistré — prêt à publier ou télécharger.'
-          : 'Mix auto arrêté : enregistrement partiel récupéré.', true);
+        const blob = r.blob;
+        const completed = r.completed;
+        window.setTimeout(() => {
+          if (this.recUrl()) URL.revokeObjectURL(this.recUrl()!);
+          this.recBlob = blob;
+          this.recUrl.set(URL.createObjectURL(blob));
+          this.recTitle = 'Mix Auto YAM ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          this.setRecMessage(completed
+            ? 'Mix auto terminé et enregistré — prêt à publier ou télécharger.'
+            : 'Mix auto arrêté : enregistrement partiel récupéré.', true);
+        }, 0);
       }
     });
   }
@@ -1463,8 +1498,8 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     input.onchange = () => {
       const file = input.files?.[0];
       if (file && this.filePickerTarget) {
-        const entry = this.addLocalEntry(file);
-        this.loadLocalToDeck(entry, this.filePickerTarget);
+        const [entry] = this.djLive.addLocalFiles([file]);
+        if (entry) this.loadLocalToDeck(entry, this.filePickerTarget);
       }
       this.filePickerTarget = null;
     };
@@ -1474,39 +1509,14 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   /** Selection multiple depuis la zone "Ma musique locale". */
   onLocalFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const files = Array.from(input.files || []);
-    for (const f of files) this.addLocalEntry(f);
+    if (input.files?.length) this.djLive.addLocalFiles(input.files);
     input.value = '';
-  }
-
-  private addLocalEntry(file: File): LocalFileEntry {
-    const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || file.name;
-    const entry: LocalFileEntry = {
-      id: 'local-' + (++this.localSeq),
-      file,
-      loading: false,
-      track: {
-        id: 'local-' + this.localSeq,
-        title,
-        artistId: '',
-        artistName: 'Fichier local',
-        artistPseudo: '',
-        durationSec: 0,
-        playCount: 0,
-        likeCount: 0,
-        status: 'APPROVED' as const,
-        dataLiteReady: false,
-        createdAt: new Date().toISOString()
-      }
-    };
-    this.localFiles.set([...this.localFiles(), entry]);
-    return entry;
   }
 
   rowLoadingLocal(item: LocalFileEntry): boolean { return item.loading; }
 
   removeLocalFile(item: LocalFileEntry): void {
-    this.localFiles.set(this.localFiles().filter(f => f.id !== item.id));
+    this.djLive.removeLocalFile(item.id);
   }
 
   /** Charge un fichier local dans un deck (avec BPM detecte automatiquement). */
@@ -1526,7 +1536,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     panel.pitch.set(0); // anti pitch fantôme : le deck est reset, l'affichage aussi
     panel.detail.set('Lecture du fichier...');
     item.loading = true;
-    this.localFiles.set([...this.localFiles()]);
+    this.djLive.touchLocalFiles();
 
     panel.deck.loadLocalFile(item.file, item.track, (p, phase, detail) => {
       panel.pct.set(Math.round(p * 100));
@@ -1536,7 +1546,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
       item.track = panel.deck.track!;
       this.djLive.registerLocalFile(item.track.id, item.file);
       item.loading = false;
-      this.localFiles.set([...this.localFiles()]);
+      this.djLive.touchLocalFiles();
       panel.loading.set(false);
       panel.playing.set(false);
       this.renderStaticWave(panel);
@@ -1545,7 +1555,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }).catch(() => {
       item.loading = false;
-      this.localFiles.set([...this.localFiles()]);
+      this.djLive.touchLocalFiles();
       panel.loading.set(false);
       panel.error.set(panel.deck.loadError || 'Fichier illisible sur ce navigateur.');
     });
@@ -1680,14 +1690,10 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ================= MIX AUTO (DJ IA) + MIXTAPES =================
 
-  /** Génère le plan du mix (sélection + courbe + transitions) — instantané. */
+  /** Génère le plan du mix (sélection + courbe + transitions). */
   generateMix(): void {
-    const localTracks = this.localFiles().map(f => f.track);
-    const pool: Track[] = this.selected().length >= 2
-      ? [...this.selected(), ...localTracks.filter(t => !this.selected().some(s => s.id === t.id))]
-      : [...this.library(), ...localTracks];
-    if (pool.length < 2) {
-      this.setMixMessage('Il faut au moins 2 pistes mixables (catalogue ou fichiers locaux).', false);
+    if (this.library().length + this.localFiles().length < 2) {
+      this.setMixMessage('Il faut au moins 2 pistes mixables : charge tes fichiers (mp3, m4a, wav…) ou publie tes titres depuis l\'espace artiste.', false);
       return;
     }
     const params: Partial<MixParams> = {
@@ -1705,9 +1711,19 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
       djVoice: this.mixVoice
     };
     this.generating.set(true);
-    // laisse l'UI peindre avant le calcul (le tri glouton est rapide)
-    setTimeout(() => {
+    this.generatingLabel.set('Préparation…');
+    // 1) analyse des fichiers locaux jamais analysés (BPM/tonalité réels)
+    // 2) puis construction du pool (références à jour) et planification
+    this.analyzeLocalPoolForMix().then(() => {
       try {
+        const localTracks = this.localFiles().map(f => f.track);
+        const pool: Track[] = this.selected().length >= 2
+          ? [...this.selected(), ...localTracks.filter(t => !this.selected().some(s => s.id === t.id))]
+          : [...this.library(), ...localTracks];
+        if (pool.length < 2) {
+          this.setMixMessage('Il faut au moins 2 pistes mixables (catalogue ou fichiers locaux).', false);
+          return;
+        }
         const plan = planAutoMix(pool, params);
         this.djLive.autoPlan.set(plan);
         if (plan.segments.length < 2) {
@@ -1720,7 +1736,50 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
       } finally {
         this.generating.set(false);
       }
-    }, 30);
+    });
+  }
+
+  /**
+   * Analyse les fichiers locaux sans métriques (BPM, tonalité, durée)
+   * AVANT la planification : le DJ IA planifie sur des données réelles.
+   * Progression affichée dans le bouton (« Analyse 2/5… »).
+   */
+  private async analyzeLocalPoolForMix(): Promise<void> {
+    const unanalyzed = this.localFiles().filter(f => !f.track.bpm && !f.loading);
+    if (!unanalyzed.length) return;
+    this.generatingLabel.set('Analyse des morceaux…');
+    let done = 0;
+    for (const entry of unanalyzed) {
+      if (entry.loading) continue;
+      done++;
+      this.generatingLabel.set(`Analyse ${done}/${unanalyzed.length} : ${entry.track.title.slice(0, 18)}`);
+      await this.analyzeLocalEntry(entry);
+    }
+    this.generatingLabel.set('');
+  }
+
+  /** Décode un fichier local et remplit BPM / tonalité / durée (silencieux si échec). */
+  private async analyzeLocalEntry(entry: LocalFileEntry): Promise<void> {
+    entry.loading = true;
+    this.djLive.touchLocalFiles();
+    try {
+      const engine = this.djLive.ensureEngine();
+      const data = await entry.file.arrayBuffer();
+      const buf = await engine.ctx.decodeAudioData(data);
+      const bpm = detectBpm(buf);
+      const camelot = entry.track.camelot || estimateCamelot(buf);
+      entry.track = {
+        ...entry.track,
+        bpm: bpm || entry.track.bpm,
+        camelot: camelot || entry.track.camelot,
+        durationSec: Math.round(buf.duration) || entry.track.durationSec
+      };
+      this.djLive.registerLocalFile(entry.track.id, entry.file);
+    } catch { /* on planifie sans métriques : l'analyse au chargement rattrapera */ }
+    finally {
+      entry.loading = false;
+      this.djLive.touchLocalFiles();
+    }
   }
 
   /** Lance la lecture du mix par le DJ IA (arrière-plan + MediaSession). */
@@ -1756,8 +1815,11 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.selected().length >= 2) {
       return `Sélection manuelle : ${this.selected().length} pistes — le DJ IA les réordonne`;
     }
-    return `Sélection automatique : ${this.library().length} pistes du catalogue`
-      + (this.localFiles().length ? ` + ${this.localFiles().length} fichiers locaux` : '');
+    const lib = this.library().length;
+    const loc = this.localFiles().length;
+    if (lib && loc) return `Sélection automatique : ${lib} du catalogue + ${loc} fichiers locaux`;
+    if (loc) return `Sélection automatique : tes ${loc} fichiers locaux`;
+    return `Sélection automatique : ${lib} pistes du catalogue`;
   }
 
   ceil(v: number): number { return Math.ceil(v); }
@@ -1974,14 +2036,6 @@ class DeckPanel {
   cues = signal<(number | null)[]>([null, null, null, null]);
 
   constructor(readonly id: 'A' | 'B', readonly deck: DjDeck) { }
-}
-
-/** Fichier audio local ajoute par le DJ. */
-interface LocalFileEntry {
-  id: string;
-  file: File;
-  loading: boolean;
-  track: Track;
 }
 
 /** Preset d'effets appliquable en 1 clic. */

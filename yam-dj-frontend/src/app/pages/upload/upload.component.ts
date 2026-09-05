@@ -105,7 +105,7 @@ const MAX_COVER_MB = 5;
           <div class="grid sm:grid-cols-2 gap-4 mb-4">
             <div class="sm:col-span-2">
               <label class="text-sm text-white/60 mb-1 block">Titre de la piste *</label>
-              <input type="text" [(ngModel)]="title" placeholder="Ex : Ouaga Flow" class="yam-input" maxlength="120">
+              <input type="text" [(ngModel)]="title" placeholder="Ex : Mon nouveau son" class="yam-input" maxlength="120">
             </div>
             <div>
               <label class="text-sm text-white/60 mb-1 block">Genre</label>

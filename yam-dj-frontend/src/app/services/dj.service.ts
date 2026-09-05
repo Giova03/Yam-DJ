@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../environments/environment';
 import { AutoMixSuggestion, Mixtape, MixtapePurchaseResponse, Track, TrackPage } from '../models/models';
@@ -17,13 +18,42 @@ export class DjService {
   private notifications = new Subject<any>();
   notifications$ = this.notifications.asObservable();
 
-  studioLibrary(genre?: string, country?: string, limit = 100): Observable<TrackPage> {
-    const params = new URLSearchParams();
-    if (genre && genre !== 'all') params.set('genre', genre);
-    if (country && country !== 'all') params.set('country', country);
-    params.set('limit', String(limit));
-    // Reutilise l'endpoint de recherche public (pistes approuvees)
-    return this.http.get<TrackPage>(`${this.apiUrl}/api/tracks?${params.toString()}`);
+  /**
+   * Bibliothèque du Studio DJ : TOUTES les pages du catalogue (le backend
+   * attend page+size, max 50/page — l'ancien paramètre « limit » était ignoré
+   * et le studio ne voyait que 20 pistes au total).
+   * Fusionne les pages, dédoublonne et renvoie un TrackPage unique.
+   */
+  studioLibrary(genre?: string, country?: string): Observable<TrackPage> {
+    const base = new URLSearchParams();
+    if (genre && genre !== 'all') base.set('genre', genre);
+    if (country && country !== 'all') base.set('country', country);
+    base.set('size', '50');
+    const requests = [0, 1, 2, 3].map(p => {
+      const params = new URLSearchParams(base);
+      params.set('page', String(p));
+      return this.http.get<TrackPage>(`${this.apiUrl}/api/tracks?${params.toString()}`)
+        .pipe(catchError(() => of<TrackPage>({ content: [], page: p, size: 50, totalElements: 0, totalPages: 0 })));
+    });
+    return forkJoin(requests).pipe(
+      map((pages: TrackPage[]) => {
+        const seen = new Set<string>();
+        const content: Track[] = [];
+        for (const pg of pages) {
+          for (const t of (pg?.content || [])) {
+            if (t?.id && !seen.has(t.id)) { seen.add(t.id); content.push(t); }
+          }
+          if (pg && pg.totalPages > 0 && pg.page + 1 >= pg.totalPages) break; // dernière page atteinte
+        }
+        return {
+          content,
+          page: 0,
+          size: content.length,
+          totalElements: content.length,
+          totalPages: 1
+        };
+      })
+    );
   }
 
   suggestAutoMix(trackIds: string[]): Observable<AutoMixSuggestion> {

@@ -137,8 +137,11 @@ Comptes réels en production (https://yam-dj-frontend.vercel.app).
 |---|---|---|
 | DJ | `dj@yamdj.africa` | DJ (studio + mixtapes) |
 | Artiste | `artist@yamdj.africa` | ARTIST (upload + tips) |
-| Artistes seeds | `faso.king@demo.yamdj.africa` etc. | ARTIST |
-| Fan seed | `fan-test@demo.yamdj.africa` | USER |
+
+> 🧹 Les comptes/pistes/mixtapes de démo (`@demo.yamdj.africa`,
+> « Ouaga Flow », « Abidjan Nuit », etc.) ont été supprimés de la
+> production — le Studio DJ mixe les fichiers locaux du DJ et les
+> titres uploadés par les artistes.
 
 > ℹ️ Les uploads des artistes sont auto-approuvés (visibles immédiatement
 > après le traitement asynchrone FFmpeg : statut PROCESSING → APPROVED).

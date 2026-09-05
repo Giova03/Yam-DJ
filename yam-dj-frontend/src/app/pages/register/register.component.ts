@@ -50,7 +50,7 @@ const COUNTRIES = [
               @if (role() !== 'USER') {
                 <div>
                   <label class="text-sm text-white/60 mb-1 block">Nom de scene {{ role() === 'DJ' ? '(DJ)' : '(artiste)' }}</label>
-                  <input type="text" [(ngModel)]="stageName" [placeholder]="role() === 'DJ' ? 'DJ Faso' : 'Faso King'" class="yam-input">
+                  <input type="text" [(ngModel)]="stageName" [placeholder]="role() === 'DJ' ? 'Ex : DJ YAM' : 'Ex : Ton nom de scène'" class="yam-input">
                 </div>
               }
               <div>
