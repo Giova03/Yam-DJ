@@ -4,10 +4,11 @@ import { TrackService } from './track.service';
 import { PlayerService } from './player.service';
 import { DjService } from './dj.service';
 import { Mixtape, Track } from '../models/models';
-import { DjDeck, DjEngine } from '../pages/dj-studio/dj-engine';
+import { DjDeck, DjEngine, loadTrackAudio } from '../pages/dj-studio/dj-engine';
 import { AutoMixPlayer, AutoMixSnapshot, PerformanceGesture } from '../pages/dj-studio/auto-mix-player';
 import { MixPlan } from '../pages/dj-studio/auto-mix-planner';
 import { PerformancePlayer } from '../pages/dj-studio/performance-player';
+import { TrackAnalysis, analyzeTrack } from '../pages/dj-studio/mix-analyzer';
 
 /** Fichier audio local ajouté par le DJ (vit dans le service → survit à la navigation). */
 export interface LocalFileEntry {
@@ -25,6 +26,25 @@ export interface OfflineMix {
   durationSec: number;
   sizeBytes: number;
   signature: string;
+}
+
+/** Session DJ sauvegardée (le plan + les fichiers locaux : tout revient). */
+export interface DjSessionMeta {
+  id: string;
+  name: string;
+  createdAt: string;
+  trackCount: number;
+  durationSec: number;
+  signature: string;
+  summary: string;
+}
+
+/** Session complète telle que stockée en IndexedDB (auto-suffisante). */
+export interface DjSessionRecord {
+  meta: DjSessionMeta;
+  plan: MixPlan;
+  /** Fichiers locaux embarqués (auto-suffisance de la session). */
+  files: { id: string; name: string; blob: Blob }[];
 }
 
 /**
@@ -147,6 +167,16 @@ export class DjLiveService {
   private offlineAudio: HTMLAudioElement | null = null;
   offlinePlayingId = signal<string | null>(null);
 
+  // ================== SESSIONS DJ (sauvegarde du plan) ==================
+
+  /** Sessions sauvegardées (plan + fichiers locaux embarqués). */
+  readonly sessions = signal<DjSessionMeta[]>([]);
+
+  // ================== TAMpons POUR LE RENDU (cache) ==================
+
+  /** Cache id piste → AudioBuffer (rendu déterministe + re-rendu rapide). */
+  private bufferCache = new Map<string, AudioBuffer>();
+
   /** Decks en lecture manuelle (indicateur navbar). */
   decksLive = signal(false);
 
@@ -191,6 +221,7 @@ export class DjLiveService {
     this.stopWatcher();
     this.clearDeckMemory(eng.deckA);
     this.clearDeckMemory(eng.deckB);
+    this.bufferCache.clear();
     eng.setCrossfade(0.5);
     eng.setMasterVolume(0.9);
     this.zone.run(() => this.decksLive.set(false));
@@ -270,6 +301,82 @@ export class DjLiveService {
   // ================== MIX AUTO ==================
 
   get activeAutoPlayer(): AutoMixPlayer | null { return this.autoPlayer; }
+
+  // ================== TAMpons & ANALYSES (rendu déterministe) ==================
+
+  /** Charge le tampon audio d'une piste (local ou catalogue), avec cache. */
+  async loadTrackBuffer(
+    track: Track,
+    onProgress?: (pct: number, detail: string) => void
+  ): Promise<AudioBuffer> {
+    const cached = this.bufferCache.get(track.id);
+    if (cached) return cached;
+    const engine = this.ensureEngine();
+    let buffer: AudioBuffer;
+    if (track.id.startsWith('local-')) {
+      const file = this.localFileMap.get(track.id);
+      if (!file) throw new Error('Fichier local introuvable : « ' + track.title + ' » (re-ajoute-le).');
+      onProgress?.(0.3, 'Lecture du fichier…');
+      const data = await file.arrayBuffer();
+      onProgress?.(0.6, 'Décodage…');
+      buffer = await engine.ctx.decodeAudioData(data);
+    } else {
+      const fallbackUrl = track.audioUrlLq || track.audioUrlHq;
+      let url: string | null = null;
+      try {
+        const res = await firstValueFrom(this.trackService.streamUrl(track.id, 'lite'));
+        url = res?.url || null;
+      } catch { /* fallback direct */ }
+      const chosen = url || fallbackUrl;
+      if (!chosen) throw new Error('Flux audio indisponible pour « ' + track.title + ' ».');
+      buffer = await loadTrackAudio(engine.ctx, chosen, (p, _ph, d) => onProgress?.(p, d));
+    }
+    if (this.bufferCache.size > 10) this.bufferCache.clear(); // garde-fou RAM
+    this.bufferCache.set(track.id, buffer);
+    return buffer;
+  }
+
+  /** Collecte les tampons + analyses réelles de TOUTES les pistes du plan
+   *  (le rendu déterministe planifie sur les vrais points d'entrée/sortie,
+   *  la vraie courbe vocale, le vrai trim loudness). */
+  async collectPlanBuffers(
+    plan: MixPlan,
+    onProgress?: (done: number, total: number, title: string) => void
+  ): Promise<{ buffers: Map<string, AudioBuffer>; analyses: Map<number, TrackAnalysis> }> {
+    const buffers = new Map<string, AudioBuffer>();
+    const analyses = new Map<number, TrackAnalysis>();
+    const unique: Track[] = [];
+    for (const seg of plan.segments) {
+      if (!unique.some(t => t.id === seg.track.id)) unique.push(seg.track);
+    }
+    let done = 0;
+    for (const track of unique) {
+      done++;
+      onProgress?.(done, unique.length, track.title);
+      const buffer = await this.loadTrackBuffer(track, (pct, d) =>
+        onProgress?.(done - 1 + Math.max(0.05, pct * 0.7), unique.length, d ? d + ' — ' + track.title : track.title));
+      buffers.set(track.id, buffer);
+    }
+    // analyses par index de segment (miroir du player live)
+    for (let i = 0; i < plan.segments.length; i++) {
+      const seg = plan.segments[i];
+      const buffer = buffers.get(seg.track.id);
+      if (!buffer) continue;
+      try {
+        const track = { ...seg.track };
+        if (!track.bpm || Math.abs((track.durationSec || 0) - buffer.duration) > 2) {
+          track.durationSec = Math.round(buffer.duration);
+        }
+        const a = analyzeTrack(track, buffer);
+        analyses.set(i, a);
+        if (!seg.track.bpm && a.bpm) {
+          seg.track = { ...seg.track, bpm: a.bpm, camelot: a.camelot || seg.track.camelot };
+        }
+        seg.measuredEnergy = a.energy;
+      } catch { /* analyse non bloquante */ }
+    }
+    return { buffers, analyses };
+  }
 
   /** Indicateur navbar : le studio joue en arrière-plan. */
   backgroundActive(): boolean {
@@ -379,14 +486,21 @@ export class DjLiveService {
   private openMixDb(): Promise<IDBDatabase | null> {
     return new Promise(resolve => {
       try {
-        const req = indexedDB.open('yam-mixes', 1);
+        const req = indexedDB.open('yam-mixes', 2);
         req.onupgradeneeded = () => {
           const db = req.result;
           if (!db.objectStoreNames.contains('mixes')) {
             db.createObjectStore('mixes', { keyPath: 'id' });
           }
+          if (!db.objectStoreNames.contains('sessions')) {
+            db.createObjectStore('sessions', { keyPath: 'meta.id' });
+          }
         };
-        req.onsuccess = () => { this.mixDb = req.result; resolve(req.result); };
+        req.onsuccess = () => {
+          this.mixDb = req.result;
+          resolve(req.result);
+          this.loadSessions();
+        };
         req.onerror = () => resolve(null);
       } catch { resolve(null); }
     });
@@ -452,10 +566,11 @@ export class DjLiveService {
     const blob = await this.getMixBlob(id);
     if (!blob) return;
     const mix = this.offlineMixes().find(m => m.id === id);
+    const ext = (blob.type || '').includes('wav') ? 'wav' : (blob.type || '').includes('mp4') ? 'm4a' : 'webm';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = (mix?.title || 'mix-yam').replace(/[^a-z0-9 _-]/gi, '').replace(/\s+/g, ' ').trim() + '.webm';
+    a.download = (mix?.title || 'mix-yam').replace(/[^a-z0-9 _-]/gi, '').replace(/\s+/g, ' ').trim() + '.' + ext;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
@@ -508,6 +623,112 @@ export class DjLiveService {
       } catch { resolve(); }
     });
     await this.loadOfflineMixes();
+  }
+
+  // ================== SESSIONS DJ (sauvegarde du plan + fichiers) ==================
+
+  /** Sauvegarde la session courante (plan + performance + fichiers locaux
+   *  embarqués en Blob) : la session est AUTO-SUFFISANTE, elle se recharge
+   *  même après un rechargement complet de l'application. */
+  async saveSession(name: string): Promise<DjSessionMeta | null> {
+    const plan = this.autoPlan();
+    if (!plan || !plan.segments.length) return null;
+    const db = this.mixDb || await this.openMixDb();
+    if (!db) return null;
+    const files: { id: string; name: string; blob: Blob }[] = [];
+    for (const seg of plan.segments) {
+      if (!seg.track.id.startsWith('local-')) continue;
+      const file = this.localFileMap.get(seg.track.id);
+      if (file && !files.some(f => f.id === seg.track.id)) {
+        files.push({ id: seg.track.id, name: file.name, blob: file });
+      }
+    }
+    const meta: DjSessionMeta = {
+      id: 'session-' + Date.now() + '-' + Math.floor(Math.random() * 999),
+      name: name.trim() || ('Session du ' + new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })),
+      createdAt: new Date().toISOString(),
+      trackCount: plan.segments.length,
+      durationSec: Math.round(plan.totalDurationSec || 0),
+      signature: plan.performance?.signature || '',
+      summary: plan.summary || ''
+    };
+    const record: DjSessionRecord = { meta, plan, files };
+    await new Promise<void>(resolve => {
+      try {
+        const tx = db.transaction('sessions', 'readwrite');
+        tx.objectStore('sessions').put(record);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch { resolve(); }
+    });
+    await this.loadSessions();
+    return meta;
+  }
+
+  /** Charge la session : restaure les fichiers locaux (mêmes ids) puis le plan. */
+  async loadSession(id: string): Promise<{ plan: MixPlan | null; missingFiles: string[] }> {
+    const db = this.mixDb || await this.openMixDb();
+    if (!db) return { plan: null, missingFiles: [] };
+    const record = await new Promise<DjSessionRecord | null>(resolve => {
+      try {
+        const req = db.transaction('sessions', 'readonly').objectStore('sessions').get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+    if (!record) return { plan: null, missingFiles: [] };
+    // restaure les fichiers locaux avec leurs ids d'origine
+    for (const f of record.files) {
+      if (!this.localFileMap.has(f.id)) {
+        const file = new File([f.blob], f.name, { type: f.blob.type || 'audio/mpeg' });
+        this.localFileMap.set(f.id, file);
+        const entry: LocalFileEntry = {
+          id: f.id,
+          file,
+          loading: false,
+          track: { ... (record.plan.segments.find(s => s.track.id === f.id)?.track || {
+            id: f.id, title: f.name.replace(/\.[^.]+$/, ''), artistId: '', artistName: 'Fichier local',
+            artistPseudo: '', durationSec: 0, playCount: 0, likeCount: 0, status: 'APPROVED' as const,
+            dataLiteReady: false, createdAt: new Date().toISOString()
+          }) }
+        };
+        this.localFiles.set([...this.localFiles(), entry]);
+      }
+    }
+    this.autoPlan.set(record.plan);
+    return { plan: record.plan, missingFiles: [] };
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    const db = this.mixDb;
+    if (!db) return;
+    await new Promise<void>(resolve => {
+      try {
+        const tx = db.transaction('sessions', 'readwrite');
+        tx.objectStore('sessions').delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch { resolve(); }
+    });
+    await this.loadSessions();
+  }
+
+  private loadSessions(): Promise<void> {
+    const db = this.mixDb;
+    if (!db) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      try {
+        const req = db.transaction('sessions', 'readonly').objectStore('sessions').getAll();
+        req.onsuccess = () => {
+          const metas = (req.result || [])
+            .map((r: DjSessionRecord) => r.meta)
+            .sort((a: DjSessionMeta, b: DjSessionMeta) => b.createdAt.localeCompare(a.createdAt));
+          this.zone.run(() => this.sessions.set(metas));
+          resolve();
+        };
+        req.onerror = () => resolve();
+      } catch { resolve(); }
+    });
   }
 
   // ================== MIXTAPES (arrière-plan) ==================

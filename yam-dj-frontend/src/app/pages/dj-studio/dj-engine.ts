@@ -183,6 +183,69 @@ async function fetchBuffer(url: string): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
+/**
+ * ============================================================================
+ *  CHARGEMENT STANDALONE D'UNE PISTE (rendu deterministe / cache)
+ * ============================================================================
+ *  Meme pipeline que DjDeck.load (HLS -> AAC -> decode, ou direct) mais SANS
+ *  toucher a un deck : sert au moteur de rendu hors ligne (mix-renderer).
+ */
+export async function loadTrackAudio(
+  ctx: BaseAudioContext,
+  url: string,
+  onProgress?: ProgressCb
+): Promise<AudioBuffer> {
+  let aacOrBuffer: ArrayBuffer | Uint8Array;
+  if (url.includes('.m3u8')) {
+    aacOrBuffer = await fetchHlsToAacStandalone(url, onProgress || (() => { }));
+  } else {
+    onProgress?.(0.3, 'segments', 'Telechargement...');
+    aacOrBuffer = await fetchBuffer(url);
+  }
+  onProgress?.(0.75, 'decode', 'Decodage audio...');
+  return (aacOrBuffer instanceof Uint8Array)
+    ? ctx.decodeAudioData(aacOrBuffer.slice().buffer)
+    : ctx.decodeAudioData(aacOrBuffer);
+}
+
+/** Telecharge un rendu HLS et extrait l'AAC (version autonome). */
+async function fetchHlsToAacStandalone(playlistUrl: string, onProgress: ProgressCb): Promise<Uint8Array> {
+  onProgress(0.05, 'playlist', 'Lecture du rendu...');
+  let plText = await (await fetch(playlistUrl, { mode: 'cors' })).text();
+  if (!plText.includes('#EXTINF')) {
+    const first = plText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))[0];
+    if (!first) throw new Error('Playlist HLS vide');
+    const variant = new URL(first, playlistUrl).toString();
+    plText = await (await fetch(variant, { mode: 'cors' })).text();
+    if (!plText.includes('#EXTINF')) throw new Error('Playlist HLS illisible');
+  }
+  const segNames = plText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  if (!segNames.length) throw new Error('Aucun segment HLS');
+  const segUrls = segNames.map(n2 => new URL(n2, playlistUrl).toString());
+  onProgress(0.1, 'segments', segUrls.length + ' morceaux...');
+  const buffers: Uint8Array[] = new Array(segUrls.length);
+  let done = 0, next = 0;
+  const CONC = Math.min(4, segUrls.length);
+  const worker = async () => {
+    while (next < segUrls.length) {
+      const i = next++;
+      const res = await fetch(segUrls[i], { mode: 'cors' });
+      if (!res.ok) throw new Error('Segment ' + (i + 1) + ' illisible');
+      buffers[i] = new Uint8Array(await res.arrayBuffer());
+      done++;
+      onProgress(0.1 + 0.6 * (done / segUrls.length), 'segments', done + '/' + segUrls.length + ' morceaux');
+    }
+  };
+  await Promise.all(Array.from({ length: CONC }, worker));
+  let total = 0;
+  for (const b of buffers) total += b.length;
+  const ts = new Uint8Array(total);
+  let p = 0;
+  for (const b of buffers) { ts.set(b, p); p += b.length; }
+  onProgress(0.72, 'decode', 'Extraction audio...');
+  return extractAacFromTs(ts);
+}
+
 /** ============================================================================
  *  DECK — une platine complete
  *  source -> eqLow -> eqMid -> eqHigh -> filter(LPF+HPF) -> fxMix -> channelGain

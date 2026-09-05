@@ -10,8 +10,9 @@ import { IconComponent } from '../../components/icon/icon.component';
 import { estimateCamelot, TrackAnalysis, analyzeTrack } from './mix-analyzer';
 import { MixPlan, MixParams, MixTransition, MOODS, TRANSITION_INFO, TransitionType, Mood, planAutoMix } from './auto-mix-planner';
 import { buildPerformance } from './performance-engine';
+import { renderMixPlan } from './mix-renderer';
 import { DJ_STYLES, DJ_PERSONALITIES, DjStyle, DjPersonality } from './dj-moves';
-import { LocalFileEntry } from '../../services/dj-live.service';
+import { LocalFileEntry, DjSessionMeta } from '../../services/dj-live.service';
 
 /**
  * ============================================================================
@@ -82,7 +83,18 @@ import { LocalFileEntry } from '../../services/dj-live.service';
           </div>
           <span class="yam-badge text-yam-violet border border-yam-violet/30 gap-1.5"><yam-icon name="disc" [size]="12"/> aucune donnée envoyée</span>
         </div>
-        <p class="text-white/50 text-sm max-w-2xl mb-5">Choisis une ambiance : le DJ IA sélectionne les morceaux, construit la courbe d'énergie, synchronise les BPM, accorde les tonalités (roue Camelot) et enchaîne les transitions comme en soirée. Chaque piste est réellement analysée (structure, énergie, loudness) et le mix <b class="text-white/70">continue en arrière-plan</b> pendant que tu navigues.</p>
+        <p class="text-white/50 text-sm max-w-2xl mb-4">Choisis une ambiance : le DJ IA sélectionne les morceaux, construit la courbe d'énergie, synchronise les BPM, accorde les tonalités (roue Camelot) et enchaîne les transitions comme en soirée. Chaque piste est réellement analysée (structure, énergie, loudness) et le mix <b class="text-white/70">continue en arrière-plan</b> pendant que tu navigues.</p>
+
+        <!-- ===== 3 MODES : QUICK MIX / DJ IA / DJ PRO ===== -->
+        <div class="flex gap-1.5 mb-5 p-1 rounded-full bg-black/30 border border-white/10 w-fit flex-wrap">
+          @for (m of studioModes; track m.key) {
+            <button (click)="mixMode.set(m.key)" [title]="m.desc"
+                    class="px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5"
+                    [class]="mixMode() === m.key ? 'bg-yam-violet text-white shadow-lg shadow-yam-violet/30' : 'text-white/50 hover:text-white hover:bg-white/5'">
+              <yam-icon [name]="m.icon" [size]="13"/> {{ m.label }}
+            </button>
+          }
+        </div>
 
         @if (djLive.autoActive()) {
           <!-- ===== LECTURE EN COURS ===== -->
@@ -166,7 +178,35 @@ import { LocalFileEntry } from '../../services/dj-live.service';
             </div>
           }
 
-          <!-- ===== PARAMETRES ===== -->
+          <!-- ===== PARAMETRES (mode DJ IA) ===== -->
+          @if (mixMode() === 'quick') {
+            <div class="rounded-2xl border border-yam-violet/30 bg-yam-violet/10 p-5 mb-4">
+              <p class="text-white/60 text-sm mb-4 max-w-xl">Le DJ IA choisit tout seul : les morceaux, l'ordre, les transitions et les moves de performance. Tu peux juste écouter — ou ensuite rendre le mix en WAV et le télécharger.</p>
+              <div class="flex items-center gap-3 flex-wrap">
+                <button (click)="quickMix()" [disabled]="generating() || library().length + localFiles().length < 2"
+                        class="yam-btn-primary text-base !px-7 !py-3 flex items-center gap-2 disabled:opacity-40">
+                  <yam-icon name="flame" [size]="17"/>
+                  {{ generating() ? (generatingLabel() || 'Analyse…') : 'Fais-moi un mix' }}
+                </button>
+                <label class="flex items-center gap-1.5 text-xs text-white/45 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="mixRecord" class="accent-yam-violet w-4 h-4"> enregistrer + sauvegarde hors ligne
+                </label>
+              </div>
+              @if (generating()) {
+                <div class="yam-progress-thin mt-4"><span style="width:40%" class="animate-pulse"></span></div>
+              }
+            </div>
+          } @else if (mixMode() === 'pro') {
+            <div class="rounded-2xl border border-yam-gold/30 bg-yam-gold/5 p-5 mb-4 flex items-center gap-4 flex-wrap">
+              <div class="min-w-[240px] flex-1">
+                <p class="text-sm font-semibold text-yam-gold mb-1 flex items-center gap-2"><yam-icon name="sliders" [size]="15"/> Prends les commandes</p>
+                <p class="text-white/55 text-xs">La console complète est juste en dessous : charge tes deux decks, sync BPM, EQ, filtres, boucles, hot cues… et enregistre ton live avec le bouton rouge. Le mix auto reste disponible à tout moment.</p>
+              </div>
+              <button (click)="scrollToConsole()" class="yam-btn-secondary text-sm flex items-center gap-1.5">
+                <yam-icon name="chevron-down" [size]="14"/> Aller aux platines
+              </button>
+            </div>
+          } @else {
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div class="col-span-2">
               <label class="text-[10px] font-bold uppercase tracking-[.14em] text-white/40 block mb-1.5">Ambiance</label>
@@ -253,6 +293,7 @@ import { LocalFileEntry } from '../../services/dj-live.service';
               <input type="checkbox" [(ngModel)]="mixVoice" class="accent-yam-violet w-4 h-4"> Voix DJ (annonces)
             </label>
           </div>
+          }
         }
 
         <!-- ===== RAPPORT DU PLAN ===== -->
@@ -319,12 +360,69 @@ import { LocalFileEntry } from '../../services/dj-live.service';
                 }
                 <div class="flex items-center gap-2 flex-wrap">
                   <button (click)="launchAutoMix()" class="yam-btn-primary text-sm flex items-center gap-1.5"><yam-icon name="play" [size]="14"/> Lancer le mix</button>
+                  <button (click)="renderMix()" [disabled]="rendering()"
+                          class="yam-btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-40"
+                          title="Rendu déterministe hors ligne (OfflineAudioContext) : WAV téléchargeable, plus rapide que le temps réel">
+                    <yam-icon name="download" [size]="14"/> {{ rendering() ? (renderingLabel() || 'Rendu…') : 'Rendre le mix (WAV)' }}
+                  </button>
                   <button (click)="generateMix()" class="yam-btn-secondary text-sm">Régénérer (autre performance)</button>
                   <button (click)="discardMix()" class="yam-btn-secondary text-sm">Effacer le plan</button>
+                </div>
+                @if (rendering()) {
+                  <div class="yam-progress-thin mt-3"><span class="animate-pulse" style="width:60%"></span></div>
+                  <p class="text-[11px] text-yam-violet mt-1.5 flex items-center gap-1.5"><yam-icon name="loader" [size]="12" class="animate-spin"/> {{ renderingLabel() }} — rendu hors ligne, tu peux continuer à naviguer.</p>
+                }
+                @if (renderedInfo(); as rinfo) {
+                  <p class="text-xs text-yam-green mt-2 flex items-center gap-1.5">
+                    <yam-icon name="check" [size]="13"/> WAV prêt : {{ fmt(rinfo.durationSec) }} · {{ fmtSize(rinfo.sizeBytes) }} — lecteur et téléchargement plus bas, sauvegardé hors ligne.
+                  </p>
+                }
+                <!-- ===== SAUVEGARDE DE SESSION ===== -->
+                <div class="mt-4 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 flex items-center gap-2 flex-wrap">
+                  <yam-icon name="list-music" [size]="14" class="text-white/35 shrink-0"/>
+                  <input type="text" [(ngModel)]="sessionName" placeholder="Nom de la session (ex : Mix du samedi)"
+                         class="yam-input !py-1.5 !px-2.5 text-xs flex-1 min-w-[180px]">
+                  <button (click)="saveCurrentSession()" [disabled]="savingSession()"
+                          class="yam-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 disabled:opacity-40">
+                    {{ savingSession() ? 'Sauvegarde…' : 'Sauvegarder la session' }}
+                  </button>
+                  <span class="text-[10px] text-white/35 basis-full">Le plan + la performance + tes fichiers locaux : tout revient, même après fermeture.</span>
                 </div>
               }
             </div>
           }
+        }
+
+        <!-- ===== MES SESSIONS SAUVEGARDÉES ===== -->
+        @if (!djLive.autoActive() && djLive.sessions().length) {
+          <div class="mt-5 border-t border-white/10 pt-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <p class="text-xs font-bold uppercase tracking-[.14em] text-white/50 flex items-center gap-1.5">
+                <yam-icon name="list-music" [size]="13" class="text-yam-violet"/> Mes sessions
+              </p>
+              <span class="text-[10px] text-white/35">Plans + fichiers embarqués — rechargeables même après fermeture</span>
+            </div>
+            <div class="space-y-1.5">
+              @for (s of djLive.sessions().slice(0, 8); track s.id) {
+                <div class="flex items-center gap-3 rounded-xl bg-black/20 border border-white/10 px-3 py-2 flex-wrap">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium truncate">{{ s.name }}</p>
+                    <p class="text-[11px] text-white/40 truncate">
+                      {{ s.trackCount }} pistes · {{ fmt(s.durationSec) }} · {{ formatDate(s.createdAt) }}
+                      @if (s.signature) { · <span class="text-yam-violet/80">{{ s.signature }}</span> }
+                    </p>
+                  </div>
+                  <button (click)="loadSessionById(s.id)" class="yam-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5">
+                    <yam-icon name="history" [size]="12"/> Charger
+                  </button>
+                  <button (click)="deleteSessionById(s.id)" title="Supprimer la session"
+                          class="w-8 h-8 rounded-full border border-white/15 text-white/40 hover:border-red-400/40 hover:text-red-400 transition flex items-center justify-center shrink-0">
+                    <yam-icon name="x" [size]="13"/>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
         }
       </section>
 
@@ -887,6 +985,9 @@ import { LocalFileEntry } from '../../services/dj-live.service';
             <ul class="space-y-2 text-sm text-white/70">
               <li><b class="text-yam-orange">Ma musique locale</b> — charge TES mp3/m4a/wav dans un deck (bouton dossier du deck ou zone « Ma musique locale ») — BPM détecté automatiquement</li>
               <li><b class="text-yam-violet">Mix Auto</b> — le DJ IA analyse tes morceaux (BPM, tonalité, énergie), construit le plan complet du mix puis l'enchaîne tout seul — il continue en arrière-plan quand tu quittes le studio</li>
+              <li><b class="text-yam-violet">3 modes</b> — Quick Mix (un bouton, tout automatique) · DJ IA (ambiance, énergie, audace, personnalité) · DJ Pro (les platines manuelles)</li>
+              <li><b class="text-yam-violet">Rendre le mix (WAV)</b> — rendu déterministe hors ligne : plus rapide que le temps réel, indépendant de l'onglet, fichier WAV téléchargeable + sauvegardé hors ligne automatiquement</li>
+              <li><b class="text-yam-violet">Sessions</b> — sauvegarde le plan + tes fichiers locaux : recharge ta session plus tard, même après fermeture</li>
               <li><b class="text-yam-orange">Espace</b> — lecture/pause deck A · <b class="text-yam-gold">Maj+Espace</b> — deck B</li>
               <li><b class="text-yam-orange">← / →</b> — déplacer le crossfader</li>
               <li><b class="text-yam-orange">S</b> — synchroniser le deck B sur A</li>
@@ -997,6 +1098,22 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   generating = signal(false);
   /** Libellé de progression pendant l'analyse des morceaux locaux. */
   generatingLabel = signal('');
+
+  // ================= MODES STUDIO / RENDU DÉTERMINISTE / SESSIONS (V2.5) =================
+  /** Mode du studio : Quick Mix (1 bouton) / DJ IA (panneau complet) / DJ Pro (decks). */
+  mixMode = signal<'quick' | 'ai' | 'pro'>('ai');
+  readonly studioModes: { key: 'quick' | 'ai' | 'pro'; label: string; icon: string; desc: string }[] = [
+    { key: 'quick', label: 'Quick Mix', icon: 'flame', desc: 'Un bouton, le DJ IA choisit tout' },
+    { key: 'ai', label: 'DJ IA', icon: 'sparkles', desc: 'Ambiance, énergie, audace, personnalité' },
+    { key: 'pro', label: 'DJ Pro', icon: 'sliders', desc: 'Les platines manuelles + enregistrement' }
+  ];
+  /** Rendu déterministe en cours (OfflineAudioContext → WAV). */
+  rendering = signal(false);
+  renderingLabel = signal('');
+  renderedInfo = signal<{ sizeBytes: number; durationSec: number } | null>(null);
+  /** Sessions DJ sauvegardées. */
+  sessionName = '';
+  savingSession = signal(false);
   readonly styleOptions: { value: 'auto' | TransitionType; label: string }[] = [
     { value: 'auto', label: 'Auto' },
     ...(Object.keys(TRANSITION_INFO) as TransitionType[])
@@ -1207,6 +1324,25 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
       const x = Math.floor((deck.mainCue / deck.duration) * W);
       g.fillStyle = 'rgba(255,255,255,0.9)';
       g.fillRect(x - 1, 0, 2, 14);
+    }
+
+    // ===== marqueurs intelligents (V2.5) : entrée/sortie du plan du DJ IA =====
+    // vert = point d'entrée du segment · or = point de coupe (fin de phrase)
+    // la zone NON jouée est légèrement voilée — le DJ voit la musique.
+    const plan = this.djLive.autoPlan();
+    if (plan && deck.track && deck.duration > 0) {
+      const seg = plan.segments.find(s => s.track.id === deck.track!.id);
+      if (seg) {
+        const xin = Math.max(0, Math.floor((seg.playFrom / deck.duration) * W));
+        const xout = Math.min(W, Math.floor((Math.min(seg.playTo, deck.duration) / deck.duration) * W));
+        g.fillStyle = 'rgba(255,255,255,0.05)';
+        g.fillRect(0, 0, xin, H);
+        g.fillRect(xout, 0, W - xout, H);
+        g.fillStyle = 'rgba(34,197,94,0.85)';
+        g.fillRect(xin - 1, 0, 2, H);
+        g.fillStyle = 'rgba(255,209,102,0.95)';
+        g.fillRect(xout - 1, 0, 2, H);
+      }
     }
   }
 
@@ -1713,8 +1849,9 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   recFileName(): string {
-    return (this.recTitle || 'mix-yam-dj').replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase()
-      + (this.recBlob?.type.includes('mp4') ? '.m4a' : '.webm');
+    const type = this.recBlob?.type || '';
+    const ext = type.includes('wav') ? 'wav' : type.includes('mp4') ? 'm4a' : 'webm';
+    return (this.recTitle || 'mix-yam-dj').replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase() + '.' + ext;
   }
 
   publishRecording(): void {
@@ -1859,6 +1996,7 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
         } catch { /* la performance est optionnelle : le mix de base reste jouable */ }
 
         this.djLive.autoPlan.set(plan);
+        this.refreshWaveMarkers();
         if (plan.segments.length < 2) {
           this.setMixMessage(plan.warnings[0] || 'Pas assez de pistes pour construire un mix.', false);
         } else {
@@ -1932,6 +2070,155 @@ export class DjStudioComponent implements OnInit, OnDestroy, AfterViewInit {
     // fichiers locaux utilisés par le plan → connus du service
     for (const f of this.localFiles()) this.djLive.registerLocalFile(f.track.id, f.file);
     this.djLive.startAutoMix(plan, { record: this.mixRecord, djVoice: this.mixVoice });
+  }
+
+  /** QUICK MIX : sélection → un bouton → le DJ IA génère ET lance direct
+   *  (« Fais-moi un mix » : tout automatique, performance club incluse). */
+  quickMix(): void {
+    if (this.library().length + this.localFiles().length < 2) {
+      this.setMixMessage('Il faut au moins 2 pistes mixables : charge tes fichiers (mp3, m4a, wav…).', false);
+      return;
+    }
+    const params: Partial<MixParams> = {
+      mood: this.mixMood(),
+      genre: 'all',
+      trackCount: null,
+      trackIds: this.selected().length >= 2 ? this.selected().map(t => t.id) : [],
+      artists: [],
+      targetBpm: null,
+      maxDurationSec: Math.min(this.mixMaxMin, 30) * 60,
+      trackDurationSec: null,
+      energyLevel: this.mixEnergy,
+      transitionStyle: 'auto',
+      introOutro: true,
+      djVoice: false
+    };
+    this.generating.set(true);
+    this.generatingLabel.set('Le DJ IA prépare…');
+    this.analyzeLocalPoolForMix().then(() => {
+      try {
+        const localTracks = this.localFiles().map(f => f.track);
+        const pool: Track[] = this.selected().length >= 2
+          ? [...this.selected(), ...localTracks.filter(t => !this.selected().some(s => s.id === t.id))]
+          : [...this.library(), ...localTracks];
+        if (pool.length < 2) {
+          this.setMixMessage('Il faut au moins 2 pistes mixables.', false);
+          return;
+        }
+        const plan = planAutoMix(pool, params);
+        const analyses = new Map<number, TrackAnalysis>();
+        plan.segments.forEach((seg, i) => {
+          const a = this.poolAnalyses.get(seg.track.id);
+          if (a) analyses.set(i, a);
+        });
+        try {
+          plan.performance = buildPerformance(plan, { style: 'club', personality: 'afroclub', analyses });
+        } catch { /* performance optionnelle */ }
+        this.djLive.autoPlan.set(plan);
+        this.refreshWaveMarkers();
+        if (plan.segments.length < 2) {
+          this.setMixMessage(plan.warnings[0] || 'Pas assez de pistes pour construire un mix.', false);
+        } else {
+          this.setMixMessage('Mix prêt : ' + plan.summary + ' — lecture lancée.', true);
+          for (const f of this.localFiles()) this.djLive.registerLocalFile(f.track.id, f.file);
+          this.djLive.startAutoMix(plan, { record: this.mixRecord, djVoice: false });
+        }
+      } catch (e: any) {
+        this.setMixMessage('Génération impossible : ' + (e?.message || 'erreur'), false);
+      } finally {
+        this.generating.set(false);
+        this.generatingLabel.set('');
+      }
+    });
+  }
+
+  /** RENDU DÉTERMINISTE : le même plan, rendu hors ligne (OfflineAudioContext)
+   *  en WAV 16 bits — plus rapide que le temps réel, indépendant de l'onglet,
+   *  téléchargeable et sauvegardé hors ligne automatiquement. */
+  async renderMix(): Promise<void> {
+    const plan = this.djLive.autoPlan();
+    if (!plan || plan.segments.length < 2 || this.rendering()) return;
+    this.rendering.set(true);
+    this.renderedInfo.set(null);
+    this.renderingLabel.set('Chargement des morceaux…');
+    try {
+      const { buffers, analyses } = await this.djLive.collectPlanBuffers(plan, (done, total, title) => {
+        this.renderingLabel.set(`Analyse ${Math.max(1, Math.min(total, Math.ceil(done)))}/${total} : ${title.slice(0, 22)}`);
+      });
+      this.renderingLabel.set('Rendu audio déterministe…');
+      const result = await renderMixPlan(plan, buffers, analyses, {
+        onProgress: (_pct, phase) => {
+          if (phase === 'render') this.renderingLabel.set('Rendu audio (plus vite que le temps réel)…');
+          else if (phase === 'encode') this.renderingLabel.set('Encodage WAV…');
+        }
+      });
+      // le WAV suit le même chemin que l'enregistrement live : lecteur,
+      // téléchargement, publication (mixtape) + sauvegarde hors ligne auto
+      if (this.recUrl()) URL.revokeObjectURL(this.recUrl()!);
+      this.recBlob = result.wav;
+      this.recUrl.set(URL.createObjectURL(result.wav));
+      this.recTitle = 'Mix YAM ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      this.setRecMessage('Mix rendu hors ligne (WAV ' + this.fmtSize(result.wav.size) + ') — prêt à écouter, télécharger, publier.', true);
+      this.djLive.saveOfflineMix(result.wav, plan).catch(() => { });
+      this.renderedInfo.set({ sizeBytes: result.wav.size, durationSec: result.durationSec });
+      this.setMixMessage('Mix rendu en WAV (' + this.fmt(result.durationSec) + ' · ' + this.fmtSize(result.wav.size) + ') et sauvegardé hors ligne automatiquement.', true);
+    } catch (e: any) {
+      this.setMixMessage('Rendu impossible : ' + (e?.message || 'erreur'), false);
+    } finally {
+      this.rendering.set(false);
+      this.renderingLabel.set('');
+    }
+  }
+
+  /** Sauvegarde la session courante (plan + performance + fichiers locaux). */
+  async saveCurrentSession(): Promise<void> {
+    const plan = this.djLive.autoPlan();
+    if (!plan || plan.segments.length < 2 || this.savingSession()) return;
+    this.savingSession.set(true);
+    try {
+      const meta: DjSessionMeta | null = await this.djLive.saveSession(this.sessionName);
+      if (meta) {
+        this.sessionName = '';
+        this.setMixMessage('Session « ' + meta.name + ' » sauvegardée — rechargeable même après fermeture.', true);
+      } else {
+        this.setMixMessage('Sauvegarde impossible (stockage navigateur).', false);
+      }
+    } finally {
+      this.savingSession.set(false);
+    }
+  }
+
+  /** Charge une session : fichiers locaux restaurés + plan remis en place. */
+  async loadSessionById(id: string): Promise<void> {
+    if (this.djLive.autoActive()) {
+      this.setMixMessage('Arrête le mix en cours avant de charger une session.', false);
+      return;
+    }
+    const r = await this.djLive.loadSession(id);
+    if (r.plan && r.plan.segments.length) {
+      this.refreshWaveMarkers();
+      this.setMixMessage('Session chargée : lance-la, rends-la en WAV ou régénère la performance.', true);
+    } else {
+      this.setMixMessage('Session introuvable ou corrompue.', false);
+    }
+  }
+
+  async deleteSessionById(id: string): Promise<void> {
+    await this.djLive.deleteSession(id);
+  }
+
+  /** Mode DJ Pro : descend jusqu'à la console (decks + mixer + enregistrement). */
+  scrollToConsole(): void {
+    try {
+      document.querySelector('.dj-console-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch { }
+  }
+
+  /** Rafraîchit les waveforms (marqueurs d'entrée/sortie du plan). */
+  private refreshWaveMarkers(): void {
+    for (const p of this.panels) {
+      if (p.deck.peaks.length) this.renderStaticWave(p);
+    }
   }
 
   stopAutoMix(): void { this.djLive.stopAutoMix(1.5); }
